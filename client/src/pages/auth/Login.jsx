@@ -77,7 +77,7 @@ export default function Login() {
       route: '/portal',
       badgeColor: '#059669',
       badgeBg: 'rgba(5, 150, 105, 0.1)',
-      isDeveloped: false
+      isDeveloped: true
     }
   ];
 

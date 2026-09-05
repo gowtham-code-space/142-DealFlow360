@@ -25,12 +25,15 @@ export default function Header() {
                     location.pathname.startsWith('/finance') ||
                     user?.role === ROLES.OPERATIONS;
 
+  const isCustomerView = user?.role === ROLES.CUSTOMER ||
+                        location.pathname.startsWith('/portal');
+
   const isAdminView = location.pathname.startsWith('/dashboard/admin') ||
                     location.pathname.startsWith('/admin') ||
                     user?.role === ROLES.ADMIN;
 
-  const currentRoleName = user?.role || (isAdminView ? ROLES.ADMIN : isManagerView ? ROLES.SALES_MANAGER : isOpsView ? ROLES.OPERATIONS : ROLES.SALES_REP);
-  const currentUserName = user?.name || (isAdminView ? 'Victoria Stone' : isManagerView ? 'David K. Vance' : isOpsView ? 'Elena Rostova' : 'Sarah Jenkins');
+  const currentRoleName = user?.role || (isCustomerView ? ROLES.CUSTOMER : isAdminView ? ROLES.ADMIN : isManagerView ? ROLES.SALES_MANAGER : isOpsView ? ROLES.OPERATIONS : ROLES.SALES_REP);
+  const currentUserName = user?.name || (isCustomerView ? 'Marcus Vance (Nexus HyperScale)' : isAdminView ? 'Victoria Stone' : isManagerView ? 'David K. Vance' : isOpsView ? 'Elena Rostova' : 'Sarah Jenkins');
 
   const handleLogout = () => {
     logout();
@@ -41,7 +44,35 @@ export default function Header() {
     <header className="top-navbar">
       {/* Left: Role + Context */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {isAdminView ? (
+        {isCustomerView ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{
+                padding: '2px 8px', borderRadius: 99,
+                background: 'rgba(5, 150, 105, 0.1)', color: '#059669',
+                fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
+                border: '1px solid rgba(5, 150, 105, 0.25)'
+              }}>CUSTOMER PORTAL</span>
+              <span style={{
+                padding: '2px 8px', borderRadius: 99,
+                background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
+                fontSize: 11, fontWeight: 500
+              }}>Nexus HyperScale Ltd</span>
+            </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '3px 10px', borderRadius: 99,
+              background: 'var(--surface-container-low)',
+              border: '1px solid rgba(209,195,202,0.3)',
+              color: 'var(--on-surface-variant)'
+            }}>
+              <MS icon="storefront" size={16} />
+              <span style={{ fontSize: 11, color: 'var(--on-surface)' }}>
+                Account Tier: <strong style={{ color: '#059669', fontWeight: 600 }}>Gold Tier (20% Max Disc)</strong>
+              </span>
+            </div>
+          </>
+        ) : isAdminView ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
@@ -212,7 +243,7 @@ export default function Header() {
             <div style={{ position: 'relative' }}>
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
-                background: isManagerView ? '#714b67' : isOpsView ? '#0284c7' : 'var(--primary)',
+                background: isCustomerView ? '#059669' : isManagerView ? '#714b67' : isOpsView ? '#0284c7' : 'var(--primary)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff'
               }}>

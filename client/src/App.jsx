@@ -28,6 +28,11 @@ import InventoryAllocation from './pages/inventory/InventoryAllocation';
 import Billing from './pages/billing/Billing';
 import Negotiation from './pages/negotiation/Negotiation';
 import CustomerPortal from './pages/portal/CustomerPortal';
+import CustomerQuoteList from './pages/portal/CustomerQuoteList';
+import CustomerQuoteDetail from './pages/portal/CustomerQuoteDetail';
+import CustomerOrders from './pages/portal/CustomerOrders';
+import CustomerInvoices from './pages/portal/CustomerInvoices';
+import CustomerSupport from './pages/portal/CustomerSupport';
 
 import Customers from './pages/customers/Customers';
 import Conversations from './pages/conversations/Conversations';
@@ -56,7 +61,12 @@ function DashboardRouteWrapper({ children }) {
   const path = location.pathname;
 
   // Role Route Isolation Guard
-  if (user.role === ROLES.OPERATIONS) {
+  if (user.role === ROLES.CUSTOMER) {
+    const isCustomerAllowed = path.startsWith('/portal');
+    if (!isCustomerAllowed) {
+      return <Navigate to="/portal" replace />;
+    }
+  } else if (user.role === ROLES.OPERATIONS) {
     const isOpsAllowed = path.startsWith('/dashboard/operations') ||
                          path.startsWith('/inventory') ||
                          path.startsWith('/billing') ||
@@ -295,9 +305,39 @@ export default function App() {
 
           {/* Customer Portal */}
           <Route path="/portal" element={
-            <ProtectedRoute>
+            <DashboardRouteWrapper>
               <CustomerPortal />
-            </ProtectedRoute>
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/portal/quotes" element={
+            <DashboardRouteWrapper>
+              <CustomerQuoteList />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/portal/quotes/:id" element={
+            <DashboardRouteWrapper>
+              <CustomerQuoteDetail />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/portal/orders" element={
+            <DashboardRouteWrapper>
+              <CustomerOrders />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/portal/invoices" element={
+            <DashboardRouteWrapper>
+              <CustomerInvoices />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/portal/support" element={
+            <DashboardRouteWrapper>
+              <CustomerSupport />
+            </DashboardRouteWrapper>
           } />
 
           {/* Sidebar Supporting Routes */}

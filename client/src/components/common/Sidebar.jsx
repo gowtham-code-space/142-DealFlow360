@@ -11,6 +11,9 @@ export default function Sidebar() {
   const location = useLocation();
   const { user } = useAuth();
 
+  const isCustomerView = user?.role === ROLES.CUSTOMER ||
+                        location.pathname.startsWith('/portal');
+
   const isAdminView = user?.role === ROLES.ADMIN ||
                     location.pathname.startsWith('/dashboard/admin') ||
                     location.pathname.startsWith('/admin');
@@ -37,28 +40,55 @@ export default function Sidebar() {
         }}>
           <div style={{
             width: 32, height: 32, borderRadius: 8, 
-            background: isManagerView ? '#57344f' : isOpsView ? '#0284c7' : isAdminView ? '#7c3aed' : 'var(--primary)',
+            background: isCustomerView ? '#059669' : isManagerView ? '#57344f' : isOpsView ? '#0284c7' : isAdminView ? '#7c3aed' : 'var(--primary)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', flexShrink: 0
           }}>
-            <MS icon={isManagerView ? "verified_user" : isOpsView ? "inventory_2" : isAdminView ? "admin_panel_settings" : "hub"} size={18} />
+            <MS icon={isCustomerView ? "storefront" : isManagerView ? "verified_user" : isOpsView ? "inventory_2" : isAdminView ? "admin_panel_settings" : "hub"} size={18} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.01em' }}>DealFlow360</span>
             <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
-              {isManagerView ? 'Manager Console' : isOpsView ? 'Finance & Operations' : isAdminView ? 'System Admin Console' : 'Sales Workspace'}
+              {isCustomerView ? 'Customer Portal' : isManagerView ? 'Manager Console' : isOpsView ? 'Finance & Operations' : isAdminView ? 'System Admin Console' : 'Sales Workspace'}
             </span>
           </div>
         </div>
 
         {/* Nav label */}
         <div className="nav-section-label">
-          {isManagerView ? 'Governance & Approvals' : isOpsView ? 'Fulfillment & Finance' : isAdminView ? 'Governance & System Admin' : 'Sales Operations'}
+          {isCustomerView ? 'Procurement & Orders' : isManagerView ? 'Governance & Approvals' : isOpsView ? 'Fulfillment & Finance' : isAdminView ? 'Governance & System Admin' : 'Sales Operations'}
         </div>
 
         {/* Navigation */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingBottom: 8 }}>
-          {isAdminView ? (
+          {isCustomerView ? (
+            <>
+              <NavLink to="/portal" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="dashboard" size={18} />
+                <span>Dashboard</span>
+              </NavLink>
+
+              <NavLink to="/portal/quotes" className={({ isActive }) => `nav-item ${isActive || location.pathname.startsWith('/portal/quotes') ? 'active' : ''}`}>
+                <MS icon="request_quote" size={18} />
+                <span>My Quotes</span>
+              </NavLink>
+
+              <NavLink to="/portal/orders" className={({ isActive }) => `nav-item ${isActive || location.pathname.startsWith('/portal/orders') ? 'active' : ''}`}>
+                <MS icon="local_shipping" size={18} />
+                <span>My Orders</span>
+              </NavLink>
+
+              <NavLink to="/portal/invoices" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="receipt_long" size={18} />
+                <span>Billing / Invoices</span>
+              </NavLink>
+
+              <NavLink to="/portal/support" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="support_agent" size={18} />
+                <span>Support & SLA</span>
+              </NavLink>
+            </>
+          ) : isAdminView ? (
             <>
               <NavLink to="/admin/dashboard" className={({ isActive }) => `nav-item ${isActive || location.pathname === '/dashboard/admin' ? 'active' : ''}`}>
                 <MS icon="dashboard" size={18} />
@@ -287,18 +317,32 @@ export default function Sidebar() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {isManagerView ? 'Governance SLA' : 'Territory Stats'}
+            {isCustomerView ? 'Account Overview' : isManagerView ? 'Governance SLA' : 'Territory Stats'}
           </span>
           <span style={{
             fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 99,
-            background: isManagerView ? 'rgba(87,52,79,0.1)' : 'rgba(0,105,110,0.1)',
-            color: isManagerView ? 'var(--primary)' : 'var(--secondary)'
+            background: isCustomerView ? 'rgba(5,150,105,0.12)' : isManagerView ? 'rgba(87,52,79,0.1)' : 'rgba(0,105,110,0.1)',
+            color: isCustomerView ? '#047857' : isManagerView ? 'var(--primary)' : 'var(--secondary)'
           }}>
-            {isManagerView ? 'SLA: 4.0 Hours' : 'Midwest Region'}
+            {isCustomerView ? 'Gold Tier' : isManagerView ? 'SLA: 4.0 Hours' : 'Midwest Region'}
           </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11, color: 'var(--on-surface-variant)' }}>
-          {isManagerView ? (
+          {isCustomerView ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--outline)' }}>Credit Limit:</span>
+                <span style={{ fontWeight: 600, color: '#047857', fontFeatureSettings: "'tnum'" }}>₹1.20 Cr</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--outline)' }}>Dedicated Rep:</span>
+                <span style={{ fontWeight: 600, color: 'var(--on-surface)' }}>Alex Rivera</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ width: '68%', height: '100%', background: '#047857', borderRadius: 99 }} />
+              </div>
+            </>
+          ) : isManagerView ? (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--outline)' }}>Avg Decision SLA:</span>
