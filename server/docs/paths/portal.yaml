@@ -1,0 +1,523 @@
+# ═══════════════════════════════════════════
+# CUSTOMER PORTAL
+# ═══════════════════════════════════════════
+
+/portal/quotes:
+  get:
+    tags: [Portal]
+    summary: List customer's own quotes
+    description: |
+      Customer sees only their own quotes.
+      Internal fields (cost, margin, riskScore, approval details) are NEVER exposed.
+    operationId: portalListQuotes
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+    responses:
+      '200':
+        description: Customer's quotes (restricted view)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/PortalQuoteSummary'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}:
+  get:
+    tags: [Portal]
+    summary: View a quote (customer-safe fields only)
+    description: |
+      **NEVER exposes:** cost, marginPct, riskScore, approval details, audit logs, pool internals.
+
+      **Estimated vs Confirmed total:**
+      - If status is pending approval (premium/bulk pool): shows `estimatedNetTotal` with a disclaimer.
+      - If approved/confirmed: shows `confirmedNetTotal`.
+    operationId: portalGetQuote
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote (customer view)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PortalQuote'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        description: This quote is not assigned to your account
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            example:
+              success: false
+              message: "Customer portal access denied — this quote is not assigned to your account"
+              data: null
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}/lines:
+  get:
+    tags: [Portal]
+    summary: View quote lines (customer-facing fields)
+    description: Shows product name, qty, visible discount %, line total. No cost/margin.
+    operationId: portalGetQuoteLines
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote lines (customer view)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PortalQuoteLine'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}/status:
+  get:
+    tags: [Portal]
+    summary: Poll quote status from portal
+    operationId: portalGetQuoteStatus
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote status
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        status:
+                          $ref: '#/components/schemas/QuoteStatus'
+                        statusLabel:
+                          type: string
+                          example: "Under Negotiation"
+                        estimatedNetTotal:
+                          type: string
+                          nullable: true
+                          description: Shown when approval pending
+                        confirmedNetTotal:
+                          type: string
+                          nullable: true
+                          description: Shown after approval
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}/negotiate:
+  post:
+    tags: [Portal]
+    summary: Raise a negotiation ticket
+    description: |
+      Customer raises a formal negotiation request.
+      System immediately places a product hold for the requested qty.
+      Quote status → `under_negotiation`.
+      Internal team is notified.
+    operationId: portalNegotiate
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [requestedDiscountPct, comments]
+            properties:
+              requestedDiscountPct:
+                type: number
+                format: decimal
+                description: Customer's requested total discount percentage
+              comments:
+                type: string
+              lineRequests:
+                type: array
+                description: Optional per-line specific requests
+                items:
+                  type: object
+                  properties:
+                    lineId:
+                      type: string
+                    requestedDiscountPct:
+                      type: number
+                    comment:
+                      type: string
+    responses:
+      '201':
+        description: Negotiation ticket created. Product hold placed.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        ticketId:
+                          type: string
+                        holdExpiresAt:
+                          type: string
+                          format: date-time
+                        message:
+                          type: string
+                          example: "Your request has been submitted. Product is held for 48 hours."
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in a negotiable status or open ticket already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}/lines/{lineId}/comment:
+  post:
+    tags: [Portal]
+    summary: Add a line-level comment
+    operationId: portalAddLineComment
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+      - $ref: '#/components/parameters/lineIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [content]
+            properties:
+              content:
+                type: string
+    responses:
+      '201':
+        description: Comment added
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/LineComment'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Cannot comment on a quote that is not sent or under negotiation
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}/confirm:
+  post:
+    tags: [Portal]
+    summary: Customer confirms the quotation
+    description: |
+      Only allowed when quote is in `sent_to_customer` status.
+      OR after negotiation ticket is accepted and within `purchaseDeadline`.
+      Triggers order creation → fulfillment and billing processes begin.
+    operationId: portalConfirmQuote
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote confirmed. Order initiated.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PortalQuote'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote not in confirmable status or negotiation deadline passed
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            examples:
+              wrongStatus:
+                value:
+                  success: false
+                  message: "Cannot confirm quote — it must first be sent to the customer"
+                  data: null
+              deadlinePassed:
+                value:
+                  success: false
+                  message: "Negotiation acceptance deadline has passed — product hold released"
+                  data: null
+      '422':
+        description: Quote terms changed and require re-approval
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}/deposit-info:
+  get:
+    tags: [Portal]
+    summary: View deposit amount and payment status
+    operationId: portalGetDepositInfo
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Deposit information
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        depositRequired:
+                          type: boolean
+                        depositAmountEstimate:
+                          type: string
+                        depositPct:
+                          type: number
+                        status:
+                          type: string
+                          enum: [not_paid, pending, paid, refunded]
+                        refundable:
+                          type: boolean
+                          example: true
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/quotes/{quoteId}/deposit/pay:
+  post:
+    tags: [Portal]
+    summary: Customer initiates deposit payment
+    description: |
+      Customer pays the configured deposit % of estimatedNetTotal.
+      This prioritizes their order and accelerates the approval process.
+      Deposit is 100% refundable if approval fails or order is cancelled.
+    operationId: portalPayDeposit
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [paymentMethod]
+            properties:
+              paymentMethod:
+                type: string
+                example: upi
+              paymentReference:
+                type: string
+    responses:
+      '200':
+        description: Deposit payment initiated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        depositAmount:
+                          type: string
+                        status:
+                          type: string
+                        message:
+                          type: string
+                          example: "Deposit of ₹5000 received. Your order has priority processing."
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Deposit already paid or quote doesn't require premium pool
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '422':
+        $ref: '#/components/responses/UnprocessableEntity'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/negotiation-tickets:
+  get:
+    tags: [Portal]
+    summary: List customer's own negotiation tickets
+    operationId: portalListTickets
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+    responses:
+      '200':
+        description: Customer's negotiation tickets
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/PortalNegotiationTicket'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/portal/negotiation-tickets/{ticketId}:
+  get:
+    tags: [Portal]
+    summary: Get ticket status, decision, and purchase deadline
+    operationId: portalGetTicket
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/ticketIdParam'
+    responses:
+      '200':
+        description: Ticket (customer view)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PortalNegotiationTicket'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

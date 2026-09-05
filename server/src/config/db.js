@@ -1,16 +1,9 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
-});
+// Database connection stub (Prisma disabled for Swagger preview)
+const prisma = {};
 
 const connectDB = async () => {
-  try {
-    await prisma.$connect();
-    console.log('[Database] ✅ Prisma connected to MySQL successfully');
-  } catch (err) {
-    console.warn(`[Database] ⚠️ Prisma connection warning: ${err.message}. Check your DATABASE_URL in .env`);
-  }
+  console.log('[Database] Database connection bypassed (Swagger mode)');
 };
 
 module.exports = { prisma, connectDB };
+

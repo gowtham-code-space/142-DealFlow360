@@ -1,0 +1,36 @@
+# ─── Auth & User Schemas ─────────────────
+
+UserPublic:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    email:
+      type: string
+      format: email
+    role:
+      type: string
+      enum: [admin, manager, sales_rep, finance]
+    isActive:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time
+
+CreateUserRequest:
+  type: object
+  required: [name, email, password, role]
+  properties:
+    name:
+      type: string
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      minLength: 8
+    role:
+      type: string
+      enum: [admin, manager, sales_rep, finance]

@@ -1,0 +1,281 @@
+# ═══════════════════════════════════════════
+# CUSTOMERS
+# ═══════════════════════════════════════════
+
+/customers:
+  get:
+    tags: [Customers]
+    summary: List customers
+    operationId: listCustomers
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: tier
+        in: query
+        schema:
+          type: string
+          enum: [free, premium]
+      - name: name
+        in: query
+        schema:
+          type: string
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+    responses:
+      '200':
+        description: Customer list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/Customer'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Customers]
+    summary: Manually create a customer record
+    description: Admin/manager can create customers directly (e.g., onboarding enterprise clients).
+    operationId: createCustomer
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateCustomerRequest'
+    responses:
+      '201':
+        description: Customer created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Customer'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Email already registered
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/customers/{customerId}:
+  get:
+    tags: [Customers]
+    summary: Get customer by ID
+    operationId: getCustomerById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/customerIdParam'
+    responses:
+      '200':
+        description: Customer detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Customer'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Customers]
+    summary: Update customer (tier, credit limit, location)
+    description: |
+      Admin/manager only.
+      - Upgrading tier from `free` to `premium` adds premiumDiscount eligibility on future quotes.
+      - Location (lat/lng) is required for hardware order fulfillment.
+    operationId: updateCustomer
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/customerIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              tier:
+                type: string
+                enum: [free, premium]
+              creditLimit:
+                type: number
+                format: decimal
+              locationLat:
+                type: number
+                format: float
+                example: 12.9716
+              locationLng:
+                type: number
+                format: float
+                example: 77.5946
+              address:
+                type: string
+    responses:
+      '200':
+        description: Customer updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Customer'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Customers]
+    summary: Soft-deactivate customer
+    operationId: softDeleteCustomer
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/customerIdParam'
+    responses:
+      '200':
+        description: Customer deactivated
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Cannot deactivate customer with active orders
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/customers/{customerId}/reactivate:
+  post:
+    tags: [Customers]
+    summary: Reactivate a deactivated customer
+    operationId: reactivateCustomer
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/customerIdParam'
+    responses:
+      '200':
+        description: Customer reactivated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Customer'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/customers/{customerId}/quotes:
+  get:
+    tags: [Customers]
+    summary: List quotes for a customer
+    operationId: getCustomerQuotes
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/customerIdParam'
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+    responses:
+      '200':
+        description: Customer's quotes
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/QuotationSummary'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

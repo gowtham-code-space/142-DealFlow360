@@ -1,0 +1,249 @@
+# ═══════════════════════════════════════════
+# QUOTE LINES
+# ═══════════════════════════════════════════
+
+/quotes/{quoteId}/lines:
+  get:
+    tags: [QuoteLines]
+    summary: List all lines for a quote
+    description: Each line includes the full 5-type discount breakdown and pool assignment.
+    operationId: listQuoteLines
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote lines with discount breakdown
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/QuoteLine'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [QuoteLines]
+    summary: Add a line to a quote
+    description: |
+      Automatically triggers discount recalculation for the new line.
+      If quote was previously approved, all approvals are invalidated and quote reverts to `draft`.
+
+      - Hardware: provide `productId`, `variantId` (optional), `quantity`
+      - Software: provide `productId`, `quantity` (seats/licenses), `subscriptionPlanId` if recurring
+    operationId: addQuoteLine
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateQuoteLineRequest'
+    responses:
+      '201':
+        description: Line added. Returns all lines with updated totals.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/QuoteLineAddedResult'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in an editable status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '422':
+        description: Software product cannot have a warehouse allocation; missing subscriptionPlanId for recurring software
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/lines/{lineId}:
+  get:
+    tags: [QuoteLines]
+    summary: Get a specific quote line
+    operationId: getQuoteLineById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+      - $ref: '#/components/parameters/lineIdParam'
+    responses:
+      '200':
+        description: Quote line with full discount breakdown
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/QuoteLine'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [QuoteLines]
+    summary: Update a quote line
+    description: |
+      Changing quantity re-evaluates bulk discount.
+      Changing variant re-evaluates variant discount.
+      Any change on an approved quote invalidates all approvals.
+    operationId: updateQuoteLine
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+      - $ref: '#/components/parameters/lineIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              quantity:
+                type: integer
+                minimum: 1
+              variantId:
+                type: string
+              unitPrice:
+                type: number
+                format: decimal
+              subscriptionPlanId:
+                type: string
+                description: Software recurring lines only
+    responses:
+      '200':
+        description: Line updated. Returns updated line with recalculated discounts.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/QuoteLineAddedResult'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in an editable status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '422':
+        $ref: '#/components/responses/UnprocessableEntity'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [QuoteLines]
+    summary: Remove a line from a quote
+    description: Removing a line from an approved quote invalidates all approvals.
+    operationId: deleteQuoteLine
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+      - $ref: '#/components/parameters/lineIdParam'
+    responses:
+      '200':
+        description: Line removed. Returns updated quote totals.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/QuotationTotals'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in an editable status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/lines/{lineId}/discount-breakdown:
+  get:
+    tags: [QuoteLines]
+    summary: Get full 5-type discount breakdown for a line
+    description: Shows each discount type value, cumulative total, ceiling, over-limit status, and pool assignment.
+    operationId: getLineDiscountBreakdown
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+      - $ref: '#/components/parameters/lineIdParam'
+    responses:
+      '200':
+        description: Discount breakdown
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DiscountBreakdown'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

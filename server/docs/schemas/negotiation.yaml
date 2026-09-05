@@ -1,0 +1,77 @@
+# ─── Negotiation Schemas ─────────────────
+
+NegotiationTicket:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    customerId:
+      type: string
+    customerName:
+      type: string
+    requestedDiscountPct:
+      type: number
+    counterDiscountPct:
+      type: number
+      nullable: true
+    comments:
+      type: string
+    status:
+      type: string
+      enum: [open, accepted, rejected, countered, expired]
+    purchaseDeadline:
+      type: string
+      format: date-time
+      nullable: true
+    productHolds:
+      type: array
+      items:
+        $ref: '#/components/schemas/ProductHold'
+    createdAt:
+      type: string
+      format: date-time
+
+ProductHold:
+  type: object
+  properties:
+    id:
+      type: string
+    ticketId:
+      type: string
+    productId:
+      type: string
+    productName:
+      type: string
+    poolType:
+      type: string
+      enum: [normal, premium_bulk]
+    quantityHeld:
+      type: integer
+    expiresAt:
+      type: string
+      format: date-time
+    status:
+      type: string
+      enum: [active, released, consumed]
+
+LineComment:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteLineId:
+      type: string
+    ticketId:
+      type: string
+      nullable: true
+    content:
+      type: string
+    authorId:
+      type: string
+    authorName:
+      type: string
+    createdAt:
+      type: string
+      format: date-time

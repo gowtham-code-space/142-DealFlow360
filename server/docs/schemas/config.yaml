@@ -1,0 +1,206 @@
+# ─── Config Schemas ──────────────────────
+
+DiscountPolicy:
+  type: object
+  properties:
+    id:
+      type: string
+    customerTier:
+      type: string
+      enum: [free, premium]
+    productCategory:
+      type: string
+      example: Hardware
+    maxDiscountPct:
+      type: number
+      example: 15.0
+      description: Maximum allowed cumulative discount % for this tier + category combination
+
+CreateDiscountPolicyRequest:
+  type: object
+  required: [customerTier, productCategory, maxDiscountPct]
+  properties:
+    customerTier:
+      type: string
+      enum: [free, premium]
+    productCategory:
+      type: string
+    maxDiscountPct:
+      type: number
+      minimum: 0
+      maximum: 100
+
+DiscountTypeRule:
+  type: object
+  properties:
+    id:
+      type: string
+    type:
+      type: string
+      enum: [bulk, consistency, premium, variant]
+      description: |
+        - bulk: Applied when order qty exceeds bulkThresholdQty
+        - consistency: Applied when customer has purchased consistently
+        - premium: Applied for premium tier customers
+        - variant: Applied per-variant (configured on ProductVariant.variantDiscountPct)
+    bulkThresholdQty:
+      type: integer
+      nullable: true
+      description: For bulk type only
+    bulkDiscountPct:
+      type: number
+      nullable: true
+      description: For bulk type only
+    consistencyOrderCount:
+      type: integer
+      nullable: true
+      description: For consistency type — minimum past orders to qualify
+    consistencyDiscountPct:
+      type: number
+      nullable: true
+      description: For consistency type
+    premiumDiscountPct:
+      type: number
+      nullable: true
+      description: For premium type — additional % for premium tier customers
+
+CreateDiscountTypeRuleRequest:
+  type: object
+  required: [type]
+  properties:
+    type:
+      type: string
+      enum: [bulk, consistency, premium]
+    bulkThresholdQty:
+      type: integer
+    bulkDiscountPct:
+      type: number
+    consistencyOrderCount:
+      type: integer
+    consistencyDiscountPct:
+      type: number
+    premiumDiscountPct:
+      type: number
+
+ApprovalChainRule:
+  type: object
+  properties:
+    id:
+      type: string
+    description:
+      type: string
+      example: "Over-ceiling by 0-5% → sales_rep only. Over 5% → sales_rep + manager."
+    salesRepOnlyMaxOverCeilingPct:
+      type: number
+      description: |
+        If blendedRiskScore ≤ this value: Level 1 only (sales_rep approves).
+        If blendedRiskScore > this value: Level 2 (sales_rep + manager).
+      example: 5.0
+    createdAt:
+      type: string
+      format: date-time
+
+CreateApprovalChainRequest:
+  type: object
+  required: [salesRepOnlyMaxOverCeilingPct]
+  properties:
+    salesRepOnlyMaxOverCeilingPct:
+      type: number
+      minimum: 0
+      description: |
+        Threshold that divides Level 1 from Level 2.
+        blendedRiskScore ≤ threshold → Level 1 (sales_rep only)
+        blendedRiskScore > threshold → Level 2 (sales_rep + manager)
+    description:
+      type: string
+
+PoolConfig:
+  type: object
+  properties:
+    normalPoolPct:
+      type: number
+      example: 50
+      description: Percentage of total stock allocated to normal pool
+    premiumBulkPoolPct:
+      type: number
+      example: 50
+      description: Percentage of total stock allocated to premium/bulk pool
+    depositPct:
+      type: number
+      example: 10
+      description: Percentage of estimatedNetTotal required as deposit for premium/bulk orders
+    holdDurationHours:
+      type: integer
+      example: 48
+      description: How long a product is held after a negotiation ticket is raised
+
+SubscriptionPlan:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+      example: "CloudDB Monthly"
+    billingPeriod:
+      type: string
+      enum: [monthly, quarterly, yearly]
+    prorationType:
+      type: string
+      enum: [daily, none]
+    price:
+      type: string
+      example: "5000.00"
+    isActive:
+      type: boolean
+
+CreateSubscriptionPlanRequest:
+  type: object
+  required: [name, billingPeriod, price]
+  properties:
+    name:
+      type: string
+    billingPeriod:
+      type: string
+      enum: [monthly, quarterly, yearly]
+    prorationType:
+      type: string
+      enum: [daily, none]
+      default: daily
+    price:
+      type: number
+
+UpsellRule:
+  type: object
+  properties:
+    id:
+      type: string
+    sourceProductId:
+      type: string
+    suggestedProductId:
+      type: string
+    reason:
+      type: string
+      example: "Commonly purchased together"
+    minMarginPct:
+      type: number
+      example: 20.0
+    isPromotion:
+      type: boolean
+
+CreateUpsellRuleRequest:
+  type: object
+  required: [sourceProductId, suggestedProductId, reason]
+  properties:
+    sourceProductId:
+      type: string
+    suggestedProductId:
+      type: string
+    reason:
+      type: string
+    minMarginPct:
+      type: number
+      default: 0
+    isPromotion:
+      type: boolean
+      default: false

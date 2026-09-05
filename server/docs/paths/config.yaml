@@ -1,0 +1,831 @@
+# ═══════════════════════════════════════════
+# CONFIG
+# ═══════════════════════════════════════════
+
+/config/discount-policies:
+  get:
+    tags: [Config]
+    summary: List discount ceiling policies
+    operationId: listDiscountPolicies
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Discount policies
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DiscountPolicy'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Config]
+    summary: Create a discount ceiling policy
+    description: Define max discount % for a given customer tier + product category combination.
+    operationId: createDiscountPolicy
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateDiscountPolicyRequest'
+    responses:
+      '201':
+        description: Policy created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DiscountPolicy'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Policy already exists for this tier+category
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/discount-policies/{policyId}:
+  get:
+    tags: [Config]
+    summary: Get discount policy by ID
+    operationId: getDiscountPolicyById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/policyIdParam'
+    responses:
+      '200':
+        description: Policy detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DiscountPolicy'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Config]
+    summary: Update discount ceiling
+    operationId: updateDiscountPolicy
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/policyIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              maxDiscountPct:
+                type: number
+                format: decimal
+                minimum: 0
+                maximum: 100
+    responses:
+      '200':
+        description: Policy updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DiscountPolicy'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Config]
+    summary: Delete discount policy
+    operationId: deleteDiscountPolicy
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/policyIdParam'
+    responses:
+      '200':
+        description: Policy deleted
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/discount-types:
+  get:
+    tags: [Config]
+    summary: List discount type rules (bulk threshold, consistency criteria, premium bonus)
+    operationId: listDiscountTypes
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Discount type rules
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DiscountTypeRule'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Config]
+    summary: Create a discount type rule
+    operationId: createDiscountTypeRule
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateDiscountTypeRuleRequest'
+    responses:
+      '201':
+        description: Rule created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DiscountTypeRule'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Rule for this discount type already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/discount-types/{ruleId}:
+  patch:
+    tags: [Config]
+    summary: Update discount type rule
+    operationId: updateDiscountTypeRule
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateDiscountTypeRuleRequest'
+    responses:
+      '200':
+        description: Rule updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DiscountTypeRule'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Config]
+    summary: Delete discount type rule
+    operationId: deleteDiscountTypeRule
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Rule deleted
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/approval-chains:
+  get:
+    tags: [Config]
+    summary: List approval chain rules
+    operationId: listApprovalChains
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Approval chain rules
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ApprovalChainRule'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Config]
+    summary: Create approval chain rule
+    description: |
+      Configure at what cumulative-over-ceiling threshold an order requires:
+      - Level 1 only (sales_rep reviews)
+      - Level 2 (sales_rep + manager)
+    operationId: createApprovalChain
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateApprovalChainRequest'
+    responses:
+      '201':
+        description: Approval chain created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ApprovalChainRule'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Overlapping threshold range
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/approval-chains/{chainId}:
+  get:
+    tags: [Config]
+    summary: Get approval chain rule by ID
+    operationId: getApprovalChainById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/chainIdParam'
+    responses:
+      '200':
+        description: Approval chain rule
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ApprovalChainRule'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Config]
+    summary: Update approval chain rule
+    operationId: updateApprovalChain
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/chainIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateApprovalChainRequest'
+    responses:
+      '200':
+        description: Approval chain updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ApprovalChainRule'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Config]
+    summary: Delete approval chain rule
+    operationId: deleteApprovalChain
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/chainIdParam'
+    responses:
+      '200':
+        description: Rule deleted
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/pool-config:
+  get:
+    tags: [Config]
+    summary: Get pool configuration
+    description: Returns normal pool %, premium/bulk pool %, deposit %, and hold duration.
+    operationId: getPoolConfig
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Pool configuration
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PoolConfig'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  put:
+    tags: [Config]
+    summary: Update pool configuration
+    operationId: updatePoolConfig
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PoolConfig'
+    responses:
+      '200':
+        description: Pool config updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PoolConfig'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/subscription-plans:
+  get:
+    tags: [Config]
+    summary: List subscription plans
+    operationId: listSubscriptionPlans
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Subscription plans
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SubscriptionPlan'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Config]
+    summary: Create subscription plan
+    operationId: createSubscriptionPlan
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateSubscriptionPlanRequest'
+    responses:
+      '201':
+        description: Plan created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/SubscriptionPlan'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Plan name already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/subscription-plans/{planId}:
+  get:
+    tags: [Config]
+    summary: Get subscription plan by ID
+    operationId: getSubscriptionPlanById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/planIdParam'
+    responses:
+      '200':
+        description: Plan detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/SubscriptionPlan'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Config]
+    summary: Update subscription plan
+    operationId: updateSubscriptionPlan
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/planIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              billingPeriod:
+                type: string
+                enum: [monthly, quarterly, yearly]
+              prorationType:
+                type: string
+                enum: [daily, none]
+              price:
+                type: number
+    responses:
+      '200':
+        description: Plan updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/SubscriptionPlan'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Config]
+    summary: Archive subscription plan
+    operationId: archiveSubscriptionPlan
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/planIdParam'
+    responses:
+      '200':
+        description: Plan archived
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Plan in use by active subscriptions
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/upsell-rules:
+  get:
+    tags: [Config]
+    summary: List upsell / cross-sell rules
+    operationId: listUpsellRules
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Upsell rules
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/UpsellRule'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Config]
+    summary: Create upsell rule
+    operationId: createUpsellRule
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateUpsellRuleRequest'
+    responses:
+      '201':
+        description: Rule created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/UpsellRule'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Rule for this product pair already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/config/upsell-rules/{ruleId}:
+  patch:
+    tags: [Config]
+    summary: Update upsell rule
+    operationId: updateUpsellRule
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateUpsellRuleRequest'
+    responses:
+      '200':
+        description: Rule updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/UpsellRule'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Config]
+    summary: Delete upsell rule
+    operationId: deleteUpsellRule
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: ruleId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Rule deleted
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

@@ -1,0 +1,66 @@
+# ─── Base Response Schemas ───────────────
+
+ApiSuccessResponse:
+  type: object
+  properties:
+    success:
+      type: boolean
+      example: true
+    message:
+      type: string
+      example: "Operation completed successfully"
+    data:
+      nullable: true
+
+ApiErrorResponse:
+  type: object
+  properties:
+    success:
+      type: boolean
+      example: false
+    message:
+      type: string
+      example: "Meaningful, specific error description"
+    data:
+      nullable: true
+      example: null
+
+PaginatedMeta:
+  type: object
+  properties:
+    total:
+      type: integer
+    page:
+      type: integer
+    pageSize:
+      type: integer
+    totalPages:
+      type: integer
+
+BulkCreateResponse:
+  type: object
+  properties:
+    success:
+      type: boolean
+      example: true
+    message:
+      type: string
+      example: "14 users created, 2 failed"
+    data:
+      type: object
+      properties:
+        created:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPublic'
+        failed:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              email:
+                type: string
+              reason:
+                type: string

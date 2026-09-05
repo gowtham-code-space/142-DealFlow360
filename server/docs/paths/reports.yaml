@@ -1,0 +1,396 @@
+# ═══════════════════════════════════════════
+# REPORTS
+# ═══════════════════════════════════════════
+
+/reports/quotations:
+  get:
+    tags: [Reports]
+    summary: Filterable quotation report
+    operationId: getQuotationReport
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: salesRepId
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/QuoteStatus'
+      - name: productId
+        in: query
+        schema:
+          type: string
+      - name: customerTier
+        in: query
+        schema:
+          type: string
+          enum: [free, premium]
+      - name: productType
+        in: query
+        schema:
+          type: string
+          enum: [hardware, software]
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+    responses:
+      '200':
+        description: Quotation report data
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/QuotationSummary'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/reports/quotations/export:
+  get:
+    tags: [Reports]
+    summary: Export quotation report as PDF or XLS
+    operationId: exportQuotationReport
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: format
+        in: query
+        required: true
+        schema:
+          type: string
+          enum: [pdf, xls]
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: File download
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+          application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+            schema:
+              type: string
+              format: binary
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/reports/sales-performance:
+  get:
+    tags: [Reports]
+    summary: Sales rep / team performance report
+    operationId: getSalesPerformanceReport
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: salesRepId
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Performance report
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          salesRepId:
+                            type: string
+                          salesRepName:
+                            type: string
+                          totalQuotes:
+                            type: integer
+                          totalApproved:
+                            type: integer
+                          totalRevenue:
+                            type: string
+                          avgDiscountPct:
+                            type: number
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/reports/product-analysis:
+  get:
+    tags: [Reports]
+    summary: Product analysis — best-selling and most-discounted
+    operationId: getProductAnalysisReport
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: productType
+        in: query
+        schema:
+          type: string
+          enum: [hardware, software]
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: Product analysis
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        bestSelling:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              productId:
+                                type: string
+                              productName:
+                                type: string
+                              totalQty:
+                                type: integer
+                              totalRevenue:
+                                type: string
+                        mostDiscounted:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              productId:
+                                type: string
+                              productName:
+                                type: string
+                              avgCumulativeDiscountPct:
+                                type: number
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/reports/discount-summary:
+  get:
+    tags: [Reports]
+    summary: Discount usage summary
+    operationId: getDiscountSummaryReport
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: groupBy
+        in: query
+        schema:
+          type: string
+          enum: [tier, category, rep, discountType]
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: Discount summary
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          groupKey:
+                            type: string
+                          avgDiscountPct:
+                            type: number
+                          maxDiscountPct:
+                            type: number
+                          totalLines:
+                            type: integer
+                          overLimitLines:
+                            type: integer
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/reports/pool-utilization:
+  get:
+    tags: [Reports]
+    summary: Pool utilization report
+    operationId: getPoolUtilizationReport
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: Pool utilization over time
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          period:
+                            type: string
+                          normalPoolOrders:
+                            type: integer
+                          premiumBulkPoolOrders:
+                            type: integer
+                          depositsPaid:
+                            type: integer
+                          depositAmount:
+                            type: string
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/reports/negotiation-outcomes:
+  get:
+    tags: [Reports]
+    summary: Negotiation ticket outcome report
+    operationId: getNegotiationOutcomesReport
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: Negotiation outcomes
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+                      properties:
+                        total:
+                          type: integer
+                        accepted:
+                          type: integer
+                        rejected:
+                          type: integer
+                        countered:
+                          type: integer
+                        expired:
+                          type: integer
+                        avgRequestedDiscountPct:
+                          type: number
+                        avgAcceptedDiscountPct:
+                          type: number
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'

@@ -1,0 +1,32 @@
+# ─── Approval Schemas ────────────────────
+
+ApprovalRequest:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    level:
+      type: integer
+      enum: [1, 2]
+      description: 1=sales_rep review; 2=manager review
+    approverId:
+      type: string
+      nullable: true
+    approverName:
+      type: string
+      nullable: true
+    status:
+      type: string
+      enum: [pending, approved, rejected, returned]
+    comments:
+      type: string
+      nullable: true
+    decidedAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time

@@ -1,0 +1,506 @@
+# ═══════════════════════════════════════════
+# BILLING
+# ═══════════════════════════════════════════
+
+/invoices:
+  get:
+    tags: [Billing]
+    summary: List invoices
+    operationId: listInvoices
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: customerId
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [draft, sent, paid, overdue, closed]
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum: [one_time, recurring]
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: Invoice list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/Invoice'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/invoices/{invoiceId}:
+  get:
+    tags: [Billing]
+    summary: Get invoice detail
+    operationId: getInvoiceById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/invoiceIdParam'
+    responses:
+      '200':
+        description: Invoice detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Invoice'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/billing/generate:
+  post:
+    tags: [Billing]
+    summary: Generate invoices for a confirmed quote
+    description: |
+      - Hardware lines → one-time Invoice (minus any deposit already paid).
+      - Software/recurring lines → SubscriptionInstance + BillingSchedule + first Invoice.
+      - Can only be called once. Subsequent calls return 409.
+    operationId: generateBilling
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '201':
+        description: Billing generated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/BillingGeneratedResult'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Billing already generated OR quote not in confirmed status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            example:
+              success: false
+              message: "Billing already generated for this quote"
+              data: null
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/billing:
+  get:
+    tags: [Billing]
+    summary: Get billing schedule for a quote
+    operationId: getQuoteBilling
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Billing schedule (one-time + recurring)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/BillingSchedule'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/subscriptions:
+  get:
+    tags: [Billing]
+    summary: List all subscriptions
+    operationId: listSubscriptions
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: customerId
+        in: query
+        schema:
+          type: string
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [active, cancelled, modified]
+    responses:
+      '200':
+        description: Subscription list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/SubscriptionInstance'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/subscriptions/{subscriptionId}:
+  get:
+    tags: [Billing]
+    summary: Get subscription detail and upcoming billing
+    operationId: getSubscriptionById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/subscriptionIdParam'
+    responses:
+      '200':
+        description: Subscription detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/SubscriptionInstance'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Billing]
+    summary: Modify subscription (seat count, plan upgrade)
+    description: Mid-cycle change triggers proration. Preview first with /proration-preview.
+    operationId: modifySubscription
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/subscriptionIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              quantity:
+                type: integer
+                minimum: 1
+              planId:
+                type: string
+    responses:
+      '200':
+        description: Subscription modified with proration applied
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/SubscriptionInstance'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Cannot modify a cancelled subscription
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/subscriptions/{subscriptionId}/cancel:
+  post:
+    tags: [Billing]
+    summary: Cancel subscription
+    description: Triggers proration calculation and refund/credit note for remaining term.
+    operationId: cancelSubscription
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/subscriptionIdParam'
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              reason:
+                type: string
+    responses:
+      '200':
+        description: Subscription cancelled
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/SubscriptionInstance'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Subscription already cancelled
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/subscriptions/{subscriptionId}/proration-preview:
+  get:
+    tags: [Billing]
+    summary: Preview proration impact before applying a change
+    operationId: getProrationPreview
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/subscriptionIdParam'
+      - name: newQuantity
+        in: query
+        schema:
+          type: integer
+      - name: newPlanId
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Proration preview
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ProrationPreview'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/payments:
+  get:
+    tags: [Billing]
+    summary: List payments
+    operationId: listPayments
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: invoiceId
+        in: query
+        schema:
+          type: string
+      - name: customerId
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Payment list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/Payment'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/invoices/{invoiceId}/payments:
+  post:
+    tags: [Billing]
+    summary: Record a payment against an invoice
+    operationId: recordPayment
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/invoiceIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [amount, method]
+            properties:
+              amount:
+                type: number
+                format: decimal
+              method:
+                type: string
+                example: bank_transfer
+              reference:
+                type: string
+    responses:
+      '201':
+        description: Payment recorded
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Payment'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Invoice already fully paid or cancelled
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '422':
+        description: Payment amount exceeds outstanding balance
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            example:
+              success: false
+              message: "Payment amount (₹1200) exceeds outstanding invoice balance (₹800)"
+              data: null
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  get:
+    tags: [Billing]
+    summary: Get payment history for an invoice
+    operationId: getInvoicePayments
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/invoiceIdParam'
+    responses:
+      '200':
+        description: Payment history
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Payment'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

@@ -1,0 +1,24 @@
+# ─── Recommendation Schemas ──────────────
+
+Recommendation:
+  type: object
+  properties:
+    productId:
+      type: string
+    productName:
+      type: string
+    productType:
+      type: string
+      enum: [hardware, software]
+    listPrice:
+      type: string
+    reason:
+      type: string
+      example: "Commonly purchased with Laptop Pro"
+    marginDeltaPct:
+      type: number
+      description: Expected margin improvement if added
+    isPromotion:
+      type: boolean
+    rank:
+      type: integer

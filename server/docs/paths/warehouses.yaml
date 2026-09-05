@@ -1,0 +1,437 @@
+# ═══════════════════════════════════════════
+# WAREHOUSES & INVENTORY
+# ═══════════════════════════════════════════
+
+/warehouses:
+  get:
+    tags: [Warehouses]
+    summary: List warehouses
+    description: Hardware fulfillment only. Software products do not use warehouses.
+    operationId: listWarehouses
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: region
+        in: query
+        schema:
+          type: string
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+    responses:
+      '200':
+        description: Warehouse list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Warehouse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Warehouses]
+    summary: Create warehouse
+    description: Admin only. Location (lat/lng) used for nearest-warehouse allocation.
+    operationId: createWarehouse
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateWarehouseRequest'
+    responses:
+      '201':
+        description: Warehouse created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Warehouse'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Warehouse name already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/warehouses/{warehouseId}:
+  get:
+    tags: [Warehouses]
+    summary: Get warehouse by ID
+    operationId: getWarehouseById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/warehouseIdParam'
+    responses:
+      '200':
+        description: Warehouse detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Warehouse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Warehouses]
+    summary: Update warehouse
+    operationId: updateWarehouse
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/warehouseIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              region:
+                type: string
+              locationLat:
+                type: number
+              locationLng:
+                type: number
+              shippingCostFactor:
+                type: number
+              isActive:
+                type: boolean
+    responses:
+      '200':
+        description: Warehouse updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Warehouse'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Warehouses]
+    summary: Archive warehouse
+    operationId: archiveWarehouse
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/warehouseIdParam'
+    responses:
+      '200':
+        description: Warehouse archived
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/warehouses/{warehouseId}/inventory:
+  get:
+    tags: [Warehouses]
+    summary: Get stock levels for all products in a warehouse
+    description: Returns normal_pool_qty and premium_bulk_pool_qty per product.
+    operationId: getWarehouseInventory
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/warehouseIdParam'
+    responses:
+      '200':
+        description: Inventory with pool breakdown
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Inventory'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/warehouses/{warehouseId}/inventory/{productId}:
+  put:
+    tags: [Warehouses]
+    summary: Set stock for a product in a warehouse (full update)
+    operationId: setWarehouseInventory
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/warehouseIdParam'
+      - $ref: '#/components/parameters/productIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [normalPoolQty, premiumBulkPoolQty]
+            properties:
+              normalPoolQty:
+                type: integer
+                minimum: 0
+              premiumBulkPoolQty:
+                type: integer
+                minimum: 0
+    responses:
+      '200':
+        description: Inventory set
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Inventory'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Warehouses]
+    summary: Adjust stock delta for a product
+    operationId: adjustWarehouseInventory
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/warehouseIdParam'
+      - $ref: '#/components/parameters/productIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [pool, delta]
+            properties:
+              pool:
+                type: string
+                enum: [normal, premium_bulk]
+              delta:
+                type: integer
+                description: Positive to add, negative to subtract
+    responses:
+      '200':
+        description: Stock adjusted
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Inventory'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/inventory:
+  get:
+    tags: [Warehouses]
+    summary: Global inventory view (all warehouses × products)
+    operationId: getGlobalInventory
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: productId
+        in: query
+        schema:
+          type: string
+      - name: warehouseId
+        in: query
+        schema:
+          type: string
+      - name: belowThreshold
+        in: query
+        description: Filter products whose total stock is below this quantity
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Global inventory
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Inventory'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/inventory/region-demand:
+  get:
+    tags: [Warehouses]
+    summary: Region demand feed
+    description: Top products by demand per region. Used by Finance/Ops for restocking decisions.
+    operationId: getRegionDemand
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: region
+        in: query
+        schema:
+          type: string
+      - name: periodDays
+        in: query
+        schema:
+          type: integer
+          default: 30
+    responses:
+      '200':
+        description: Region demand records
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/RegionDemandRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/inventory/restock-recommendations:
+  get:
+    tags: [Warehouses]
+    summary: System restock recommendations
+    description: Finance/Ops can see recommended products to stock per warehouse based on regional demand trends.
+    operationId: getRestockRecommendations
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Restock recommendations
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          warehouseId:
+                            type: string
+                          warehouseName:
+                            type: string
+                          productId:
+                            type: string
+                          productName:
+                            type: string
+                          currentStock:
+                            type: integer
+                          recommendedRestockQty:
+                            type: integer
+                          reason:
+                            type: string
+                            example: "High demand in South region — avg 45 orders/week"
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'

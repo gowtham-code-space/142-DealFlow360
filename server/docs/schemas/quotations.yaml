@@ -1,0 +1,292 @@
+# ─── Quotation Schemas ───────────────────
+
+QuoteStatus:
+  type: string
+  enum:
+    - draft
+    - sales_rep_review
+    - manager_review
+    - returned
+    - approved
+    - sent_to_customer
+    - under_negotiation
+    - confirmed
+    - fulfilling
+    - partially_fulfilled
+    - fulfilled
+    - billed
+    - paid
+    - cancelled
+    - rejected
+
+QuotationSummary:
+  type: object
+  properties:
+    id:
+      type: string
+    customerId:
+      type: string
+    customerName:
+      type: string
+    salesRepId:
+      type: string
+    salesRepName:
+      type: string
+    status:
+      $ref: '#/components/schemas/QuoteStatus'
+    currency:
+      type: string
+    netTotal:
+      type: string
+    blendedRiskScore:
+      type: number
+    validUntil:
+      type: string
+      format: date
+    createdAt:
+      type: string
+      format: date-time
+    updatedAt:
+      type: string
+      format: date-time
+
+Quotation:
+  allOf:
+    - $ref: '#/components/schemas/QuotationSummary'
+    - type: object
+      properties:
+        subtotal:
+          type: string
+        taxTotal:
+          type: string
+        discountTotal:
+          type: string
+        marginPct:
+          type: number
+          description: Internal — never exposed to customer
+        estimatedNetTotal:
+          type: string
+          nullable: true
+          description: Total with all discounts (shown before approval is complete)
+        confirmedNetTotal:
+          type: string
+          nullable: true
+          description: Final total post-approval
+        approvalLevel:
+          type: integer
+          nullable: true
+          enum: [1, 2]
+        hasHardwareLines:
+          type: boolean
+        hasSoftwareLines:
+          type: boolean
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteLine'
+        notes:
+          type: string
+
+QuotationTotals:
+  type: object
+  properties:
+    subtotal:
+      type: string
+    discountTotal:
+      type: string
+    taxTotal:
+      type: string
+    netTotal:
+      type: string
+    marginPct:
+      type: number
+    blendedRiskScore:
+      type: number
+
+DiscountBreakdown:
+  type: object
+  description: Full 5-type discount calculation for a single quote line
+  properties:
+    lineId:
+      type: string
+    productId:
+      type: string
+    productName:
+      type: string
+    unitPrice:
+      type: string
+    quantity:
+      type: integer
+    productDiscountPct:
+      type: number
+      example: 5.0
+    bulkDiscountPct:
+      type: number
+      example: 3.0
+      description: 0 if quantity below bulk threshold
+    consistencyDiscountPct:
+      type: number
+      example: 2.0
+      description: 0 if customer hasn't met consistency order count
+    premiumDiscountPct:
+      type: number
+      example: 5.0
+      description: 0 if customer is free tier
+    variantDiscountPct:
+      type: number
+      example: -8.0
+      description: 0 if no variant or variant has no discount; negative for downgrade
+    cumulativeDiscountPct:
+      type: number
+      example: 7.0
+      description: Sum of all applicable discount types
+    ceilingPct:
+      type: number
+      example: 15.0
+      description: DiscountPolicy.maxDiscountPct for this tier + category
+    isOverLimit:
+      type: boolean
+    overLimitPct:
+      type: number
+      example: 0
+      description: cumulativeDiscountPct - ceilingPct (0 if within limit)
+    poolAssignment:
+      type: string
+      enum: [normal, premium_bulk]
+
+QuoteLine:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    productId:
+      type: string
+    productName:
+      type: string
+    productType:
+      type: string
+      enum: [hardware, software]
+    variantId:
+      type: string
+      nullable: true
+    variantLabel:
+      type: string
+      nullable: true
+      example: "OS: Windows 7"
+    quantity:
+      type: integer
+    unitPrice:
+      type: string
+    discountBreakdown:
+      $ref: '#/components/schemas/DiscountBreakdown'
+    lineTotal:
+      type: string
+    marginPct:
+      type: number
+      description: Internal — never exposed to customer
+    isRecurring:
+      type: boolean
+    subscriptionPlanId:
+      type: string
+      nullable: true
+    poolAssignment:
+      type: string
+      enum: [normal, premium_bulk]
+
+CreateQuoteLineRequest:
+  type: object
+  required: [productId, quantity]
+  properties:
+    productId:
+      type: string
+    variantId:
+      type: string
+      nullable: true
+    quantity:
+      type: integer
+      minimum: 1
+    unitPrice:
+      type: number
+      nullable: true
+      description: If not provided, uses price list or product list price
+    subscriptionPlanId:
+      type: string
+      nullable: true
+      description: Required if product is software and isRecurring=true
+
+QuoteLineAddedResult:
+  type: object
+  properties:
+    newLine:
+      $ref: '#/components/schemas/QuoteLine'
+    quoteTotals:
+      $ref: '#/components/schemas/QuotationTotals'
+    approvalsInvalidated:
+      type: boolean
+      description: True if quote was previously approved and approvals were reset
+
+RiskEvaluation:
+  type: object
+  properties:
+    quoteId:
+      type: string
+    blendedRiskScore:
+      type: number
+      description: Sum of overLimitPct for all over-limit lines
+    approvalLevelRequired:
+      type: integer
+      nullable: true
+      enum: [null, 1, 2]
+      description: null = no approval needed; 1 = sales_rep only; 2 = sales_rep + manager
+    overLimitLines:
+      type: array
+      items:
+        type: object
+        properties:
+          lineId:
+            type: string
+          productName:
+            type: string
+          cumulativeDiscountPct:
+            type: number
+          ceilingPct:
+            type: number
+          overLimitPct:
+            type: number
+          poolAssignment:
+            type: string
+    calculatedAt:
+      type: string
+      format: date-time
+
+# ─── Deposit Schema ──────────────────────
+
+DepositRecord:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    customerId:
+      type: string
+    amount:
+      type: string
+    depositPct:
+      type: number
+    status:
+      type: string
+      enum: [pending, paid, refunded, deducted_from_invoice]
+    method:
+      type: string
+      nullable: true
+    paidAt:
+      type: string
+      format: date-time
+      nullable: true
+    refundedAt:
+      type: string
+      format: date-time
+      nullable: true

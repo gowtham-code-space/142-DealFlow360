@@ -1,0 +1,31 @@
+# ─── Notification Schema ─────────────────
+
+Notification:
+  type: object
+  properties:
+    id:
+      type: string
+    userId:
+      type: string
+    type:
+      type: string
+      enum:
+        - approval_required
+        - approval_decision
+        - negotiation_ticket_raised
+        - negotiation_decision
+        - backorder_fulfilled
+        - quote_sent
+        - quote_confirmed
+        - deposit_received
+        - deposit_refunded
+    message:
+      type: string
+    relatedQuoteId:
+      type: string
+      nullable: true
+    isRead:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time

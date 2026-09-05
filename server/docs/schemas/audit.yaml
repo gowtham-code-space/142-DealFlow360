@@ -1,0 +1,34 @@
+# ─── Audit Log Schema ────────────────────
+
+AuditLog:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+      nullable: true
+    userId:
+      type: string
+    userName:
+      type: string
+    userRole:
+      type: string
+    action:
+      type: string
+      example: "DISCOUNT_CHANGED"
+    description:
+      type: string
+      example: "Sales Rep changed discount on Laptop Pro from 10% to 18%"
+    oldValues:
+      type: object
+      nullable: true
+    newValues:
+      type: object
+      nullable: true
+    comment:
+      type: string
+      nullable: true
+    timestamp:
+      type: string
+      format: date-time

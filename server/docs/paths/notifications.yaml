@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════
+# NOTIFICATIONS
+# ═══════════════════════════════════════════
+
+/notifications:
+  get:
+    tags: [Notifications]
+    summary: List in-app notifications for current user
+    operationId: listNotifications
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: isRead
+        in: query
+        schema:
+          type: boolean
+    responses:
+      '200':
+        description: Notifications
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/Notification'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/notifications/{notificationId}/read:
+  patch:
+    tags: [Notifications]
+    summary: Mark a notification as read
+    operationId: markNotificationRead
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Notification marked as read
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/notifications/mark-all-read:
+  post:
+    tags: [Notifications]
+    summary: Mark all notifications as read
+    operationId: markAllNotificationsRead
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: All notifications marked as read
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
