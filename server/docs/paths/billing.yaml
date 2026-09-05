@@ -2,7 +2,7 @@
 # BILLING
 # ═══════════════════════════════════════════
 
-/invoices:
+/api/v1/invoices:
   get:
     tags: [Billing]
     summary: List invoices
@@ -62,7 +62,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/invoices/{invoiceId}:
+/api/v1/invoices/{invoiceId}:
   get:
     tags: [Billing]
     summary: Get invoice detail
@@ -92,7 +92,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/billing/generate:
+/api/v1/quotes/{quoteId}/billing/generate:
   post:
     tags: [Billing]
     summary: Generate invoices for a confirmed quote
@@ -136,7 +136,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/billing:
+/api/v1/quotes/{quoteId}/billing:
   get:
     tags: [Billing]
     summary: Get billing schedule for a quote
@@ -166,7 +166,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/subscriptions:
+/api/v1/subscriptions:
   get:
     tags: [Billing]
     summary: List all subscriptions
@@ -209,7 +209,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/subscriptions/{subscriptionId}:
+/api/v1/subscriptions/{subscriptionId}:
   get:
     tags: [Billing]
     summary: Get subscription detail and upcoming billing
@@ -287,7 +287,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/subscriptions/{subscriptionId}/cancel:
+/api/v1/subscriptions/{subscriptionId}/cancel:
   post:
     tags: [Billing]
     summary: Cancel subscription
@@ -332,7 +332,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/subscriptions/{subscriptionId}/proration-preview:
+/api/v1/subscriptions/{subscriptionId}/proration-preview:
   get:
     tags: [Billing]
     summary: Preview proration impact before applying a change
@@ -368,7 +368,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/payments:
+/api/v1/payments:
   get:
     tags: [Billing]
     summary: List payments
@@ -412,7 +412,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/invoices/{invoiceId}/payments:
+/api/v1/invoices/{invoiceId}/payments:
   post:
     tags: [Billing]
     summary: Record a payment against an invoice

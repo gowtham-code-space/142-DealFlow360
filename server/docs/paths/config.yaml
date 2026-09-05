@@ -2,7 +2,7 @@
 # CONFIG
 # ═══════════════════════════════════════════
 
-/config/discount-policies:
+/api/v1/config/discount-policies:
   get:
     tags: [Config]
     summary: List discount ceiling policies
@@ -70,7 +70,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/discount-policies/{policyId}:
+/api/v1/config/discount-policies/{policyId}:
   get:
     tags: [Config]
     summary: Get discount policy by ID
@@ -165,7 +165,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/discount-types:
+/api/v1/config/discount-types:
   get:
     tags: [Config]
     summary: List discount type rules (bulk threshold, consistency criteria, premium bonus)
@@ -232,7 +232,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/discount-types/{ruleId}:
+/api/v1/config/discount-types/{ruleId}:
   patch:
     tags: [Config]
     summary: Update discount type rule
@@ -302,7 +302,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/approval-chains:
+/api/v1/config/approval-chains:
   get:
     tags: [Config]
     summary: List approval chain rules
@@ -373,7 +373,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/approval-chains/{chainId}:
+/api/v1/config/approval-chains/{chainId}:
   get:
     tags: [Config]
     summary: Get approval chain rule by ID
@@ -462,7 +462,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/pool-config:
+/api/v1/config/pool-config:
   get:
     tags: [Config]
     summary: Get pool configuration
@@ -522,7 +522,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/subscription-plans:
+/api/v1/config/subscription-plans:
   get:
     tags: [Config]
     summary: List subscription plans
@@ -587,7 +587,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/subscription-plans/{planId}:
+/api/v1/config/subscription-plans/{planId}:
   get:
     tags: [Config]
     summary: Get subscription plan by ID
@@ -693,7 +693,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/upsell-rules:
+/api/v1/config/upsell-rules:
   get:
     tags: [Config]
     summary: List upsell / cross-sell rules
@@ -760,7 +760,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/config/upsell-rules/{ruleId}:
+/api/v1/config/upsell-rules/{ruleId}:
   patch:
     tags: [Config]
     summary: Update upsell rule

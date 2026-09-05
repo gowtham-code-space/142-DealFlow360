@@ -2,7 +2,7 @@
 # WAREHOUSES & INVENTORY
 # ═══════════════════════════════════════════
 
-/warehouses:
+/api/v1/warehouses:
   get:
     tags: [Warehouses]
     summary: List warehouses
@@ -80,7 +80,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/warehouses/{warehouseId}:
+/api/v1/warehouses/{warehouseId}:
   get:
     tags: [Warehouses]
     summary: Get warehouse by ID
@@ -184,7 +184,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/warehouses/{warehouseId}/inventory:
+/api/v1/warehouses/{warehouseId}/inventory:
   get:
     tags: [Warehouses]
     summary: Get stock levels for all products in a warehouse
@@ -217,7 +217,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/warehouses/{warehouseId}/inventory/{productId}:
+/api/v1/warehouses/{warehouseId}/inventory/{productId}:
   put:
     tags: [Warehouses]
     summary: Set stock for a product in a warehouse (full update)
@@ -310,7 +310,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/inventory:
+/api/v1/inventory:
   get:
     tags: [Warehouses]
     summary: Global inventory view (all warehouses × products)
@@ -352,7 +352,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/inventory/region-demand:
+/api/v1/inventory/region-demand:
   get:
     tags: [Warehouses]
     summary: Region demand feed
@@ -391,7 +391,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/inventory/restock-recommendations:
+/api/v1/inventory/restock-recommendations:
   get:
     tags: [Warehouses]
     summary: System restock recommendations

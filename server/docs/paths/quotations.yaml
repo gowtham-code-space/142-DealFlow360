@@ -2,7 +2,7 @@
 # QUOTATIONS
 # ═══════════════════════════════════════════
 
-/quotes:
+/api/v1/quotes:
   get:
     tags: [Quotations]
     summary: List quotes
@@ -109,7 +109,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}:
+/api/v1/quotes/{quoteId}:
   get:
     tags: [Quotations]
     summary: Get full quote detail
@@ -227,7 +227,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/submit:
+/api/v1/quotes/{quoteId}/submit:
   post:
     tags: [Quotations]
     summary: Submit quote
@@ -288,7 +288,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/send-to-customer:
+/api/v1/quotes/{quoteId}/send-to-customer:
   post:
     tags: [Quotations]
     summary: Send approved quote to customer portal
@@ -325,7 +325,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/recalculate:
+/api/v1/quotes/{quoteId}/recalculate:
   post:
     tags: [Quotations]
     summary: Re-trigger discount and risk recalculation
@@ -355,7 +355,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/risk:
+/api/v1/quotes/{quoteId}/risk:
   get:
     tags: [Quotations]
     summary: Get risk evaluation for a quote
@@ -385,7 +385,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/deposit:
+/api/v1/quotes/{quoteId}/deposit:
   get:
     tags: [Quotations]
     summary: Get deposit status for a quote
@@ -473,7 +473,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/deposit/refund:
+/api/v1/quotes/{quoteId}/deposit/refund:
   post:
     tags: [Quotations]
     summary: Trigger deposit refund

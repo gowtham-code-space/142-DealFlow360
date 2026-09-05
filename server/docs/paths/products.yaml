@@ -2,7 +2,7 @@
 # PRODUCTS
 # ═══════════════════════════════════════════
 
-/products:
+/api/v1/products:
   get:
     tags: [Products]
     summary: List products
@@ -97,7 +97,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/products/{productId}:
+/api/v1/products/{productId}:
   get:
     tags: [Products]
     summary: Get product detail
@@ -216,7 +216,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/products/{productId}/variants:
+/api/v1/products/{productId}/variants:
   get:
     tags: [Products]
     summary: List variants for a product
@@ -286,7 +286,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/products/{productId}/variants/{variantId}:
+/api/v1/products/{productId}/variants/{variantId}:
   patch:
     tags: [Products]
     summary: Update a product variant
@@ -362,7 +362,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/price-lists:
+/api/v1/price-lists:
   get:
     tags: [Products]
     summary: List price lists
@@ -427,7 +427,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/price-lists/{priceListId}:
+/api/v1/price-lists/{priceListId}:
   get:
     tags: [Products]
     summary: Get price list by ID

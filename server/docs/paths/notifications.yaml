@@ -2,7 +2,7 @@
 # NOTIFICATIONS
 # ═══════════════════════════════════════════
 
-/notifications:
+/api/v1/notifications:
   get:
     tags: [Notifications]
     summary: List in-app notifications for current user
@@ -40,7 +40,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/notifications/{notificationId}/read:
+/api/v1/notifications/{notificationId}/read:
   patch:
     tags: [Notifications]
     summary: Mark a notification as read
@@ -67,7 +67,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/notifications/mark-all-read:
+/api/v1/notifications/mark-all-read:
   post:
     tags: [Notifications]
     summary: Mark all notifications as read
