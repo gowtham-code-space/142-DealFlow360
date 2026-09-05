@@ -1,0 +1,155 @@
+# ─── Product Schemas ─────────────────────
+
+Product:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    category:
+      type: string
+      example: Hardware
+    productType:
+      type: string
+      enum: [hardware, software]
+      description: Immutable after creation. Hardware uses inventory/warehouses. Software uses licenses/subscriptions.
+    listPrice:
+      type: string
+      example: "75000.00"
+    cost:
+      type: string
+      example: "50000.00"
+      description: Internal field — never exposed to customer
+    tax:
+      type: string
+      example: "18.00"
+      description: Tax percentage
+    productDiscountPct:
+      type: number
+      example: 5.0
+      description: Inherent product-level discount
+    weight:
+      type: number
+      nullable: true
+      description: Hardware only — kg
+    isRecurring:
+      type: boolean
+      description: Software only — if true, subscription plan required on quote line
+    isActive:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time
+
+CreateProductRequest:
+  type: object
+  required: [name, category, productType, listPrice]
+  properties:
+    name:
+      type: string
+    category:
+      type: string
+    productType:
+      type: string
+      enum: [hardware, software]
+    listPrice:
+      type: number
+      format: decimal
+    cost:
+      type: number
+      format: decimal
+    tax:
+      type: number
+      format: decimal
+    productDiscountPct:
+      type: number
+      format: decimal
+      default: 0
+    weight:
+      type: number
+      format: decimal
+      description: Required if productType=hardware
+    isRecurring:
+      type: boolean
+      description: Used if productType=software
+
+ProductVariant:
+  type: object
+  properties:
+    id:
+      type: string
+    productId:
+      type: string
+    attribute:
+      type: string
+      example: OS
+    value:
+      type: string
+      example: "Windows 7"
+    extraPrice:
+      type: string
+      example: "-5000.00"
+      description: Negative for downgrade
+    variantDiscountPct:
+      type: number
+      example: -8.0
+      description: Negative = discount for choosing this spec downgrade (e.g., older OS)
+
+CreateVariantRequest:
+  type: object
+  required: [attribute, value]
+  properties:
+    attribute:
+      type: string
+    value:
+      type: string
+    extraPrice:
+      type: number
+    variantDiscountPct:
+      type: number
+      description: Use negative value for spec downgrade discount
+
+PriceList:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    tier:
+      type: string
+      enum: [free, premium]
+    currency:
+      type: string
+      example: INR
+    rules:
+      type: array
+      items:
+        type: object
+        properties:
+          productId:
+            type: string
+          price:
+            type: string
+
+CreatePriceListRequest:
+  type: object
+  required: [name, tier, currency]
+  properties:
+    name:
+      type: string
+    tier:
+      type: string
+      enum: [free, premium]
+    currency:
+      type: string
+    rules:
+      type: array
+      items:
+        type: object
+        properties:
+          productId:
+            type: string
+          price:
+            type: number

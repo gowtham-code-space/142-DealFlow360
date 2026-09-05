@@ -1,0 +1,13 @@
+# ═══════════════════════════════════════════
+# SECURITY SCHEMES
+# ═══════════════════════════════════════════
+
+securitySchemes:
+BearerAuth:
+  type: http
+  scheme: bearer
+  bearerFormat: JWT
+  description: |
+    Access token obtained from `/auth/login` or `/auth/refresh`.
+    Include as: `Authorization: Bearer <accessToken>`
+    Token lifetime: 15 minutes. Store in memory only — NOT localStorage.

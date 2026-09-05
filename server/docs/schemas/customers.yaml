@@ -1,0 +1,68 @@
+# ─── Customer Schemas ────────────────────
+
+CustomerPublic:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    email:
+      type: string
+    tier:
+      type: string
+      enum: [free, premium]
+    isActive:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time
+
+Customer:
+  allOf:
+    - $ref: '#/components/schemas/CustomerPublic'
+    - type: object
+      properties:
+        phone:
+          type: string
+        address:
+          type: string
+        locationLat:
+          type: number
+          nullable: true
+        locationLng:
+          type: number
+          nullable: true
+        creditLimit:
+          type: string
+          example: "500000.00"
+        orderCount:
+          type: integer
+          description: Total confirmed orders — used for consistency discount eligibility
+
+CreateCustomerRequest:
+  type: object
+  required: [name, email]
+  properties:
+    name:
+      type: string
+    email:
+      type: string
+      format: email
+    password:
+      type: string
+      minLength: 8
+    phone:
+      type: string
+    tier:
+      type: string
+      enum: [free, premium]
+      default: free
+    creditLimit:
+      type: number
+    locationLat:
+      type: number
+    locationLng:
+      type: number
+    address:
+      type: string

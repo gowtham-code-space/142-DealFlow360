@@ -1,0 +1,531 @@
+# ═══════════════════════════════════════════
+# PRODUCTS
+# ═══════════════════════════════════════════
+
+/products:
+  get:
+    tags: [Products]
+    summary: List products
+    operationId: listProducts
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: productType
+        in: query
+        description: Filter by hardware or software
+        schema:
+          type: string
+          enum: [hardware, software]
+      - name: category
+        in: query
+        schema:
+          type: string
+      - name: isActive
+        in: query
+        schema:
+          type: boolean
+      - name: search
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Product list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/Product'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Products]
+    summary: Create a product (hardware or software)
+    description: |
+      Admin only. `productType` is immutable after creation.
+      - Hardware requires: `weight`, `cost`
+      - Software requires: `isRecurring` flag; if true, subscription plans can be linked
+    operationId: createProduct
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateProductRequest'
+    responses:
+      '201':
+        description: Product created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Product'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Product with this name already exists
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/products/{productId}:
+  get:
+    tags: [Products]
+    summary: Get product detail
+    operationId: getProductById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/productIdParam'
+    responses:
+      '200':
+        description: Product detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Product'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Products]
+    summary: Update product
+    operationId: updateProduct
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/productIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              category:
+                type: string
+              listPrice:
+                type: number
+                format: decimal
+              cost:
+                type: number
+                format: decimal
+              tax:
+                type: number
+                format: decimal
+              weight:
+                type: number
+                format: decimal
+                description: Hardware only
+              productDiscountPct:
+                type: number
+                format: decimal
+                description: Inherent product discount percentage
+              isActive:
+                type: boolean
+    responses:
+      '200':
+        description: Product updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Product'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Products]
+    summary: Soft-archive a product
+    operationId: archiveProduct
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/productIdParam'
+    responses:
+      '200':
+        description: Product archived
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Product is used in active quotes
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/products/{productId}/variants:
+  get:
+    tags: [Products]
+    summary: List variants for a product
+    description: |
+      Variants for hardware = spec options (e.g., storage size, OS version).
+      A variant with `variantDiscountPct < 0` indicates a spec downgrade that earns a discount.
+    operationId: listProductVariants
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/productIdParam'
+    responses:
+      '200':
+        description: Variant list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ProductVariant'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Products]
+    summary: Create a product variant
+    operationId: createProductVariant
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/productIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateVariantRequest'
+    responses:
+      '201':
+        description: Variant created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ProductVariant'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/products/{productId}/variants/{variantId}:
+  patch:
+    tags: [Products]
+    summary: Update a product variant
+    operationId: updateProductVariant
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/productIdParam'
+      - $ref: '#/components/parameters/variantIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              attribute:
+                type: string
+              value:
+                type: string
+              extraPrice:
+                type: number
+                format: decimal
+              variantDiscountPct:
+                type: number
+                format: decimal
+                description: Negative value = spec downgrade discount (e.g., -8.0 for OS downgrade)
+    responses:
+      '200':
+        description: Variant updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ProductVariant'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Products]
+    summary: Delete a product variant
+    operationId: deleteProductVariant
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/productIdParam'
+      - $ref: '#/components/parameters/variantIdParam'
+    responses:
+      '200':
+        description: Variant deleted
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/price-lists:
+  get:
+    tags: [Products]
+    summary: List price lists
+    operationId: listPriceLists
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Price list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PriceList'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Products]
+    summary: Create price list
+    operationId: createPriceList
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreatePriceListRequest'
+    responses:
+      '201':
+        description: Price list created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PriceList'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '409':
+        description: Duplicate price list for this tier/currency combination
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/price-lists/{priceListId}:
+  get:
+    tags: [Products]
+    summary: Get price list by ID
+    operationId: getPriceListById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/priceListIdParam'
+    responses:
+      '200':
+        description: Price list detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PriceList'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Products]
+    summary: Update price list
+    operationId: updatePriceList
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/priceListIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              currency:
+                type: string
+              rules:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    productId:
+                      type: string
+                    price:
+                      type: number
+    responses:
+      '200':
+        description: Price list updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PriceList'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Products]
+    summary: Delete price list
+    operationId: deletePriceList
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/priceListIdParam'
+    responses:
+      '200':
+        description: Price list deleted
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

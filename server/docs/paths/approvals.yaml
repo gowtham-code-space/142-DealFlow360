@@ -1,0 +1,274 @@
+# ═══════════════════════════════════════════
+# APPROVALS
+# ═══════════════════════════════════════════
+
+/approvals:
+  get:
+    tags: [Approvals]
+    summary: List approval requests
+    operationId: listApprovals
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [pending, approved, rejected, returned]
+      - name: level
+        in: query
+        schema:
+          type: integer
+          enum: [1, 2]
+      - name: quoteId
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Approval requests
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/ApprovalRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/approvals/{approvalId}:
+  get:
+    tags: [Approvals]
+    summary: Get approval request detail
+    operationId: getApprovalById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/approvalIdParam'
+    responses:
+      '200':
+        description: Approval detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ApprovalRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/approvals/{approvalId}/approve:
+  post:
+    tags: [Approvals]
+    summary: Approve a quote at this approval step
+    description: |
+      - Level 1: only the quote's own salesRep can approve.
+      - Level 2: any manager role user can approve.
+      - Level 2 cannot proceed unless Level 1 is already approved.
+    operationId: approveApproval
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/approvalIdParam'
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              comments:
+                type: string
+    responses:
+      '200':
+        description: Approval granted. Returns updated approval and quote status.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ApprovalRequest'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Approval already decided, or Level 2 attempted before Level 1 is complete
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            examples:
+              alreadyDecided:
+                value:
+                  success: false
+                  message: "Approval has already been decided (Approved on 2026-09-01)"
+                  data: null
+              level2BeforeLevel1:
+                value:
+                  success: false
+                  message: "Level 2 (Manager) approval cannot begin until Level 1 (Sales Rep) approval is completed"
+                  data: null
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/approvals/{approvalId}/reject:
+  post:
+    tags: [Approvals]
+    summary: Reject a quote at this approval step
+    operationId: rejectApproval
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/approvalIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [comments]
+            properties:
+              comments:
+                type: string
+                description: Rejection reason is required
+    responses:
+      '200':
+        description: Quote rejected
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ApprovalRequest'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Approval already decided
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/approvals/{approvalId}/return:
+  post:
+    tags: [Approvals]
+    summary: Return quote to Sales Rep for revision
+    operationId: returnApproval
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/approvalIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [comments]
+            properties:
+              comments:
+                type: string
+                description: Revision reason is required
+    responses:
+      '200':
+        description: Quote returned for revision
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ApprovalRequest'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Approval already decided
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/approvals:
+  get:
+    tags: [Approvals]
+    summary: List all approval steps for a quote
+    operationId: listQuoteApprovals
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: All approval steps for this quote
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ApprovalRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

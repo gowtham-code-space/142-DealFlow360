@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════
+# REUSABLE RESPONSES
+# ═══════════════════════════════════════════
+
+responses:
+BadRequest:
+  description: Bad Request — missing or invalid fields
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ApiErrorResponse'
+
+Unauthorized:
+  description: Unauthorized — missing, invalid, or expired access token
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ApiErrorResponse'
+      example:
+        success: false
+        message: "Access token missing or invalid. Please login again."
+        data: null
+
+Forbidden:
+  description: Forbidden — valid user but insufficient role for this operation
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ApiErrorResponse'
+      example:
+        success: false
+        message: "You do not have permission to perform this action"
+        data: null
+
+NotFound:
+  description: Not Found — resource does not exist
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ApiErrorResponse'
+      example:
+        success: false
+        message: "Resource not found"
+        data: null
+
+Conflict:
+  description: Conflict — state conflict or duplicate resource
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ApiErrorResponse'
+
+UnprocessableEntity:
+  description: Unprocessable Entity — valid structure but semantic violation
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ApiErrorResponse'
+
+InternalError:
+  description: Internal Server Error
+  content:
+    application/json:
+      schema:
+        $ref: '#/components/schemas/ApiErrorResponse'
+      example:
+        success: false
+        message: "An unexpected error occurred. Please try again later."
+        data: null

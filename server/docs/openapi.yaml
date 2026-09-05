@@ -1,0 +1,423 @@
+openapi: 3.0.3
+
+info:
+  title: DealFlow360 API
+  version: 2.0.0
+  description: |
+    Complete REST API for **DealFlow360** — an intelligent, self-governing B2B Sales Operations Platform.
+
+    ## Key Capabilities
+    - Multi-type stacking discount governance (product + bulk + consistency + premium + variant)
+    - Automatic approval routing (Sales Rep only OR Sales Rep + Manager)
+    - Normal pool vs Premium/Bulk pool inventory management with refundable deposit
+    - Nearest-warehouse fulfillment allocation for hardware products
+    - SaaS/software license products with recurring subscription billing
+    - Customer portal negotiation via formal ticket system (hold -> accept/reject -> deadline)
+    - Deal health dashboard and region-based demand recommendations for Finance/Ops
+    - Full audit trail
+
+    ## Authentication
+    - Internal users: POST /auth/login
+    - Customers: POST /auth/signup then POST /auth/portal/login
+    - Access token in response body (in-memory only)
+    - Refresh token in HttpOnly SameSite=Strict cookie
+
+    ## Product Types
+    - hardware: Physical goods with inventory, warehouse allocation, pool management
+    - software: SaaS/license, no warehouse, recurring subscription plans
+
+  contact:
+    name: DealFlow360 Team
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local Development
+  - url: https://api.dealflow360.com/v1
+    description: Production
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Customers
+  - name: Products
+  - name: Config
+  - name: Warehouses
+  - name: Quotations
+  - name: QuoteLines
+  - name: Approvals
+  - name: Recommendations
+  - name: Fulfillment
+  - name: Billing
+  - name: Negotiation
+  - name: Portal
+  - name: Dashboard
+  - name: Reports
+  - name: AuditLogs
+  - name: Notifications
+
+paths:
+  /approvals:
+    $ref: "./paths/approvals.yaml#/approvals"
+  /approvals/{approvalId}:
+    $ref: "./paths/approvals.yaml#/approvals/{approvalId}"
+  /approvals/{approvalId}/approve:
+    $ref: "./paths/approvals.yaml#/approvals/{approvalId}/approve"
+  /approvals/{approvalId}/reject:
+    $ref: "./paths/approvals.yaml#/approvals/{approvalId}/reject"
+  /approvals/{approvalId}/return:
+    $ref: "./paths/approvals.yaml#/approvals/{approvalId}/return"
+  /quotes/{quoteId}/approvals:
+    $ref: "./paths/approvals.yaml#/quotes/{quoteId}/approvals"
+  /quotes/{quoteId}/audit-logs:
+    $ref: "./paths/audit.yaml#/quotes/{quoteId}/audit-logs"
+  /audit-logs:
+    $ref: "./paths/audit.yaml#/audit-logs"
+  /auth/signup:
+    $ref: "./paths/auth.yaml#/auth/signup"
+  /auth/login:
+    $ref: "./paths/auth.yaml#/auth/login"
+  /auth/portal/login:
+    $ref: "./paths/auth.yaml#/auth/portal/login"
+  /auth/refresh:
+    $ref: "./paths/auth.yaml#/auth/refresh"
+  /auth/logout:
+    $ref: "./paths/auth.yaml#/auth/logout"
+  /auth/me:
+    $ref: "./paths/auth.yaml#/auth/me"
+  /auth/me/password:
+    $ref: "./paths/auth.yaml#/auth/me/password"
+  /invoices:
+    $ref: "./paths/billing.yaml#/invoices"
+  /invoices/{invoiceId}:
+    $ref: "./paths/billing.yaml#/invoices/{invoiceId}"
+  /quotes/{quoteId}/billing/generate:
+    $ref: "./paths/billing.yaml#/quotes/{quoteId}/billing/generate"
+  /quotes/{quoteId}/billing:
+    $ref: "./paths/billing.yaml#/quotes/{quoteId}/billing"
+  /subscriptions:
+    $ref: "./paths/billing.yaml#/subscriptions"
+  /subscriptions/{subscriptionId}:
+    $ref: "./paths/billing.yaml#/subscriptions/{subscriptionId}"
+  /subscriptions/{subscriptionId}/cancel:
+    $ref: "./paths/billing.yaml#/subscriptions/{subscriptionId}/cancel"
+  /subscriptions/{subscriptionId}/proration-preview:
+    $ref: "./paths/billing.yaml#/subscriptions/{subscriptionId}/proration-preview"
+  /payments:
+    $ref: "./paths/billing.yaml#/payments"
+  /invoices/{invoiceId}/payments:
+    $ref: "./paths/billing.yaml#/invoices/{invoiceId}/payments"
+  /config/discount-policies:
+    $ref: "./paths/config.yaml#/config/discount-policies"
+  /config/discount-policies/{policyId}:
+    $ref: "./paths/config.yaml#/config/discount-policies/{policyId}"
+  /config/discount-types:
+    $ref: "./paths/config.yaml#/config/discount-types"
+  /config/discount-types/{ruleId}:
+    $ref: "./paths/config.yaml#/config/discount-types/{ruleId}"
+  /config/approval-chains:
+    $ref: "./paths/config.yaml#/config/approval-chains"
+  /config/approval-chains/{chainId}:
+    $ref: "./paths/config.yaml#/config/approval-chains/{chainId}"
+  /config/pool-config:
+    $ref: "./paths/config.yaml#/config/pool-config"
+  /config/subscription-plans:
+    $ref: "./paths/config.yaml#/config/subscription-plans"
+  /config/subscription-plans/{planId}:
+    $ref: "./paths/config.yaml#/config/subscription-plans/{planId}"
+  /config/upsell-rules:
+    $ref: "./paths/config.yaml#/config/upsell-rules"
+  /config/upsell-rules/{ruleId}:
+    $ref: "./paths/config.yaml#/config/upsell-rules/{ruleId}"
+  /customers:
+    $ref: "./paths/customers.yaml#/customers"
+  /customers/{customerId}:
+    $ref: "./paths/customers.yaml#/customers/{customerId}"
+  /customers/{customerId}/reactivate:
+    $ref: "./paths/customers.yaml#/customers/{customerId}/reactivate"
+  /customers/{customerId}/quotes:
+    $ref: "./paths/customers.yaml#/customers/{customerId}/quotes"
+  /dashboard/summary:
+    $ref: "./paths/dashboard.yaml#/dashboard/summary"
+  /dashboard/stalled-deals:
+    $ref: "./paths/dashboard.yaml#/dashboard/stalled-deals"
+  /dashboard/discount-anomalies:
+    $ref: "./paths/dashboard.yaml#/dashboard/discount-anomalies"
+  /dashboard/delivery-slippage:
+    $ref: "./paths/dashboard.yaml#/dashboard/delivery-slippage"
+  /dashboard/deal-health:
+    $ref: "./paths/dashboard.yaml#/dashboard/deal-health"
+  /dashboard/pipeline:
+    $ref: "./paths/dashboard.yaml#/dashboard/pipeline"
+  /dashboard/region-demand:
+    $ref: "./paths/dashboard.yaml#/dashboard/region-demand"
+  /dashboard/pool-health:
+    $ref: "./paths/dashboard.yaml#/dashboard/pool-health"
+  /quotes/{quoteId}/allocation:
+    $ref: "./paths/fulfillment.yaml#/quotes/{quoteId}/allocation"
+  /quotes/{quoteId}/allocation/accept:
+    $ref: "./paths/fulfillment.yaml#/quotes/{quoteId}/allocation/accept"
+  /quotes/{quoteId}/allocation/override:
+    $ref: "./paths/fulfillment.yaml#/quotes/{quoteId}/allocation/override"
+  /quotes/{quoteId}/backorders:
+    $ref: "./paths/fulfillment.yaml#/quotes/{quoteId}/backorders"
+  /backorders/{backorderId}:
+    $ref: "./paths/fulfillment.yaml#/backorders/{backorderId}"
+  /backorders/{backorderId}/fulfill:
+    $ref: "./paths/fulfillment.yaml#/backorders/{backorderId}/fulfill"
+  /backorders/{backorderId}/cancel:
+    $ref: "./paths/fulfillment.yaml#/backorders/{backorderId}/cancel"
+  /negotiation-tickets:
+    $ref: "./paths/negotiation.yaml#/negotiation-tickets"
+  /quotes/{quoteId}/negotiation-tickets:
+    $ref: "./paths/negotiation.yaml#/quotes/{quoteId}/negotiation-tickets"
+  /negotiation-tickets/{ticketId}:
+    $ref: "./paths/negotiation.yaml#/negotiation-tickets/{ticketId}"
+  /negotiation-tickets/{ticketId}/accept:
+    $ref: "./paths/negotiation.yaml#/negotiation-tickets/{ticketId}/accept"
+  /negotiation-tickets/{ticketId}/reject:
+    $ref: "./paths/negotiation.yaml#/negotiation-tickets/{ticketId}/reject"
+  /negotiation-tickets/{ticketId}/counter:
+    $ref: "./paths/negotiation.yaml#/negotiation-tickets/{ticketId}/counter"
+  /negotiation-tickets/{ticketId}/hold-status:
+    $ref: "./paths/negotiation.yaml#/negotiation-tickets/{ticketId}/hold-status"
+  /notifications:
+    $ref: "./paths/notifications.yaml#/notifications"
+  /notifications/{notificationId}/read:
+    $ref: "./paths/notifications.yaml#/notifications/{notificationId}/read"
+  /notifications/mark-all-read:
+    $ref: "./paths/notifications.yaml#/notifications/mark-all-read"
+  /portal/quotes:
+    $ref: "./paths/portal.yaml#/portal/quotes"
+  /portal/quotes/{quoteId}:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}"
+  /portal/quotes/{quoteId}/lines:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}/lines"
+  /portal/quotes/{quoteId}/status:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}/status"
+  /portal/quotes/{quoteId}/negotiate:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}/negotiate"
+  /portal/quotes/{quoteId}/lines/{lineId}/comment:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}/lines/{lineId}/comment"
+  /portal/quotes/{quoteId}/confirm:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}/confirm"
+  /portal/quotes/{quoteId}/deposit-info:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}/deposit-info"
+  /portal/quotes/{quoteId}/deposit/pay:
+    $ref: "./paths/portal.yaml#/portal/quotes/{quoteId}/deposit/pay"
+  /portal/negotiation-tickets:
+    $ref: "./paths/portal.yaml#/portal/negotiation-tickets"
+  /portal/negotiation-tickets/{ticketId}:
+    $ref: "./paths/portal.yaml#/portal/negotiation-tickets/{ticketId}"
+  /products:
+    $ref: "./paths/products.yaml#/products"
+  /products/{productId}:
+    $ref: "./paths/products.yaml#/products/{productId}"
+  /products/{productId}/variants:
+    $ref: "./paths/products.yaml#/products/{productId}/variants"
+  /products/{productId}/variants/{variantId}:
+    $ref: "./paths/products.yaml#/products/{productId}/variants/{variantId}"
+  /price-lists:
+    $ref: "./paths/products.yaml#/price-lists"
+  /price-lists/{priceListId}:
+    $ref: "./paths/products.yaml#/price-lists/{priceListId}"
+  /quotes:
+    $ref: "./paths/quotations.yaml#/quotes"
+  /quotes/{quoteId}:
+    $ref: "./paths/quotations.yaml#/quotes/{quoteId}"
+  /quotes/{quoteId}/submit:
+    $ref: "./paths/quotations.yaml#/quotes/{quoteId}/submit"
+  /quotes/{quoteId}/send-to-customer:
+    $ref: "./paths/quotations.yaml#/quotes/{quoteId}/send-to-customer"
+  /quotes/{quoteId}/recalculate:
+    $ref: "./paths/quotations.yaml#/quotes/{quoteId}/recalculate"
+  /quotes/{quoteId}/risk:
+    $ref: "./paths/quotations.yaml#/quotes/{quoteId}/risk"
+  /quotes/{quoteId}/deposit:
+    $ref: "./paths/quotations.yaml#/quotes/{quoteId}/deposit"
+  /quotes/{quoteId}/deposit/refund:
+    $ref: "./paths/quotations.yaml#/quotes/{quoteId}/deposit/refund"
+  /quotes/{quoteId}/lines:
+    $ref: "./paths/quotelines.yaml#/quotes/{quoteId}/lines"
+  /quotes/{quoteId}/lines/{lineId}:
+    $ref: "./paths/quotelines.yaml#/quotes/{quoteId}/lines/{lineId}"
+  /quotes/{quoteId}/lines/{lineId}/discount-breakdown:
+    $ref: "./paths/quotelines.yaml#/quotes/{quoteId}/lines/{lineId}/discount-breakdown"
+  /quotes/{quoteId}/recommendations:
+    $ref: "./paths/recommendations.yaml#/quotes/{quoteId}/recommendations"
+  /quotes/{quoteId}/recommendations/{productId}/add:
+    $ref: "./paths/recommendations.yaml#/quotes/{quoteId}/recommendations/{productId}/add"
+  /quotes/{quoteId}/recommendations/{productId}/dismiss:
+    $ref: "./paths/recommendations.yaml#/quotes/{quoteId}/recommendations/{productId}/dismiss"
+  /reports/quotations:
+    $ref: "./paths/reports.yaml#/reports/quotations"
+  /reports/quotations/export:
+    $ref: "./paths/reports.yaml#/reports/quotations/export"
+  /reports/sales-performance:
+    $ref: "./paths/reports.yaml#/reports/sales-performance"
+  /reports/product-analysis:
+    $ref: "./paths/reports.yaml#/reports/product-analysis"
+  /reports/discount-summary:
+    $ref: "./paths/reports.yaml#/reports/discount-summary"
+  /reports/pool-utilization:
+    $ref: "./paths/reports.yaml#/reports/pool-utilization"
+  /reports/negotiation-outcomes:
+    $ref: "./paths/reports.yaml#/reports/negotiation-outcomes"
+  /users:
+    $ref: "./paths/users.yaml#/users"
+  /users/bulk:
+    $ref: "./paths/users.yaml#/users/bulk"
+  /users/{userId}:
+    $ref: "./paths/users.yaml#/users/{userId}"
+  /users/{userId}/reactivate:
+    $ref: "./paths/users.yaml#/users/{userId}/reactivate"
+  /warehouses:
+    $ref: "./paths/warehouses.yaml#/warehouses"
+  /warehouses/{warehouseId}:
+    $ref: "./paths/warehouses.yaml#/warehouses/{warehouseId}"
+  /warehouses/{warehouseId}/inventory:
+    $ref: "./paths/warehouses.yaml#/warehouses/{warehouseId}/inventory"
+  /warehouses/{warehouseId}/inventory/{productId}:
+    $ref: "./paths/warehouses.yaml#/warehouses/{warehouseId}/inventory/{productId}"
+  /inventory:
+    $ref: "./paths/warehouses.yaml#/inventory"
+  /inventory/region-demand:
+    $ref: "./paths/warehouses.yaml#/inventory/region-demand"
+  /inventory/restock-recommendations:
+    $ref: "./paths/warehouses.yaml#/inventory/restock-recommendations"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Access Token
+
+  schemas:
+    ApprovalRequest:
+      $ref: "./schemas/approvals.yaml#ApprovalRequest"
+    AuditLog:
+      $ref: "./schemas/audit.yaml#AuditLog"
+    UserPublic:
+      $ref: "./schemas/auth_users.yaml#UserPublic"
+    CreateUserRequest:
+      $ref: "./schemas/auth_users.yaml#CreateUserRequest"
+    BillingSchedule:
+      $ref: "./schemas/billing.yaml#BillingSchedule"
+    BillingGeneratedResult:
+      $ref: "./schemas/billing.yaml#BillingGeneratedResult"
+    Invoice:
+      $ref: "./schemas/billing.yaml#Invoice"
+    SubscriptionInstance:
+      $ref: "./schemas/billing.yaml#SubscriptionInstance"
+    ProrationPreview:
+      $ref: "./schemas/billing.yaml#ProrationPreview"
+    Payment:
+      $ref: "./schemas/billing.yaml#Payment"
+    ApiSuccessResponse:
+      $ref: "./schemas/common.yaml#ApiSuccessResponse"
+    ApiErrorResponse:
+      $ref: "./schemas/common.yaml#ApiErrorResponse"
+    PaginatedMeta:
+      $ref: "./schemas/common.yaml#PaginatedMeta"
+    BulkCreateResponse:
+      $ref: "./schemas/common.yaml#BulkCreateResponse"
+    DiscountPolicy:
+      $ref: "./schemas/config.yaml#DiscountPolicy"
+    CreateDiscountPolicyRequest:
+      $ref: "./schemas/config.yaml#CreateDiscountPolicyRequest"
+    DiscountTypeRule:
+      $ref: "./schemas/config.yaml#DiscountTypeRule"
+    CreateDiscountTypeRuleRequest:
+      $ref: "./schemas/config.yaml#CreateDiscountTypeRuleRequest"
+    ApprovalChainRule:
+      $ref: "./schemas/config.yaml#ApprovalChainRule"
+    CreateApprovalChainRequest:
+      $ref: "./schemas/config.yaml#CreateApprovalChainRequest"
+    PoolConfig:
+      $ref: "./schemas/config.yaml#PoolConfig"
+    SubscriptionPlan:
+      $ref: "./schemas/config.yaml#SubscriptionPlan"
+    CreateSubscriptionPlanRequest:
+      $ref: "./schemas/config.yaml#CreateSubscriptionPlanRequest"
+    UpsellRule:
+      $ref: "./schemas/config.yaml#UpsellRule"
+    CreateUpsellRuleRequest:
+      $ref: "./schemas/config.yaml#CreateUpsellRuleRequest"
+    CustomerPublic:
+      $ref: "./schemas/customers.yaml#CustomerPublic"
+    Customer:
+      $ref: "./schemas/customers.yaml#Customer"
+    CreateCustomerRequest:
+      $ref: "./schemas/customers.yaml#CreateCustomerRequest"
+    DashboardSummary:
+      $ref: "./schemas/dashboard.yaml#DashboardSummary"
+    DealAlert:
+      $ref: "./schemas/dashboard.yaml#DealAlert"
+    AllocationRecord:
+      $ref: "./schemas/fulfillment.yaml#AllocationRecord"
+    AllocationItem:
+      $ref: "./schemas/fulfillment.yaml#AllocationItem"
+    BackorderRecord:
+      $ref: "./schemas/fulfillment.yaml#BackorderRecord"
+    NegotiationTicket:
+      $ref: "./schemas/negotiation.yaml#NegotiationTicket"
+    ProductHold:
+      $ref: "./schemas/negotiation.yaml#ProductHold"
+    LineComment:
+      $ref: "./schemas/negotiation.yaml#LineComment"
+    Notification:
+      $ref: "./schemas/notifications.yaml#Notification"
+    PortalQuoteSummary:
+      $ref: "./schemas/portal.yaml#PortalQuoteSummary"
+    PortalQuote:
+      $ref: "./schemas/portal.yaml#PortalQuote"
+    PortalQuoteLine:
+      $ref: "./schemas/portal.yaml#PortalQuoteLine"
+    PortalNegotiationTicket:
+      $ref: "./schemas/portal.yaml#PortalNegotiationTicket"
+    Product:
+      $ref: "./schemas/products.yaml#Product"
+    CreateProductRequest:
+      $ref: "./schemas/products.yaml#CreateProductRequest"
+    ProductVariant:
+      $ref: "./schemas/products.yaml#ProductVariant"
+    CreateVariantRequest:
+      $ref: "./schemas/products.yaml#CreateVariantRequest"
+    PriceList:
+      $ref: "./schemas/products.yaml#PriceList"
+    CreatePriceListRequest:
+      $ref: "./schemas/products.yaml#CreatePriceListRequest"
+    QuoteStatus:
+      $ref: "./schemas/quotations.yaml#QuoteStatus"
+    QuotationSummary:
+      $ref: "./schemas/quotations.yaml#QuotationSummary"
+    Quotation:
+      $ref: "./schemas/quotations.yaml#Quotation"
+    QuotationTotals:
+      $ref: "./schemas/quotations.yaml#QuotationTotals"
+    DiscountBreakdown:
+      $ref: "./schemas/quotations.yaml#DiscountBreakdown"
+    QuoteLine:
+      $ref: "./schemas/quotations.yaml#QuoteLine"
+    CreateQuoteLineRequest:
+      $ref: "./schemas/quotations.yaml#CreateQuoteLineRequest"
+    QuoteLineAddedResult:
+      $ref: "./schemas/quotations.yaml#QuoteLineAddedResult"
+    RiskEvaluation:
+      $ref: "./schemas/quotations.yaml#RiskEvaluation"
+    DepositRecord:
+      $ref: "./schemas/quotations.yaml#DepositRecord"
+    Recommendation:
+      $ref: "./schemas/recommendations.yaml#Recommendation"
+    Warehouse:
+      $ref: "./schemas/warehouses.yaml#Warehouse"
+    CreateWarehouseRequest:
+      $ref: "./schemas/warehouses.yaml#CreateWarehouseRequest"
+    Inventory:
+      $ref: "./schemas/warehouses.yaml#Inventory"
+    RegionDemandRecord:
+      $ref: "./schemas/warehouses.yaml#RegionDemandRecord"
+
+security:
+  - BearerAuth: []

@@ -1,0 +1,85 @@
+# ─── Warehouse & Inventory Schemas ───────
+
+Warehouse:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    region:
+      type: string
+      example: "South India"
+    locationLat:
+      type: number
+      example: 12.9716
+    locationLng:
+      type: number
+      example: 77.5946
+    shippingCostFactor:
+      type: number
+      description: Multiplier used in shipping cost estimation
+      example: 1.2
+    isActive:
+      type: boolean
+
+CreateWarehouseRequest:
+  type: object
+  required: [name, region, locationLat, locationLng]
+  properties:
+    name:
+      type: string
+    region:
+      type: string
+    locationLat:
+      type: number
+    locationLng:
+      type: number
+    shippingCostFactor:
+      type: number
+      default: 1.0
+
+Inventory:
+  type: object
+  properties:
+    warehouseId:
+      type: string
+    warehouseName:
+      type: string
+    productId:
+      type: string
+    productName:
+      type: string
+    normalPoolQty:
+      type: integer
+    premiumBulkPoolQty:
+      type: integer
+    reservedNormal:
+      type: integer
+    reservedPremium:
+      type: integer
+    availableNormal:
+      type: integer
+      description: normalPoolQty - reservedNormal
+    availablePremiumBulk:
+      type: integer
+      description: premiumBulkPoolQty - reservedPremium
+
+RegionDemandRecord:
+  type: object
+  properties:
+    region:
+      type: string
+    productId:
+      type: string
+    productName:
+      type: string
+    demandCount:
+      type: integer
+      description: Number of order lines for this product in this region during the period
+    periodStart:
+      type: string
+      format: date
+    periodEnd:
+      type: string
+      format: date

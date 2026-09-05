@@ -1,0 +1,138 @@
+# ─── Billing Schemas ─────────────────────
+
+BillingSchedule:
+  type: object
+  properties:
+    quoteId:
+      type: string
+    oneTimeTotal:
+      type: string
+    recurringTotal:
+      type: string
+    nextBillingDate:
+      type: string
+      format: date
+      nullable: true
+    invoices:
+      type: array
+      items:
+        $ref: '#/components/schemas/Invoice'
+
+BillingGeneratedResult:
+  type: object
+  properties:
+    oneTimeInvoice:
+      $ref: '#/components/schemas/Invoice'
+      nullable: true
+    subscriptions:
+      type: array
+      items:
+        $ref: '#/components/schemas/SubscriptionInstance'
+    billingSchedule:
+      $ref: '#/components/schemas/BillingSchedule'
+
+Invoice:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    customerId:
+      type: string
+    type:
+      type: string
+      enum: [one_time, recurring]
+    amount:
+      type: string
+    depositDeducted:
+      type: string
+      nullable: true
+      description: Deposit amount deducted from this invoice (if applicable)
+    amountDue:
+      type: string
+      description: amount - depositDeducted
+    status:
+      type: string
+      enum: [draft, sent, paid, overdue, closed]
+    dueDate:
+      type: string
+      format: date
+    issuedAt:
+      type: string
+      format: date-time
+      nullable: true
+
+SubscriptionInstance:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteLineId:
+      type: string
+    customerId:
+      type: string
+    planId:
+      type: string
+    planName:
+      type: string
+    quantity:
+      type: integer
+    status:
+      type: string
+      enum: [active, modified, cancelled]
+    nextBillingDate:
+      type: string
+      format: date
+    startDate:
+      type: string
+      format: date
+    billingPeriod:
+      type: string
+      enum: [monthly, quarterly, yearly]
+
+ProrationPreview:
+  type: object
+  properties:
+    subscriptionId:
+      type: string
+    currentQuantity:
+      type: integer
+    newQuantity:
+      type: integer
+    currentPlanId:
+      type: string
+      nullable: true
+    newPlanId:
+      type: string
+      nullable: true
+    daysRemainingInCycle:
+      type: integer
+    dailyRate:
+      type: string
+    proratedAmount:
+      type: string
+      description: Positive = additional charge; negative = credit note
+    type:
+      type: string
+      enum: [charge, credit]
+
+Payment:
+  type: object
+  properties:
+    id:
+      type: string
+    invoiceId:
+      type: string
+    amount:
+      type: string
+    method:
+      type: string
+    reference:
+      type: string
+      nullable: true
+    recordedAt:
+      type: string
+      format: date-time
+    recordedByUserId:
+      type: string

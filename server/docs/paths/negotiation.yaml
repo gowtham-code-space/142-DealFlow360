@@ -1,0 +1,297 @@
+# ═══════════════════════════════════════════
+# NEGOTIATION (INTERNAL VIEW)
+# ═══════════════════════════════════════════
+
+/negotiation-tickets:
+  get:
+    tags: [Negotiation]
+    summary: List all negotiation tickets (internal)
+    operationId: listNegotiationTickets
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [open, accepted, rejected, countered, expired]
+      - name: quoteId
+        in: query
+        schema:
+          type: string
+    responses:
+      '200':
+        description: Negotiation tickets
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/NegotiationTicket'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/negotiation-tickets:
+  get:
+    tags: [Negotiation]
+    summary: List negotiation tickets for a specific quote
+    operationId: listQuoteNegotiationTickets
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Negotiation tickets for this quote
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/NegotiationTicket'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/negotiation-tickets/{ticketId}:
+  get:
+    tags: [Negotiation]
+    summary: Get negotiation ticket detail
+    operationId: getNegotiationTicketById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/ticketIdParam'
+    responses:
+      '200':
+        description: Ticket detail with hold status
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/NegotiationTicket'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/negotiation-tickets/{ticketId}/accept:
+  post:
+    tags: [Negotiation]
+    summary: Accept a negotiation ticket
+    description: |
+      Sets ticket status to `accepted`.
+      Sets a `purchaseDeadline` (configurable days from now).
+      Customer must confirm the quote before the deadline.
+      Product hold remains active until purchase or deadline.
+    operationId: acceptNegotiationTicket
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/ticketIdParam'
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              purchaseDeadlineDays:
+                type: integer
+                default: 7
+                description: Number of days customer has to confirm after acceptance
+              comments:
+                type: string
+    responses:
+      '200':
+        description: Ticket accepted. Customer notified. Deadline set.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/NegotiationTicket'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Ticket already decided or expired
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/negotiation-tickets/{ticketId}/reject:
+  post:
+    tags: [Negotiation]
+    summary: Reject a negotiation ticket
+    description: Sets status to `rejected`. Product hold released immediately — stock returned to pool.
+    operationId: rejectNegotiationTicket
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/ticketIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [comments]
+            properties:
+              comments:
+                type: string
+    responses:
+      '200':
+        description: Ticket rejected. Product hold released.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/NegotiationTicket'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Ticket already decided or expired
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/negotiation-tickets/{ticketId}/counter:
+  post:
+    tags: [Negotiation]
+    summary: Respond with a counter-offer discount
+    description: Sets status to `countered`. Customer sees the counter and can accept or decline.
+    operationId: counterNegotiationTicket
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/ticketIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [counterDiscountPct]
+            properties:
+              counterDiscountPct:
+                type: number
+                format: decimal
+                description: Counter-offer discount percentage (must be within approval limits)
+              comments:
+                type: string
+    responses:
+      '200':
+        description: Counter-offer sent to customer
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/NegotiationTicket'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Ticket already decided or expired
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/negotiation-tickets/{ticketId}/hold-status:
+  get:
+    tags: [Negotiation]
+    summary: Check product hold status for a ticket
+    operationId: getTicketHoldStatus
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/ticketIdParam'
+    responses:
+      '200':
+        description: Hold status details
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/ProductHold'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'

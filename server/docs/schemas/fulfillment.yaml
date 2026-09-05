@@ -1,0 +1,75 @@
+# ─── Fulfillment Schemas ─────────────────
+
+AllocationRecord:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    status:
+      type: string
+      enum: [proposed, accepted, overridden]
+    allocations:
+      type: array
+      items:
+        $ref: '#/components/schemas/AllocationItem'
+    hasBackorders:
+      type: boolean
+    createdAt:
+      type: string
+      format: date-time
+
+AllocationItem:
+  type: object
+  properties:
+    id:
+      type: string
+    warehouseId:
+      type: string
+    warehouseName:
+      type: string
+    distanceKm:
+      type: number
+      description: Distance from warehouse to customer location
+    productId:
+      type: string
+    productName:
+      type: string
+    quantityAllocated:
+      type: integer
+    poolType:
+      type: string
+      enum: [normal, premium_bulk]
+    estimatedShipCost:
+      type: string
+
+BackorderRecord:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    productId:
+      type: string
+    productName:
+      type: string
+    warehouseId:
+      type: string
+      nullable: true
+    quantityUnfulfilled:
+      type: integer
+    status:
+      type: string
+      enum: [created, stock_arrived, fulfilled, cancelled]
+    expectedDate:
+      type: string
+      format: date
+      nullable: true
+    notes:
+      type: string
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time

@@ -1,0 +1,281 @@
+# ═══════════════════════════════════════════
+# DASHBOARD
+# ═══════════════════════════════════════════
+
+/dashboard/summary:
+  get:
+    tags: [Dashboard]
+    summary: KPI summary
+    description: Total quotes, pending approvals, approved, confirmed, avg cumulative discount, revenue.
+    operationId: getDashboardSummary
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: periodDays
+        in: query
+        schema:
+          type: integer
+          default: 30
+    responses:
+      '200':
+        description: KPI summary
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DashboardSummary'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/dashboard/stalled-deals:
+  get:
+    tags: [Dashboard]
+    summary: Stalled deals
+    description: Quotes that have been in the same status beyond the configured threshold.
+    operationId: getStalledDeals
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: stallDays
+        in: query
+        schema:
+          type: integer
+          default: 7
+    responses:
+      '200':
+        description: Stalled deals
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DealAlert'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/dashboard/discount-anomalies:
+  get:
+    tags: [Dashboard]
+    summary: Discount anomaly alerts
+    description: Quotes with cumulative discount significantly above the rep's historical average.
+    operationId: getDiscountAnomalies
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Discount anomalies
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DealAlert'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/dashboard/delivery-slippage:
+  get:
+    tags: [Dashboard]
+    summary: Delivery promise slippage
+    description: Hardware orders where delivery is at risk of missing committed dates.
+    operationId: getDeliverySlippage
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Delivery slippage alerts
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DealAlert'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/dashboard/deal-health:
+  get:
+    tags: [Dashboard]
+    summary: Combined deal health feed
+    description: Aggregates stalled + anomalies + slippage into a unified alert feed.
+    operationId: getDealHealth
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Combined deal health alerts
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DealAlert'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/dashboard/pipeline:
+  get:
+    tags: [Dashboard]
+    summary: Kanban pipeline view
+    description: Returns quotes grouped by status stage for pipeline visualization.
+    operationId: getPipeline
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Pipeline data grouped by stage
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          stage:
+                            type: string
+                          count:
+                            type: integer
+                          totalValue:
+                            type: string
+                          quotes:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/QuotationSummary'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/dashboard/region-demand:
+  get:
+    tags: [Dashboard]
+    summary: Region demand feed (Finance/Ops)
+    description: Top-demand products by region. Finance/Ops uses this for restocking intelligence.
+    operationId: getDashboardRegionDemand
+    security:
+      - BearerAuth: []
+    parameters:
+      - name: region
+        in: query
+        schema:
+          type: string
+      - name: periodDays
+        in: query
+        schema:
+          type: integer
+          default: 30
+    responses:
+      '200':
+        description: Region demand
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/RegionDemandRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/dashboard/pool-health:
+  get:
+    tags: [Dashboard]
+    summary: Pool health overview
+    description: Normal vs premium/bulk pool utilization per product and warehouse.
+    operationId: getPoolHealth
+    security:
+      - BearerAuth: []
+    responses:
+      '200':
+        description: Pool health summary
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          productId:
+                            type: string
+                          productName:
+                            type: string
+                          warehouseId:
+                            type: string
+                          warehouseName:
+                            type: string
+                          normalPoolQty:
+                            type: integer
+                          premiumBulkPoolQty:
+                            type: integer
+                          reservedNormal:
+                            type: integer
+                          reservedPremium:
+                            type: integer
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '500':
+        $ref: '#/components/responses/InternalError'

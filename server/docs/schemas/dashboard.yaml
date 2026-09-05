@@ -1,0 +1,47 @@
+# ─── Dashboard Schemas ───────────────────
+
+DashboardSummary:
+  type: object
+  properties:
+    totalQuotes:
+      type: integer
+    draftQuotes:
+      type: integer
+    pendingApprovalQuotes:
+      type: integer
+    approvedQuotes:
+      type: integer
+    confirmedQuotes:
+      type: integer
+    rejectedQuotes:
+      type: integer
+    totalRevenuePeriod:
+      type: string
+    avgCumulativeDiscountPct:
+      type: number
+    openNegotiationTickets:
+      type: integer
+    activeBackorders:
+      type: integer
+
+DealAlert:
+  type: object
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    customerName:
+      type: string
+    alertType:
+      type: string
+      enum: [stalled, discount_anomaly, delivery_slippage]
+    severity:
+      type: string
+      enum: [low, medium, high]
+    message:
+      type: string
+      example: "Quote for Acme Corp has been in 'Manager Review' for 8 days"
+    createdAt:
+      type: string
+      format: date-time

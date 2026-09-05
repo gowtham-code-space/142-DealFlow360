@@ -1,0 +1,303 @@
+# ═══════════════════════════════════════════
+# FULFILLMENT
+# ═══════════════════════════════════════════
+
+/quotes/{quoteId}/allocation:
+  get:
+    tags: [Fulfillment]
+    summary: Get proposed warehouse allocation for a quote
+    description: |
+      Hardware lines only. Software lines are excluded.
+      Allocation uses nearest warehouse to customer location.
+      Returns warehouse name, distance, qty allocated, estimated cost.
+    operationId: getQuoteAllocation
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Proposed allocation
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/AllocationRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in confirmed status yet
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/allocation/accept:
+  post:
+    tags: [Fulfillment]
+    summary: Accept the system-proposed warehouse allocation
+    description: Reserves stock from the selected warehouses (normal or premium_bulk pool per line).
+    operationId: acceptAllocation
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Allocation accepted and stock reserved
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/AllocationRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Allocation already accepted or quote not in correct status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/allocation/override:
+  post:
+    tags: [Fulfillment]
+    summary: Manual warehouse allocation override
+    description: |
+      Finance can manually specify which warehouse fulfils how many units per product.
+      Constraint: sum of quantities per product must equal the line quantity.
+      Pool type per warehouse allocation must match the line's pool assignment.
+    operationId: overrideAllocation
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [overrides]
+            properties:
+              overrides:
+                type: array
+                items:
+                  type: object
+                  required: [productId, warehouseId, quantity]
+                  properties:
+                    productId:
+                      type: string
+                    warehouseId:
+                      type: string
+                    quantity:
+                      type: integer
+                      minimum: 1
+    responses:
+      '200':
+        description: Manual allocation applied
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/AllocationRecord'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote not in correct status for allocation
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '422':
+        description: Quantity mismatch or pool type mismatch
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            example:
+              success: false
+              message: "Manual allocation for 'Laptop Pro' totals 90 units but 100 are required"
+              data: null
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/backorders:
+  get:
+    tags: [Fulfillment]
+    summary: List backorder records for a quote
+    operationId: listQuoteBackorders
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Backorder records
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/BackorderRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/backorders/{backorderId}:
+  patch:
+    tags: [Fulfillment]
+    summary: Update backorder (expected date, notes)
+    operationId: updateBackorder
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/backorderIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              expectedDate:
+                type: string
+                format: date
+              notes:
+                type: string
+    responses:
+      '200':
+        description: Backorder updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/BackorderRecord'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/backorders/{backorderId}/fulfill:
+  post:
+    tags: [Fulfillment]
+    summary: Mark backorder as fulfilled
+    description: Called when stock arrives and backorder items are shipped.
+    operationId: fulfillBackorder
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/backorderIdParam'
+    responses:
+      '200':
+        description: Backorder fulfilled
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/BackorderRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Backorder already fulfilled or cancelled
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/backorders/{backorderId}/cancel:
+  post:
+    tags: [Fulfillment]
+    summary: Cancel a backorder
+    description: Releases any hold on premium_bulk_pool if applicable.
+    operationId: cancelBackorder
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/backorderIdParam'
+    responses:
+      '200':
+        description: Backorder cancelled
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/BackorderRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Backorder already fulfilled
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'

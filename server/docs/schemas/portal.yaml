@@ -1,0 +1,111 @@
+# ─── Portal Schemas ──────────────────────
+
+PortalQuoteSummary:
+  type: object
+  description: Customer-safe quote summary. No cost/margin/risk exposed.
+  properties:
+    id:
+      type: string
+    status:
+      $ref: '#/components/schemas/QuoteStatus'
+    statusLabel:
+      type: string
+      example: "Under Negotiation"
+    currency:
+      type: string
+    estimatedNetTotal:
+      type: string
+      nullable: true
+      description: Shown when approval is pending
+    confirmedNetTotal:
+      type: string
+      nullable: true
+      description: Shown after approval
+    validUntil:
+      type: string
+      format: date
+    createdAt:
+      type: string
+      format: date-time
+    depositRequired:
+      type: boolean
+    hasOpenNegotiation:
+      type: boolean
+
+PortalQuote:
+  allOf:
+    - $ref: '#/components/schemas/PortalQuoteSummary'
+    - type: object
+      properties:
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/PortalQuoteLine'
+        notes:
+          type: string
+          nullable: true
+        estimatedTotalDisclaimer:
+          type: string
+          nullable: true
+          example: "This is an estimated total. The final amount may differ slightly after approval."
+
+PortalQuoteLine:
+  type: object
+  description: Customer-facing line. No cost, no margin, no pool assignment, no discount type breakdown.
+  properties:
+    id:
+      type: string
+    productName:
+      type: string
+    productType:
+      type: string
+      enum: [hardware, software]
+    variantLabel:
+      type: string
+      nullable: true
+    quantity:
+      type: integer
+    unitPrice:
+      type: string
+    discountPct:
+      type: number
+      description: Total visible discount % (sum of all applicable types — not broken down by type)
+    lineTotal:
+      type: string
+    isRecurring:
+      type: boolean
+    billingPeriod:
+      type: string
+      nullable: true
+      description: For software recurring lines
+
+PortalNegotiationTicket:
+  type: object
+  description: Customer view of their negotiation ticket
+  properties:
+    id:
+      type: string
+    quoteId:
+      type: string
+    requestedDiscountPct:
+      type: number
+    counterDiscountPct:
+      type: number
+      nullable: true
+    status:
+      type: string
+      enum: [open, accepted, rejected, countered, expired]
+    statusLabel:
+      type: string
+      example: "Accepted — purchase by 2026-09-12"
+    purchaseDeadline:
+      type: string
+      format: date-time
+      nullable: true
+    holdExpiresAt:
+      type: string
+      format: date-time
+      nullable: true
+    createdAt:
+      type: string
+      format: date-time

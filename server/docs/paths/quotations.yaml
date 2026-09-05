@@ -1,0 +1,515 @@
+# ═══════════════════════════════════════════
+# QUOTATIONS
+# ═══════════════════════════════════════════
+
+/quotes:
+  get:
+    tags: [Quotations]
+    summary: List quotes
+    operationId: listQuotes
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/pageParam'
+      - $ref: '#/components/parameters/pageSizeParam'
+      - name: status
+        in: query
+        schema:
+          $ref: '#/components/schemas/QuoteStatus'
+      - name: customerId
+        in: query
+        schema:
+          type: string
+      - name: salesRepId
+        in: query
+        schema:
+          type: string
+      - name: dateFrom
+        in: query
+        schema:
+          type: string
+          format: date
+      - name: dateTo
+        in: query
+        schema:
+          type: string
+          format: date
+    responses:
+      '200':
+        description: Quote list
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      allOf:
+                        - $ref: '#/components/schemas/PaginatedMeta'
+                        - type: object
+                          properties:
+                            items:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/QuotationSummary'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Quotations]
+    summary: Create a new draft quote
+    operationId: createQuote
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [customerId, currency]
+            properties:
+              customerId:
+                type: string
+              currency:
+                type: string
+                example: INR
+              validUntil:
+                type: string
+                format: date
+              notes:
+                type: string
+    responses:
+      '201':
+        description: Draft quote created
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Quotation'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '422':
+        description: Customer does not exist or is inactive
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}:
+  get:
+    tags: [Quotations]
+    summary: Get full quote detail
+    description: Includes all lines, totals, cumulative discount per line, blended risk score, pool assignment, approval status.
+    operationId: getQuoteById
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Full quote detail
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Quotation'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  patch:
+    tags: [Quotations]
+    summary: Update quote header
+    description: Only allowed when status is `draft` or `returned`.
+    operationId: updateQuote
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              currency:
+                type: string
+              validUntil:
+                type: string
+                format: date
+              notes:
+                type: string
+    responses:
+      '200':
+        description: Quote updated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Quotation'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in an editable status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            example:
+              success: false
+              message: "Quote cannot be edited because it is currently in 'Manager Review' status"
+              data: null
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  delete:
+    tags: [Quotations]
+    summary: Cancel a draft quote
+    description: Soft-cancel. Only allowed for quotes in `draft` status.
+    operationId: cancelQuote
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote cancelled
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiSuccessResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote cannot be cancelled in its current status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/submit:
+  post:
+    tags: [Quotations]
+    summary: Submit quote
+    description: |
+      Triggers full discount governance:
+      1. Calculates 5-type cumulative discount per line.
+      2. Checks each line against DiscountPolicy ceiling.
+      3. Assigns lines to normal_pool or premium_bulk_pool.
+      4. Computes blended risk score.
+      5. Routes to approval (Level 1 or Level 2) or auto-approves.
+
+      Requires customer to have a location set if quote has hardware lines.
+    operationId: submitQuote
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote submitted. Returns updated quote with new status and approval route.
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Quotation'
+      '400':
+        description: Quote has no lines or other validation failure
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in draft or returned status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '422':
+        description: Customer location missing for hardware delivery
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            example:
+              success: false
+              message: "Customer location (lat/lng) is required for hardware order fulfillment. Update the customer record first."
+              data: null
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/send-to-customer:
+  post:
+    tags: [Quotations]
+    summary: Send approved quote to customer portal
+    description: Marks the quote as `sent_to_customer`. Customer can now see and interact with it in the portal.
+    operationId: sendQuoteToCustomer
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Quote sent to customer
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Quotation'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Quote is not in approved status
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/recalculate:
+  post:
+    tags: [Quotations]
+    summary: Re-trigger discount and risk recalculation
+    operationId: recalculateQuote
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Recalculation complete
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/RiskEvaluation'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/risk:
+  get:
+    tags: [Quotations]
+    summary: Get risk evaluation for a quote
+    operationId: getQuoteRisk
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Risk evaluation result
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/RiskEvaluation'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/deposit:
+  get:
+    tags: [Quotations]
+    summary: Get deposit status for a quote
+    operationId: getQuoteDeposit
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Deposit record
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DepositRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+  post:
+    tags: [Quotations]
+    summary: Record a partial deposit payment (internal — Finance)
+    description: Finance records when the customer's deposit payment is received.
+    operationId: recordDeposit
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [amount]
+            properties:
+              amount:
+                type: number
+                format: decimal
+              method:
+                type: string
+                example: bank_transfer
+    responses:
+      '201':
+        description: Deposit recorded
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DepositRecord'
+      '400':
+        $ref: '#/components/responses/BadRequest'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Deposit already recorded for this quote
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '422':
+        description: Quote does not have any premium/bulk pool lines — deposit not applicable
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+      '500':
+        $ref: '#/components/responses/InternalError'
+
+/quotes/{quoteId}/deposit/refund:
+  post:
+    tags: [Quotations]
+    summary: Trigger deposit refund
+    description: Used when approval is rejected or customer cancels before confirmation. Deposit is 100% refundable.
+    operationId: refundDeposit
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/quoteIdParam'
+    responses:
+      '200':
+        description: Refund initiated
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiSuccessResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/DepositRecord'
+      '401':
+        $ref: '#/components/responses/Unauthorized'
+      '403':
+        $ref: '#/components/responses/Forbidden'
+      '404':
+        $ref: '#/components/responses/NotFound'
+      '409':
+        description: Deposit not in paid status or already refunded
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiErrorResponse'
+            example:
+              success: false
+              message: "Deposit cannot be refunded — quote is already confirmed and fulfillment has started"
+              data: null
+      '500':
+        $ref: '#/components/responses/InternalError'

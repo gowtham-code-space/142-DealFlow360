@@ -1,8 +1,13 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
-
+// Seed script placeholder (Prisma disabled for Swagger preview)
 async function main() {
-  console.log('🌱 Seeding DealFlow360 database...');
+  console.log('[Seed] Database seeding bypassed (Swagger mode)');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+  });
+
 
   // 1. Seed Customers
   const customerApex = await prisma.customer.upsert({
