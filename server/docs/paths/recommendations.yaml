@@ -2,7 +2,7 @@
 # RECOMMENDATIONS
 # ═══════════════════════════════════════════
 
-/quotes/{quoteId}/recommendations:
+/api/v1/quotes/{quoteId}/recommendations:
   get:
     tags: [Recommendations]
     summary: Get upsell / cross-sell suggestions
@@ -35,7 +35,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/recommendations/{productId}/add:
+/api/v1/quotes/{quoteId}/recommendations/{productId}/add:
   post:
     tags: [Recommendations]
     summary: Accept a recommendation — add product as new quote line
@@ -74,7 +74,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/recommendations/{productId}/dismiss:
+/api/v1/quotes/{quoteId}/recommendations/{productId}/dismiss:
   post:
     tags: [Recommendations]
     summary: Dismiss a recommendation

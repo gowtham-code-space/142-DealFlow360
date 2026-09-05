@@ -2,7 +2,7 @@
 # USERS
 # ═══════════════════════════════════════════
 
-/users:
+/api/v1/users:
   get:
     tags: [Users]
     summary: List internal users
@@ -87,7 +87,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/users/bulk:
+/api/v1/users/bulk:
   post:
     tags: [Users]
     summary: Bulk create internal users
@@ -127,7 +127,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/users/{userId}:
+/api/v1/users/{userId}:
   get:
     tags: [Users]
     summary: Get user by ID
@@ -233,7 +233,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/users/{userId}/reactivate:
+/api/v1/users/{userId}/reactivate:
   post:
     tags: [Users]
     summary: Reactivate a soft-deleted user

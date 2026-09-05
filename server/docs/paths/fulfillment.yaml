@@ -2,7 +2,7 @@
 # FULFILLMENT
 # ═══════════════════════════════════════════
 
-/quotes/{quoteId}/allocation:
+/api/v1/quotes/{quoteId}/allocation:
   get:
     tags: [Fulfillment]
     summary: Get proposed warehouse allocation for a quote
@@ -42,7 +42,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/allocation/accept:
+/api/v1/quotes/{quoteId}/allocation/accept:
   post:
     tags: [Fulfillment]
     summary: Accept the system-proposed warehouse allocation
@@ -79,7 +79,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/allocation/override:
+/api/v1/quotes/{quoteId}/allocation/override:
   post:
     tags: [Fulfillment]
     summary: Manual warehouse allocation override
@@ -152,7 +152,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/backorders:
+/api/v1/quotes/{quoteId}/backorders:
   get:
     tags: [Fulfillment]
     summary: List backorder records for a quote
@@ -184,7 +184,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/backorders/{backorderId}:
+/api/v1/backorders/{backorderId}:
   patch:
     tags: [Fulfillment]
     summary: Update backorder (expected date, notes)
@@ -228,7 +228,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/backorders/{backorderId}/fulfill:
+/api/v1/backorders/{backorderId}/fulfill:
   post:
     tags: [Fulfillment]
     summary: Mark backorder as fulfilled
@@ -265,7 +265,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/backorders/{backorderId}/cancel:
+/api/v1/backorders/{backorderId}/cancel:
   post:
     tags: [Fulfillment]
     summary: Cancel a backorder

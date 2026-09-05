@@ -1,20 +1,45 @@
 # ─── Auth & User Schemas ─────────────────
 
+TokenResponse:
+  type: object
+  description: Authentication token payload. Decoded JWT contains userId and roleId.
+  properties:
+    accessToken:
+      type: string
+      description: Short-lived JWT (15 min). Encodes { userId, roleId } in token payload. Store in client memory only.
+      example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    tokenType:
+      type: string
+      example: "Bearer"
+    expiresIn:
+      type: integer
+      description: Token expiration duration in seconds
+      example: 900
+
 UserPublic:
   type: object
   properties:
     id:
       type: string
+      example: usr_01HXYZ123
     name:
       type: string
+      example: David Keller
     email:
       type: string
       format: email
+      example: david.keller@dealflow360.com
     role:
       type: string
-      enum: [admin, manager, sales_rep, finance]
+      enum: [admin, sales_rep, sales_manager, finance_ops]
+      example: sales_manager
+    roleId:
+      type: string
+      description: Unique identifier for the assigned role
+      example: role_mgr_01
     isActive:
       type: boolean
+      example: true
     createdAt:
       type: string
       format: date-time
@@ -33,4 +58,4 @@ CreateUserRequest:
       minLength: 8
     role:
       type: string
-      enum: [admin, manager, sales_rep, finance]
+      enum: [admin, sales_rep, sales_manager, finance_ops]

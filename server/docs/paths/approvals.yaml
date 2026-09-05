@@ -2,7 +2,7 @@
 # APPROVALS
 # ═══════════════════════════════════════════
 
-/approvals:
+/api/v1/approvals:
   get:
     tags: [Approvals]
     summary: List approval requests
@@ -52,7 +52,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/approvals/{approvalId}:
+/api/v1/approvals/{approvalId}:
   get:
     tags: [Approvals]
     summary: Get approval request detail
@@ -82,7 +82,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/approvals/{approvalId}/approve:
+/api/v1/approvals/{approvalId}/approve:
   post:
     tags: [Approvals]
     summary: Approve a quote at this approval step
@@ -143,7 +143,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/approvals/{approvalId}/reject:
+/api/v1/approvals/{approvalId}/reject:
   post:
     tags: [Approvals]
     summary: Reject a quote at this approval step
@@ -192,7 +192,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/approvals/{approvalId}/return:
+/api/v1/approvals/{approvalId}/return:
   post:
     tags: [Approvals]
     summary: Return quote to Sales Rep for revision
@@ -241,7 +241,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/approvals:
+/api/v1/quotes/{quoteId}/approvals:
   get:
     tags: [Approvals]
     summary: List all approval steps for a quote

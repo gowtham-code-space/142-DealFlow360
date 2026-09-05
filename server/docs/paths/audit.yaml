@@ -2,7 +2,7 @@
 # AUDIT LOGS
 # ═══════════════════════════════════════════
 
-/quotes/{quoteId}/audit-logs:
+/api/v1/quotes/{quoteId}/audit-logs:
   get:
     tags: [AuditLogs]
     summary: Get audit trail for a quote
@@ -41,7 +41,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/audit-logs:
+/api/v1/audit-logs:
   get:
     tags: [AuditLogs]
     summary: Global audit log (admin only)
