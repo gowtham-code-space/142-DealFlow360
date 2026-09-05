@@ -1,33 +1,42 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
+import Toast from '../../components/common/Toast';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
+const INITIAL_LOGS = [
+  { id: 'AUD-8921', time: '2026-09-05 14:22:04', actor: 'Victoria Stone (Admin)', event: 'Authenticated into Admin Console', target: 'SESSION-901', risk: 'INFO', status: 'VERIFIED' },
+  { id: 'AUD-8920', time: '2026-09-04 14:32:15', actor: 'Marcus Vance (Customer)', event: 'Submitted counter-offer (25% disc, Net 60)', target: 'Q-2026-002', risk: 'MEDIUM', status: 'VERIFIED' },
+  { id: 'AUD-8919', time: '2026-09-02 11:15:40', actor: 'Sarah Jenkins (Rep)', event: 'Created quote exceeding Gold Tier limit (22% vs 20%)', target: 'Q-2026-001', risk: 'MEDIUM', status: 'VERIFIED' },
+  { id: 'AUD-8918', time: '2026-08-30 09:44:12', actor: 'David Keller (Manager)', event: 'Approved quotation override (15% disc)', target: 'Q-2026-003', risk: 'LOW', status: 'VERIFIED' },
+  { id: 'AUD-8917', time: '2026-08-25 16:50:33', actor: 'Discount Evaluator', event: 'Evaluated quote against Gold Tier policy', target: 'Q-2026-004', risk: 'LOW', status: 'VERIFIED' },
+  { id: 'AUD-8916', time: '2026-08-20 10:12:00', actor: 'System Evaluator', event: 'Hard ceiling discount check passed', target: 'POL-HARD-CEILING', risk: 'INFO', status: 'VERIFIED' }
+];
+
 export default function AuditLogs() {
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '' });
+  const [logs] = useState(INITIAL_LOGS);
   const [filterRisk, setFilterRisk] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [toast, setToast] = useState(null);
 
-  const handleBlockedAction = (actionTitle) => {
-    setModalConfig({
-      isOpen: true,
-      title: `Audit Log Inspection — ${actionTitle}`,
-      message: `The Immutable Audit Log Stream is operating in Read-Only Mode. Hashing verification and SHA-256 cryptographic proofs are generated locally.`
-    });
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
   };
 
-  const mockLogs = [
-    { id: 'AUD-8921', time: '2026-09-05 14:22:04', hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', actor: 'Victoria Stone (Admin)', event: 'Authenticated into Admin Console', target: 'SESSION-901', risk: 'INFO', status: 'VERIFIED_CHAIN' },
-    { id: 'AUD-8920', time: '2026-09-04 14:32:15', hash: 'a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e', actor: 'Marcus Vance (Customer)', event: 'Submitted counter-offer (25% disc, Net 60)', target: 'Q-2026-002', risk: 'MEDIUM', status: 'VERIFIED_CHAIN' },
-    { id: 'AUD-8919', time: '2026-09-02 11:15:40', hash: '5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9', actor: 'Sarah Jenkins (Rep)', event: 'Created quote exceeding Gold Tier limit (22% vs 20%)', target: 'Q-2026-001', risk: 'MEDIUM', status: 'VERIFIED_CHAIN' },
-    { id: 'AUD-8918', time: '2026-08-30 09:44:12', hash: '6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b', actor: 'David Keller (Manager)', event: 'Approved quotation override (15% disc)', target: 'Q-2026-003', risk: 'LOW', status: 'VERIFIED_CHAIN' },
-    { id: 'AUD-8917', time: '2026-08-25 16:50:33', hash: 'd4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35', actor: 'Discount Evaluator', event: 'Evaluated quote against Gold Tier policy', target: 'Q-2026-004', risk: 'LOW', status: 'VERIFIED_CHAIN' },
-    { id: 'AUD-8916', time: '2026-08-20 10:12:00', hash: '4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce', actor: 'System Evaluator', event: 'Hard ceiling discount check passed', target: 'POL-HARD-CEILING', risk: 'INFO', status: 'VERIFIED_CHAIN' }
-  ];
+  const handleInspectLog = (log) => {
+    setSelectedLog(log);
+    setIsDetailModalOpen(true);
+  };
 
-  const filteredLogs = mockLogs.filter(log => {
+  const handleExport = () => {
+    showToast('Audit stream exported to CSV format.');
+  };
+
+  const filteredLogs = logs.filter(log => {
     const matchesRisk = filterRisk === 'ALL' || log.risk === filterRisk;
     const matchesQuery = log.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       log.event.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -37,6 +46,8 @@ export default function AuditLogs() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -54,20 +65,17 @@ export default function AuditLogs() {
             </div>
             <div>
               <h1 className="headline-lg" style={{ color: 'var(--primary)', fontWeight: 700 }}>
-                Immutable Audit Logs & Merkle System Stream
+                System Audit & Compliance Log Stream
               </h1>
               <p className="body-sm" style={{ color: 'var(--on-surface-variant)' }}>
-                Append-Only Immutable Event Stream, SHA-256 Merkle Tree Hashing & SOC2 Compliance Inspection
+                Activity Stream & Compliance Inspection History
               </p>
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="badge" style={{ background: 'rgba(87,52,79,0.1)', color: 'var(--primary)', padding: '6px 12px', fontSize: 12 }}>
-            <MS icon="shield" size={16} /> SHA-256 Merkle Chain Verified
-          </span>
-          <button onClick={() => handleBlockedAction('Export Audit Stream CSV')} className="btn btn-primary btn-sm">
+          <button onClick={handleExport} className="btn btn-primary btn-sm">
             <MS icon="download" size={16} /> Export Audit Stream
           </button>
         </div>
@@ -77,62 +85,63 @@ export default function AuditLogs() {
       <div className="grid-metrics">
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Total Audit Logs</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>8,921 Events</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Append-Only Immutable Stream</span>
-        </div>
-
-        <div className="card card-body">
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Cryptographic Proof</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>SHA-256 Merkle</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Zero-Tamper Verification</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{logs.length} Events</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>System Audit Stream</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Compliance Standard</span>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>SOX / SOC2 Type II</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Audit Trail Certified</span>
-        </div>
-
-        <div className="card card-body">
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Chain Integrity</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)' }}>100% Valid</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Zero Hash Mismatch</span>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Audit Trail Compliant</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Critical Flags</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>0 Events</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>No Security Violations</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>0 Security Events</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Normal Operation</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Stream Status</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>Read-Only</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Local Hashing Active</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>Live</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Event Logging Active</span>
         </div>
       </div>
 
       {/* Audit Log Table */}
       <div className="card">
-        <div className="card-header flex-between">
+        <div className="card-header flex-between" style={{ flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Immutable System Activity Stream</h3>
-            <p className="body-sm" style={{ color: 'var(--outline)' }}>Event ID, SHA-256 cryptographic hash snapshot, actor, and risk classification</p>
+            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>System Activity Audit Stream</h3>
+            <p className="body-sm" style={{ color: 'var(--outline)' }}>Event ID, timestamp, actor, and risk classification</p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input
               type="text"
               placeholder="Search audit events..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="input-field"
-              style={{ width: 220, height: 32 }}
+              style={{
+                width: 200,
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--outline-variant)',
+                fontSize: 13
+              }}
             />
             <select
               value={filterRisk}
               onChange={e => setFilterRisk(e.target.value)}
               className="select-field"
-              style={{ width: 140, height: 32 }}
+              style={{
+                width: 140,
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--outline-variant)',
+                fontSize: 13,
+                background: '#fff'
+              }}
             >
               <option value="ALL">All Risk Levels</option>
               <option value="INFO">INFO</option>
@@ -149,71 +158,103 @@ export default function AuditLogs() {
               <tr>
                 <th>Log ID</th>
                 <th>Timestamp</th>
-                <th>Cryptographic SHA-256 Hash</th>
                 <th>Actor Persona</th>
                 <th>Action Description</th>
                 <th>Target Entity</th>
                 <th>Risk Rating</th>
-                <th>Chain Integrity</th>
-                <th>Ops</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log) => (
-                <tr key={log.id}>
-                  <td className="font-mono font-semibold">{log.id}</td>
-                  <td className="font-mono text-sm">{log.time}</td>
-                  <td className="font-mono text-xs" style={{ color: 'var(--outline)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {log.hash.slice(0, 16)}...
-                  </td>
-                  <td>{log.actor}</td>
-                  <td>{log.event}</td>
-                  <td className="font-mono font-semibold">{log.target}</td>
-                  <td>
-                    <span className={`badge ${log.risk === 'INFO' ? 'badge-surface' : log.risk === 'LOW' ? 'badge-success' : log.risk === 'MEDIUM' ? 'badge-amber' : 'badge-error'}`}>
-                      {log.risk}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="badge badge-success">&check; {log.status}</span>
-                  </td>
-                  <td>
-                    <button onClick={() => handleBlockedAction(`Inspect Log ${log.id}`)} className="btn btn-outline btn-sm">
-                      Inspect
-                    </button>
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: 'var(--outline)' }}>
+                    No audit events match your search query.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="font-mono font-semibold">{log.id}</td>
+                    <td className="font-mono text-sm">{log.time}</td>
+                    <td>{log.actor}</td>
+                    <td>{log.event}</td>
+                    <td className="font-mono font-semibold">{log.target}</td>
+                    <td>
+                      <span className={`badge ${log.risk === 'INFO' ? 'badge-surface' : log.risk === 'LOW' ? 'badge-success' : log.risk === 'MEDIUM' ? 'badge-amber' : 'badge-error'}`}>
+                        {log.risk}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge badge-success">&check; {log.status}</span>
+                    </td>
+                    <td>
+                      <button onClick={() => handleInspectLog(log)} className="btn btn-outline btn-sm">
+                        Inspect
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Read-Only Action Modal */}
+      {/* Inspect Detail Modal */}
       <Modal
-        isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-        title={modalConfig.title}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={`Audit Event Details — ${selectedLog?.id || ''}`}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            padding: 12, borderRadius: 'var(--radius-md)',
-            background: 'var(--surface-container-high)', color: 'var(--on-surface)',
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12
-          }}>
-            <MS icon="shield" size={20} />
-            <span><strong>Merkle Chain Proof:</strong> Cryptographic SHA-256 hash verified. Log entry is immutable.</span>
+        {selectedLog && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: 'var(--surface-container-low)', padding: 14, borderRadius: 8 }}>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Log ID</span>
+                <strong className="font-mono" style={{ fontSize: 14 }}>{selectedLog.id}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Timestamp</span>
+                <span className="font-mono" style={{ fontSize: 13 }}>{selectedLog.time}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Actor</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedLog.actor}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Target Entity</span>
+                <strong className="font-mono" style={{ fontSize: 14 }}>{selectedLog.target}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Risk Rating</span>
+                <span className={`badge ${selectedLog.risk === 'INFO' ? 'badge-surface' : selectedLog.risk === 'LOW' ? 'badge-success' : selectedLog.risk === 'MEDIUM' ? 'badge-amber' : 'badge-error'}`}>
+                  {selectedLog.risk}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Status</span>
+                <span className="badge badge-success">&check; {selectedLog.status}</span>
+              </div>
+            </div>
+
+            <div>
+              <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block', marginBottom: 4 }}>Action Description</span>
+              <div style={{ padding: 12, background: '#fff', borderRadius: 6, border: '1px solid var(--outline-variant)', fontSize: 13, color: 'var(--on-surface)' }}>
+                {selectedLog.event}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+              <button onClick={() => setIsDetailModalOpen(false)} className="btn btn-primary">
+                Close
+              </button>
+            </div>
           </div>
-          <p className="body-md" style={{ color: 'var(--on-surface-variant)' }}>
-            {modalConfig.message}
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="btn btn-primary">
-              Acknowledge & Close
-            </button>
-          </div>
-        </div>
+        )}
       </Modal>
     </div>
   );
 }
+

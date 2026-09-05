@@ -1,25 +1,101 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
+import Toast from '../../components/common/Toast';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
+const INITIAL_RULES = [
+  { id: 'ARULE-101', name: 'Standard Tier Over-Discount', tier: 'STANDARD', conditions: 'Discount > 10% AND <= 20%', approver: 'Sales Manager (Single-Sig)', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE' },
+  { id: 'ARULE-102', name: 'Gold Tier Over-Discount', tier: 'GOLD', conditions: 'Discount > 20% AND <= 30%', approver: 'Sales Manager (Single-Sig)', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE' },
+  { id: 'ARULE-103', name: 'Platinum Tier Deep Discount', tier: 'PLATINUM', conditions: 'Discount > 30% AND <= 40%', approver: 'VP Sales & VP Finance (Dual-Sig)', sla: '12 Hours', onExpire: 'Escalate to CEO', status: 'ACTIVE' },
+  { id: 'ARULE-201', name: 'Low Margin Profit Lock', tier: 'ALL', conditions: 'Gross Margin 22.0% - 29.9%', approver: 'Finance Ops Manager', sla: '18 Hours', onExpire: 'Require Cost Breakdown', status: 'ACTIVE' },
+  { id: 'ARULE-301', name: 'Mega Deal Threshold Gate', tier: 'ALL', conditions: 'Total Value > ₹2,00,00,000', approver: 'VP Sales & VP Finance', sla: '8 Hours', onExpire: 'Urgent Executive Alert', status: 'ACTIVE' },
+  { id: 'ARULE-999', name: 'Hard Ceiling System Floor', tier: 'ALL', conditions: 'Discount > 45% OR Margin < 22%', approver: 'System Auto-Reject', sla: 'Instant', onExpire: 'Block Deal Submission', status: 'HARD FLOOR' }
+];
+
 export default function ApprovalRules() {
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '' });
+  const [rules, setRules] = useState(INITIAL_RULES);
   const [filterTier, setFilterTier] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [toastMsg, setToastMsg] = useState('');
 
-  const handleBlockedAction = (actionTitle) => {
-    setModalConfig({
-      isOpen: true,
-      title: `Backend API Not Connected — ${actionTitle}`,
-      message: `The Approval Rule Builder is running in Read-Only Governance Mode. Write actions for "${actionTitle}" are blocked until backend endpoint is active.`
-    });
+  // Form Modal State (Add / Edit)
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRule, setEditingRule] = useState(null);
+  const [formData, setFormData] = useState({
+    id: '', name: '', tier: 'STANDARD', conditions: '', approver: '', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE'
+  });
+  const [formErrors, setFormErrors] = useState({});
+
+  // View Detail Modal State
+  const [viewRule, setViewRule] = useState(null);
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 3000);
   };
+
+  const handleOpenAdd = () => {
+    setEditingRule(null);
+    setFormData({
+      id: `ARULE-${Math.floor(100 + Math.random() * 900)}`,
+      name: '', tier: 'STANDARD', conditions: '', approver: '', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE'
+    });
+    setFormErrors({});
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEdit = (rule) => {
+    setEditingRule(rule);
+    setFormData({ ...rule });
+    setFormErrors({});
+    setIsFormOpen(true);
+  };
+
+  const handleSaveForm = (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (!formData.name.trim()) errors.name = 'Rule Name is required';
+    if (!formData.conditions.trim()) errors.conditions = 'Trigger Conditions are required';
+    if (!formData.approver.trim()) errors.approver = 'Assigned Approver is required';
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    if (editingRule) {
+      setRules(prev => prev.map(r => r.id === editingRule.id ? { ...formData } : r));
+      showToast(`Approval rule "${formData.name}" updated successfully.`);
+    } else {
+      setRules(prev => [formData, ...prev]);
+      showToast(`Approval rule "${formData.name}" created successfully.`);
+    }
+    setIsFormOpen(false);
+  };
+
+  const handleToggleStatus = (rule) => {
+    if (rule.status === 'HARD FLOOR') return;
+    const newStatus = rule.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, status: newStatus } : r));
+    showToast(`Rule ${rule.id} status changed to ${newStatus}.`);
+  };
+
+  const filteredRules = rules.filter(rule => {
+    const matchesTier = filterTier === 'ALL' || rule.tier === filterTier || rule.tier === 'ALL';
+    const matchesQuery = rule.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         rule.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         rule.approver.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTier && matchesQuery;
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Toast Notification */}
+      <Toast message={toastMsg} onClose={() => setToastMsg('')} />
+
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -47,10 +123,7 @@ export default function ApprovalRules() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="badge" style={{ background: 'rgba(87,52,79,0.1)', color: 'var(--primary)', padding: '6px 12px', fontSize: 12 }}>
-            <MS icon="shield" size={16} /> Read-Only Rule Engine
-          </span>
-          <button onClick={() => handleBlockedAction('Create Approval Chain Rule')} className="btn btn-primary btn-sm">
+          <button onClick={handleOpenAdd} className="btn btn-primary btn-sm">
             <MS icon="add" size={16} /> + New Approval Rule
           </button>
         </div>
@@ -60,7 +133,7 @@ export default function ApprovalRules() {
       <div className="grid-metrics">
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Active Chains</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>8 Rule Chains</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{rules.filter(r => r.status === 'ACTIVE').length} Active Rules</div>
           <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Tier & Margin Conditionals</span>
         </div>
 
@@ -91,7 +164,7 @@ export default function ApprovalRules() {
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Rule Execution</span>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>Enforced</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Frontend Evaluator Active</span>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Active Multi-Sig Chain</span>
         </div>
       </div>
 
@@ -179,101 +252,222 @@ export default function ApprovalRules() {
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="font-mono font-semibold">ARULE-101</td>
-                <td>Standard Tier Over-Discount</td>
-                <td><span className="badge badge-surface">Standard</span></td>
-                <td className="font-mono">Discount &gt; 10% AND &le; 20%</td>
-                <td>Sales Manager (Single-Sig)</td>
-                <td>24 Hours</td>
-                <td>Escalate to VP Sales</td>
-                <td><span className="badge badge-success">ACTIVE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit ARULE-101')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">ARULE-102</td>
-                <td>Gold Tier Over-Discount</td>
-                <td><span className="badge badge-amber">Gold</span></td>
-                <td className="font-mono">Discount &gt; 20% AND &le; 30%</td>
-                <td>Sales Manager (Single-Sig)</td>
-                <td>24 Hours</td>
-                <td>Escalate to VP Sales</td>
-                <td><span className="badge badge-success">ACTIVE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit ARULE-102')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">ARULE-103</td>
-                <td>Platinum Tier Deep Discount</td>
-                <td><span className="badge badge-secondary">Platinum</span></td>
-                <td className="font-mono">Discount &gt; 30% AND &le; 40%</td>
-                <td>VP Sales & VP Finance (Dual-Sig)</td>
-                <td>12 Hours</td>
-                <td>Escalate to CEO</td>
-                <td><span className="badge badge-success">ACTIVE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit ARULE-103')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">ARULE-201</td>
-                <td>Low Margin Profit Lock</td>
-                <td>All Tiers</td>
-                <td className="font-mono">Gross Margin 22.0% - 29.9%</td>
-                <td>Finance Ops Manager</td>
-                <td>18 Hours</td>
-                <td>Require Cost Breakdown</td>
-                <td><span className="badge badge-success">ACTIVE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit ARULE-201')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">ARULE-301</td>
-                <td>Mega Deal Threshold Gate</td>
-                <td>All Tiers</td>
-                <td className="font-mono">Total Value &gt; ₹2,00,00,000</td>
-                <td>VP Sales & VP Finance</td>
-                <td>8 Hours</td>
-                <td>Urgent Executive Alert</td>
-                <td><span className="badge badge-success">ACTIVE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit ARULE-301')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">ARULE-999</td>
-                <td>Hard Ceiling System Floor</td>
-                <td>Global</td>
-                <td className="font-mono">Discount &gt; 45% OR Margin &lt; 22%</td>
-                <td>System Auto-Reject</td>
-                <td>Instant</td>
-                <td>Block Deal Submission</td>
-                <td><span className="badge badge-error">HARD FLOOR</span></td>
-                <td><button onClick={() => handleBlockedAction('Inspect ARULE-999')} className="btn btn-outline btn-sm">Inspect</button></td>
-              </tr>
+              {filteredRules.map(rule => (
+                <tr key={rule.id}>
+                  <td className="font-mono font-semibold">{rule.id}</td>
+                  <td className="font-semibold" style={{ color: 'var(--on-surface)' }}>{rule.name}</td>
+                  <td>
+                    <span className={`badge ${rule.tier === 'PLATINUM' ? 'badge-secondary' : rule.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
+                      {rule.tier}
+                    </span>
+                  </td>
+                  <td className="font-mono">{rule.conditions}</td>
+                  <td>{rule.approver}</td>
+                  <td>{rule.sla}</td>
+                  <td>{rule.onExpire}</td>
+                  <td>
+                    <span className={`badge ${rule.status === 'ACTIVE' ? 'badge-success' : rule.status === 'HARD FLOOR' ? 'badge-error' : 'badge-surface'}`}>
+                      {rule.status}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => setViewRule(rule)} className="btn btn-outline btn-sm" title="View Details">
+                        View
+                      </button>
+                      <button onClick={() => handleOpenEdit(rule)} className="btn btn-outline btn-sm" title="Edit Rule">
+                        Edit
+                      </button>
+                      {rule.status !== 'HARD FLOOR' && (
+                        <button
+                          onClick={() => handleToggleStatus(rule)}
+                          className={`btn btn-sm ${rule.status === 'ACTIVE' ? 'btn-outline' : 'btn-primary'}`}
+                          style={{ fontSize: 10, padding: '2px 6px' }}
+                        >
+                          {rule.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Read-Only Action Modal */}
+      {/* Add/Edit Rule Modal Form */}
       <Modal
-        isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-        title={modalConfig.title}
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={editingRule ? `Edit Approval Rule — ${editingRule.id}` : 'Create New Approval Chain Rule'}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            padding: 12, borderRadius: 'var(--radius-md)',
-            background: 'var(--error-container)', color: 'var(--on-error-container)',
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12
-          }}>
-            <MS icon="lock" size={20} />
-            <span><strong>Read-Only Governance Protection:</strong> Rule updates are disabled until backend approval endpoints are deployed.</span>
+        <form onSubmit={handleSaveForm} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="input-group">
+            <label className="input-label">Rule Identifier</label>
+            <input
+              type="text"
+              value={formData.id}
+              disabled
+              className="input-field font-mono"
+              style={{ background: 'var(--surface-container-low)' }}
+            />
           </div>
-          <p className="body-md" style={{ color: 'var(--on-surface-variant)' }}>
-            {modalConfig.message}
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="btn btn-primary">
-              Acknowledge & Close
+
+          <div className="input-group">
+            <label className="input-label">Rule Name *</label>
+            <input
+              type="text"
+              placeholder="e.g. Gold Tier Discount Escalation"
+              value={formData.name}
+              onChange={e => setFormData({ ...formData, name: e.target.value })}
+              className="input-field"
+            />
+            {formErrors.name && <span style={{ color: 'var(--error)', fontSize: 11, marginTop: 2 }}>{formErrors.name}</span>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="input-group">
+              <label className="input-label">Target Tier / Scope *</label>
+              <select
+                value={formData.tier}
+                onChange={e => setFormData({ ...formData, tier: e.target.value })}
+                className="select-field"
+              >
+                <option value="STANDARD">Standard Tier</option>
+                <option value="GOLD">Gold Tier</option>
+                <option value="PLATINUM">Platinum Tier</option>
+                <option value="ALL">All Tiers / Global</option>
+              </select>
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">Rule Status</label>
+              <select
+                value={formData.status}
+                onChange={e => setFormData({ ...formData, status: e.target.value })}
+                className="select-field"
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="DISABLED">DISABLED</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Trigger Conditions *</label>
+            <input
+              type="text"
+              placeholder="e.g. Discount > 20% AND <= 30%"
+              value={formData.conditions}
+              onChange={e => setFormData({ ...formData, conditions: e.target.value })}
+              className="input-field font-mono"
+            />
+            {formErrors.conditions && <span style={{ color: 'var(--error)', fontSize: 11, marginTop: 2 }}>{formErrors.conditions}</span>}
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Assigned Approver Role *</label>
+            <input
+              type="text"
+              placeholder="e.g. Sales Manager (Single-Sig)"
+              value={formData.approver}
+              onChange={e => setFormData({ ...formData, approver: e.target.value })}
+              className="input-field"
+            />
+            {formErrors.approver && <span style={{ color: 'var(--error)', fontSize: 11, marginTop: 2 }}>{formErrors.approver}</span>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="input-group">
+              <label className="input-label">Timeout SLA</label>
+              <select
+                value={formData.sla}
+                onChange={e => setFormData({ ...formData, sla: e.target.value })}
+                className="select-field"
+              >
+                <option value="Instant">Instant</option>
+                <option value="8 Hours">8 Hours</option>
+                <option value="12 Hours">12 Hours</option>
+                <option value="18 Hours">18 Hours</option>
+                <option value="24 Hours">24 Hours</option>
+                <option value="48 Hours">48 Hours</option>
+              </select>
+            </div>
+
+            <div className="input-group">
+              <label className="input-label">Action on Expire</label>
+              <input
+                type="text"
+                placeholder="e.g. Escalate to VP Sales"
+                value={formData.onExpire}
+                onChange={e => setFormData({ ...formData, onExpire: e.target.value })}
+                className="input-field"
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <button type="button" onClick={() => setIsFormOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {editingRule ? 'Save Changes' : 'Create Rule'}
             </button>
           </div>
-        </div>
+        </form>
+      </Modal>
+
+      {/* View Detail Modal */}
+      <Modal
+        isOpen={!!viewRule}
+        onClose={() => setViewRule(null)}
+        title={`Approval Rule Inspector — ${viewRule?.id}`}
+      >
+        {viewRule && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ padding: 14, borderRadius: 8, background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>
+              <div style={{ fontSize: 11, color: 'var(--outline)', textTransform: 'uppercase', fontWeight: 600 }}>Rule Name</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--primary)', marginTop: 2 }}>{viewRule.name}</div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid rgba(209,195,202,0.3)' }}>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Target Tier</span>
+                <strong style={{ fontSize: 13, color: 'var(--on-surface)' }}>{viewRule.tier}</strong>
+              </div>
+              <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid rgba(209,195,202,0.3)' }}>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Rule Status</span>
+                <strong style={{ fontSize: 13, color: 'var(--secondary)' }}>{viewRule.status}</strong>
+              </div>
+            </div>
+
+            <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid rgba(209,195,202,0.3)' }}>
+              <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Trigger Conditions</span>
+              <code style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>{viewRule.conditions}</code>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid rgba(209,195,202,0.3)' }}>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Assigned Approver</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{viewRule.approver}</span>
+              </div>
+              <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid rgba(209,195,202,0.3)' }}>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Timeout SLA & Escalation</span>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{viewRule.sla} &rarr; {viewRule.onExpire}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button onClick={() => { const r = viewRule; setViewRule(null); handleOpenEdit(r); }} className="btn btn-outline">
+                Edit Rule
+              </button>
+              <button onClick={() => setViewRule(null)} className="btn btn-primary">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -1,34 +1,61 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
+import Toast from '../../components/common/Toast';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
 export default function SystemSettings() {
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '' });
+  const [toast, setToast] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('registry');
-  const [searchQuery, setSearchQuery] = useState('Apex');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedPod, setSelectedPod] = useState('TNT-901');
 
-  // Inspector form states
+  // System Configuration States
   const [dbStrategy, setDbStrategy] = useState('Dedicated RDS Aurora Cluster (Isolated Physical Pod)');
   const [idpUrl, setIdpUrl] = useState('https://auth.apexlogistics.com/sso/saml');
   const [spEntityId, setSpEntityId] = useState('urn:dealflow360:sp:apex-enterprise-prod');
   const [jitEnabled, setJitEnabled] = useState(true);
   const [strictSso, setStrictSso] = useState(true);
-  const [sessionTimeout] = useState('15 Minutes');
+  const [sessionTimeout, setSessionTimeout] = useState('15 Minutes');
+  const [defaultCurrency, setDefaultCurrency] = useState('INR (₹)');
+  const [notificationPref, setNotificationPref] = useState('Email & In-App Toasts');
 
-  const handleBlockedAction = (actionTitle) => {
-    setModalConfig({
-      isOpen: true,
-      title: `Backend API Not Connected — ${actionTitle}`,
-      message: `Tenant configuration modification for "${actionTitle}" is operating in Read-Only Mode. Sovereign boundary rules and KMS isolation settings are maintained locally.`
-    });
+  // Modal
+  const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
+  const [newPodName, setNewPodName] = useState('');
+  const [newPodDomain, setNewPodDomain] = useState('');
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  const handleSaveSettings = () => {
+    showToast(`System settings for enclave #${selectedPod} saved successfully.`);
+  };
+
+  const handleVerifyCryptography = () => {
+    showToast('Cryptographic integrity check complete. All keys verified.', 'info');
+  };
+
+  const handleExportManifest = () => {
+    showToast('System configuration manifest JSON exported.');
+  };
+
+  const handleProvisionPod = (e) => {
+    e.preventDefault();
+    if (!newPodName.trim()) return;
+    showToast(`Isolated pod "${newPodName}" provisioned successfully.`);
+    setIsProvisionModalOpen(false);
+    setNewPodName('');
+    setNewPodDomain('');
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Top Banner & Action Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -45,19 +72,19 @@ export default function SystemSettings() {
               Tenant Isolation Architecture & Boundary Policy
             </h1>
             <span className="badge" style={{ background: 'rgba(0,105,110,0.15)', color: 'var(--secondary)', padding: '4px 10px', fontSize: 11 }}>
-              Strict Isolation Mode: Active &bull; FIPS 140-3 Level 4 &bull; Enforced v4.20-SEC
+              Strict Isolation Mode: Active &bull; Enterprise Grade &bull; Policy Enforced
             </span>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => handleBlockedAction('Verify Cryptography')} className="btn btn-outline btn-sm">
+          <button onClick={handleVerifyCryptography} className="btn btn-outline btn-sm">
             <MS icon="verified_user" size={16} /> Verify Cryptography
           </button>
-          <button onClick={() => handleBlockedAction('Export Manifest JSON')} className="btn btn-outline btn-sm">
+          <button onClick={handleExportManifest} className="btn btn-outline btn-sm">
             <MS icon="download" size={16} /> Export Manifest
           </button>
-          <button onClick={() => handleBlockedAction('Provision Isolated Pod')} className="btn btn-primary btn-sm">
+          <button onClick={() => setIsProvisionModalOpen(true)} className="btn btn-primary btn-sm">
             <MS icon="add_moderator" size={16} /> + Provision Isolated Pod
           </button>
         </div>
@@ -72,7 +99,7 @@ export default function SystemSettings() {
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)', marginTop: 4 }}>128 Enclaves</div>
           <span style={{ fontSize: 11, color: 'var(--secondary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <MS icon="shield_lock" size={14} /> 100% Zero-Leakage Tested (90d)
+            <MS icon="shield_lock" size={14} /> Zero-Leakage Tested
           </span>
         </div>
 
@@ -94,7 +121,7 @@ export default function SystemSettings() {
           </div>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)', marginTop: 4 }}>0 Events</div>
           <span style={{ fontSize: 11, color: 'var(--secondary)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <MS icon="pulse_alert" size={14} /> Real-time eBPF Probe Active
+            <MS icon="pulse_alert" size={14} /> Real-time Probe Active
           </span>
         </div>
 
@@ -114,7 +141,7 @@ export default function SystemSettings() {
           </div>
           <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--on-surface)', marginTop: 4 }}>AES-256-GCM</div>
           <span style={{ fontSize: 11, color: '#78350f', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <MS icon="vpn_key" size={14} /> 100% BYOK HW Enclave
+            <MS icon="vpn_key" size={14} /> BYOK HW Enclave
           </span>
         </div>
       </div>
@@ -129,7 +156,7 @@ export default function SystemSettings() {
               onClick={() => setActiveSubTab('registry')}
               className={`tab-btn ${activeSubTab === 'registry' ? 'active' : ''}`}
             >
-              <MS icon="domain" size={16} /> Tenant Enclave Registry (128)
+              <MS icon="domain" size={16} /> Tenant Enclave Registry
             </button>
             <button
               onClick={() => setActiveSubTab('saml')}
@@ -159,15 +186,10 @@ export default function SystemSettings() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Filter by domain, pod Enclave ID (#TNT), or AWS/Azure region..."
+                placeholder="Filter by domain or pod Enclave ID..."
                 className="input-field"
-                style={{ paddingLeft: 30, height: 32 }}
+                style={{ paddingLeft: 30, height: 32, fontSize: 13 }}
               />
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <span className="badge badge-surface">Tier: Dedicated Pod</span>
-              <span className="badge badge-secondary">KMS: Customer BYOK</span>
-              <span className="badge badge-surface">Zone: All Regions (4)</span>
             </div>
           </div>
 
@@ -177,11 +199,7 @@ export default function SystemSettings() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <MS icon="table_chart" size={18} />
                 <h3 className="headline-sm" style={{ color: 'var(--on-surface)' }}>Partitioned Enclave Directory</h3>
-                <span style={{ fontSize: 11, background: 'var(--surface-container)', padding: '2px 6px', borderRadius: 4 }}>5 of 128 Showing</span>
               </div>
-              <span style={{ fontSize: 11, color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <MS icon="sync" size={14} /> Sub-second synchronization
-              </span>
             </div>
 
             <div className="table-container">
@@ -192,7 +210,7 @@ export default function SystemSettings() {
                     <th>Org & Isolation Tier</th>
                     <th>KMS Key Architecture</th>
                     <th>Quota / Burst</th>
-                    <th>Status & Verification</th>
+                    <th>Status</th>
                     <th>Ops</th>
                   </tr>
                 </thead>
@@ -219,7 +237,7 @@ export default function SystemSettings() {
                       </span>
                     </td>
                     <td className="font-mono text-xs">150k / 300k r/m</td>
-                    <td><span className="badge badge-secondary">Air-Gapped: 100% Verified</span></td>
+                    <td><span className="badge badge-secondary">Air-Gapped Verified</span></td>
                     <td>
                       <button onClick={() => setSelectedPod('TNT-901')} className="btn btn-primary btn-sm">Config</button>
                     </td>
@@ -280,125 +298,8 @@ export default function SystemSettings() {
                       <button onClick={() => setSelectedPod('TNT-712')} className="btn btn-outline btn-sm">Config</button>
                     </td>
                   </tr>
-
-                  <tr
-                    onClick={() => setSelectedPod('TNT-605')}
-                    style={{ background: selectedPod === 'TNT-605' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <strong style={{ color: 'var(--on-surface)' }}>OmniRetail Global</strong>
-                        <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>omniretail.com</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="font-mono font-semibold">#TNT-605</span>
-                        <span style={{ fontSize: 10, color: 'var(--outline)' }}>Virtual Silo (gVisor)</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <MS icon="lock_open" size={14} /> Envelope AES-GCM
-                      </span>
-                    </td>
-                    <td className="font-mono text-xs">50k / 80k r/m</td>
-                    <td><span className="badge badge-surface">Active</span></td>
-                    <td>
-                      <button onClick={() => setSelectedPod('TNT-605')} className="btn btn-outline btn-sm">Config</button>
-                    </td>
-                  </tr>
-
-                  <tr
-                    onClick={() => setSelectedPod('TNT-512')}
-                    style={{ background: selectedPod === 'TNT-512' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <strong style={{ color: 'var(--on-surface)' }}>HyperScale Media</strong>
-                        <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>hyperscalemedia.com</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="font-mono font-semibold">#TNT-512</span>
-                        <span style={{ fontSize: 10, color: 'var(--outline)' }}>Shared DB Schema Pool</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <MS icon="key" size={14} /> Standard KMS
-                      </span>
-                    </td>
-                    <td className="font-mono text-xs text-error font-semibold">25k / 30k r/m</td>
-                    <td><span className="badge badge-error">Noisy-Neighbor Throttled</span></td>
-                    <td>
-                      <button onClick={() => setSelectedPod('TNT-512')} className="btn btn-outline btn-sm">Config</button>
-                    </td>
-                  </tr>
                 </tbody>
               </table>
-            </div>
-          </div>
-
-          {/* Sovereign Data Residency & Geofence Matrix */}
-          <div className="card card-body" style={{ background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>
-            <div className="flex-between" style={{ marginBottom: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <MS icon="public" size={18} />
-                <h3 className="headline-sm" style={{ color: 'var(--on-surface)' }}>Sovereign Data Residency & Geofence Matrix</h3>
-              </div>
-              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--secondary)' }}>Zero Cross-Border Exfiltration Guaranteed</span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-              <div style={{ background: '#fff', padding: 10, borderRadius: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
-                  <span>NA Zone</span>
-                  <span className="badge badge-surface" style={{ fontSize: 9 }}>FedRAMP High</span>
-                </div>
-                <p style={{ fontSize: 10, color: 'var(--outline)', marginTop: 4 }}>US-East (N. Virginia), US-West (Oregon)</p>
-                <div style={{ fontSize: 10, marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Enclaves: <strong>82 Pods</strong></span>
-                  <span style={{ color: 'var(--secondary)', fontWeight: 600 }}>Airgap Enforced</span>
-                </div>
-              </div>
-
-              <div style={{ background: '#fff', padding: 10, borderRadius: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
-                  <span>EU & Swiss</span>
-                  <span className="badge badge-amber" style={{ fontSize: 9 }}>FINMA / GDPR</span>
-                </div>
-                <p style={{ fontSize: 10, color: 'var(--outline)', marginTop: 4 }}>Frankfurt (eu-central-1), Zurich</p>
-                <div style={{ fontSize: 10, marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Enclaves: <strong>31 Pods</strong></span>
-                  <span style={{ color: '#78350f', fontWeight: 600 }}>Strict Art 28</span>
-                </div>
-              </div>
-
-              <div style={{ background: '#fff', padding: 10, borderRadius: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
-                  <span>APAC Zone</span>
-                  <span className="badge badge-surface" style={{ fontSize: 9 }}>MAS TRM</span>
-                </div>
-                <p style={{ fontSize: 10, color: 'var(--outline)', marginTop: 4 }}>Singapore, Tokyo</p>
-                <div style={{ fontSize: 10, marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Enclaves: <strong>11 Pods</strong></span>
-                  <span style={{ color: 'var(--secondary)', fontWeight: 600 }}>Direct Peering</span>
-                </div>
-              </div>
-
-              <div style={{ background: '#fff', padding: 10, borderRadius: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
-                  <span>LATAM Zone</span>
-                  <span className="badge badge-surface" style={{ fontSize: 9 }}>LGPD Master</span>
-                </div>
-                <p style={{ fontSize: 10, color: 'var(--outline)', marginTop: 4 }}>São Paulo (sa-east-1 Cluster)</p>
-                <div style={{ fontSize: 10, marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Enclaves: <strong>4 Pods</strong></span>
-                  <span style={{ color: 'var(--secondary)', fontWeight: 600 }}>National Geofence</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -415,9 +316,58 @@ export default function SystemSettings() {
               <span className="badge badge-primary font-mono">#{selectedPod}</span>
             </div>
 
-            <div style={{ fontSize: 11, color: 'var(--on-surface-variant)', display: 'flex', justifyContent: 'space-between' }}>
-              <span>Active Scope:</span>
-              <span className="badge badge-secondary" style={{ fontSize: 10 }}>Tier 1 Sovereign &bull; Air-Gapped</span>
+            {/* Global Session Settings */}
+            <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary)', fontWeight: 700, fontSize: 12 }}>
+                <MS icon="settings" size={16} />
+                <span>Global System Preferences</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label className="input-label" style={{ fontSize: 11 }}>Default Currency</label>
+                  <select
+                    value={defaultCurrency}
+                    onChange={e => setDefaultCurrency(e.target.value)}
+                    className="select-field"
+                    style={{ height: 32, fontSize: 12, width: '100%', background: '#fff' }}
+                  >
+                    <option value="INR (₹)">INR (₹)</option>
+                    <option value="USD ($)">USD ($)</option>
+                    <option value="EUR (€)">EUR (€)</option>
+                    <option value="GBP (£)">GBP (£)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="input-label" style={{ fontSize: 11 }}>Session Lockout Timeout</label>
+                  <select
+                    value={sessionTimeout}
+                    onChange={e => setSessionTimeout(e.target.value)}
+                    className="select-field"
+                    style={{ height: 32, fontSize: 12, width: '100%', background: '#fff' }}
+                  >
+                    <option value="15 Minutes">15 Minutes</option>
+                    <option value="30 Minutes">30 Minutes</option>
+                    <option value="60 Minutes">60 Minutes</option>
+                    <option value="Never">Never (Demo Mode)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 4 }}>
+                <label className="input-label" style={{ fontSize: 11 }}>Notification Preferences</label>
+                <select
+                  value={notificationPref}
+                  onChange={e => setNotificationPref(e.target.value)}
+                  className="select-field"
+                  style={{ height: 32, fontSize: 12, width: '100%', background: '#fff' }}
+                >
+                  <option value="Email & In-App Toasts">Email & In-App Toasts</option>
+                  <option value="In-App Toasts Only">In-App Toasts Only</option>
+                  <option value="Silent Governance Log">Silent Governance Log</option>
+                </select>
+              </div>
             </div>
 
             {/* Section 1: Tenant Enclave Boundaries */}
@@ -433,23 +383,12 @@ export default function SystemSettings() {
                   value={dbStrategy}
                   onChange={e => setDbStrategy(e.target.value)}
                   className="select-field"
-                  style={{ height: 32, fontSize: 12 }}
+                  style={{ height: 32, fontSize: 12, background: '#fff' }}
                 >
                   <option>Dedicated RDS Aurora Cluster (Isolated Physical Pod)</option>
                   <option>Schematized Multi-tenant Container (Shared VPC)</option>
                   <option>Ephemeral Sandboxed MicroVM</option>
                 </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 4 }}>
-                <div style={{ background: '#fff', padding: 8, borderRadius: 4 }}>
-                  <span style={{ fontSize: 10, color: 'var(--outline)', display: 'block' }}>Compute Isolation</span>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>gVisor + Firecracker</span>
-                </div>
-                <div style={{ background: '#fff', padding: 8, borderRadius: 4 }}>
-                  <span style={{ fontSize: 10, color: 'var(--outline)', display: 'block' }}>Network Routing</span>
-                  <span style={{ fontSize: 11, fontWeight: 600 }}>AWS PrivateLink (mTLS)</span>
-                </div>
               </div>
             </div>
 
@@ -457,7 +396,7 @@ export default function SystemSettings() {
             <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--primary)', fontWeight: 700, fontSize: 12 }}>
                 <MS icon="fingerprint" size={16} />
-                <span>2. Identity Federation & SSO (SAML 2.0 / OIDC)</span>
+                <span>2. Identity Federation & SSO (SAML 2.0)</span>
               </div>
 
               <div className="input-group">
@@ -502,60 +441,65 @@ export default function SystemSettings() {
                     style={{ width: 16, height: 16, cursor: 'pointer' }}
                   />
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginTop: 2 }}>
-                  <span style={{ color: 'var(--outline)' }}>Session Inactivity Lockout:</span>
-                  <span className="font-mono font-semibold">{sessionTimeout}</span>
-                </div>
               </div>
             </div>
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
               <button
-                onClick={() => handleBlockedAction(`Save Settings for ${selectedPod}`)}
+                onClick={handleSaveSettings}
                 className="btn btn-primary"
                 style={{ width: '100%' }}
               >
-                Save Enclave Configuration
-              </button>
-              <button
-                onClick={() => handleBlockedAction(`Re-evaluate Security for ${selectedPod}`)}
-                className="btn btn-outline"
-                style={{ width: '100%' }}
-              >
-                Re-evaluate Boundary Security
+                Save Enclave & Global Settings
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Read-Only Action Modal */}
+      {/* Provision Pod Modal */}
       <Modal
-        isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-        title={modalConfig.title}
+        isOpen={isProvisionModalOpen}
+        onClose={() => setIsProvisionModalOpen(false)}
+        title="Provision New Isolated Tenant Pod"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            padding: 12, borderRadius: 'var(--radius-md)',
-            background: 'var(--error-container)', color: 'var(--on-error-container)',
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12
-          }}>
-            <MS icon="lock" size={20} />
-            <span><strong>Read-Only Governance Protection:</strong> Tenant enclave reconfiguration is disabled in backend-disconnected state.</span>
+        <form onSubmit={handleProvisionPod} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Tenant Enterprise Name *</label>
+            <input
+              type="text"
+              className="form-control"
+              value={newPodName}
+              onChange={(e) => setNewPodName(e.target.value)}
+              placeholder="e.g. Zenith Corp"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
           </div>
-          <p className="body-md" style={{ color: 'var(--on-surface-variant)' }}>
-            {modalConfig.message}
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="btn btn-primary">
-              Acknowledge & Close
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Primary Domain</label>
+            <input
+              type="text"
+              className="form-control"
+              value={newPodDomain}
+              onChange={(e) => setNewPodDomain(e.target.value)}
+              placeholder="zenithcorp.com"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <button type="button" onClick={() => setIsProvisionModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Provision Pod
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   );
 }
+

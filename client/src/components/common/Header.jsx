@@ -54,19 +54,7 @@ export default function Header() {
                 padding: '2px 8px', borderRadius: 99,
                 background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
                 fontSize: 11, fontWeight: 500
-              }}>System Governance & Security Policy</span>
-            </div>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 99,
-              background: 'var(--surface-container-low)',
-              border: '1px solid rgba(209,195,202,0.3)',
-              color: 'var(--on-surface-variant)'
-            }}>
-              <MS icon="security" size={16} />
-              <span style={{ fontSize: 11, color: 'var(--on-surface)' }}>
-                System Audit: <strong style={{ color: '#7c3aed', fontWeight: 600 }}>100% Enforced</strong>
-              </span>
+              }}>System Governance</span>
             </div>
           </>
         ) : isManagerView ? (

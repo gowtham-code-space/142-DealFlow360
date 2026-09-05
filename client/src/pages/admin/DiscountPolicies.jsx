@@ -1,23 +1,182 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
+import Toast from '../../components/common/Toast';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-export default function DiscountPolicies() {
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '' });
+const INITIAL_POLICIES = [
+  {
+    id: 'POL-001',
+    tier: 'STANDARD',
+    policyName: 'Standard Tier Default Policy',
+    category: 'ALL',
+    autoApproveCap: 5.0,
+    managerReviewRange: '5.1% - 10.0%',
+    executiveRange: '10.1% - 45.0%',
+    hardRejectionCap: 45.0,
+    marginFloor: 22.0,
+    stacking: 'Single Line Discount',
+    status: 'Active'
+  },
+  {
+    id: 'POL-002',
+    tier: 'GOLD',
+    policyName: 'Gold Enterprise Acceleration Policy',
+    category: 'ALL',
+    autoApproveCap: 12.0,
+    managerReviewRange: '12.1% - 20.0%',
+    executiveRange: '20.1% - 45.0%',
+    hardRejectionCap: 45.0,
+    marginFloor: 20.0,
+    stacking: 'Volume + Line Discount',
+    status: 'Active'
+  },
+  {
+    id: 'POL-003',
+    tier: 'PLATINUM',
+    policyName: 'Apex Platinum Strategic Policy',
+    category: 'ALL',
+    autoApproveCap: 20.0,
+    managerReviewRange: '20.1% - 30.0%',
+    executiveRange: '30.1% - 45.0%',
+    hardRejectionCap: 45.0,
+    marginFloor: 18.0,
+    stacking: 'Custom SLA + Line Discount',
+    status: 'Active'
+  }
+];
 
-  const handleBlockedAction = (actionTitle) => {
-    setModalConfig({
-      isOpen: true,
-      title: `Backend API Not Connected — ${actionTitle}`,
-      message: `Discount policy modification for "${actionTitle}" is operating in Read-Only Mode. Mathematical discount guardrails are enforced via static policy rules.`
-    });
+const DEFAULT_POLICY_FORM = {
+  id: '',
+  policyName: '',
+  tier: 'GOLD',
+  category: 'ALL',
+  autoApproveCap: 10.0,
+  hardRejectionCap: 45.0,
+  marginFloor: 20.0,
+  stacking: 'Volume + Line Discount',
+  status: 'Active'
+};
+
+export default function DiscountPolicies() {
+  const [policies, setPolicies] = useState(INITIAL_POLICIES);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Modals state
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
+  const [editingPolicy, setEditingPolicy] = useState(null);
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
+
+  // Form State
+  const [formData, setFormData] = useState(DEFAULT_POLICY_FORM);
+  const [formErrors, setFormErrors] = useState({});
+
+  // Toast
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
   };
+
+  // Open Form for Add
+  const handleOpenAddModal = () => {
+    setEditingPolicy(null);
+    setFormData({
+      ...DEFAULT_POLICY_FORM,
+      id: `POL-${String(policies.length + 1).padStart(3, '0')}`
+    });
+    setFormErrors({});
+    setIsFormModalOpen(true);
+  };
+
+  // Open Form for Edit
+  const handleOpenEditModal = (pol) => {
+    setEditingPolicy(pol);
+    setFormData({ ...pol });
+    setFormErrors({});
+    setIsFormModalOpen(true);
+  };
+
+  // Open Detail Modal
+  const handleOpenDetailModal = (pol) => {
+    setSelectedPolicy(pol);
+    setIsDetailModalOpen(true);
+  };
+
+  // Open Confirm Deactivate Modal
+  const handleOpenConfirmModal = (pol) => {
+    setSelectedPolicy(pol);
+    setIsConfirmModalOpen(true);
+  };
+
+  // Form Validation
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.policyName.trim()) errors.policyName = 'Policy Name is required';
+    if (formData.autoApproveCap < 0 || formData.autoApproveCap > 100) errors.autoApproveCap = 'Auto Approve Cap must be 0-100%';
+    if (formData.hardRejectionCap <= formData.autoApproveCap) errors.hardRejectionCap = 'Hard Rejection Cap must exceed Auto Approve Cap';
+    if (formData.marginFloor < 0 || formData.marginFloor > 100) errors.marginFloor = 'Margin floor must be 0-100%';
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle Save
+  const handleSavePolicy = (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    const autoCap = Number(formData.autoApproveCap);
+    const hardCap = Number(formData.hardRejectionCap);
+    const midRangeStart = (autoCap + 0.1).toFixed(1);
+    const midRangeEnd = Math.min(autoCap + 10, hardCap).toFixed(1);
+    const execStart = (Number(midRangeEnd) + 0.1).toFixed(1);
+
+    const updatedPolicy = {
+      ...formData,
+      autoApproveCap: autoCap,
+      hardRejectionCap: hardCap,
+      marginFloor: Number(formData.marginFloor),
+      managerReviewRange: `${midRangeStart}% - ${midRangeEnd}%`,
+      executiveRange: `${execStart}% - ${hardCap.toFixed(1)}%`
+    };
+
+    if (editingPolicy) {
+      setPolicies(policies.map(p => p.id === editingPolicy.id ? updatedPolicy : p));
+      showToast(`Discount policy "${updatedPolicy.policyName}" updated successfully.`);
+    } else {
+      setPolicies([...policies, updatedPolicy]);
+      showToast(`New discount policy "${updatedPolicy.policyName}" created successfully.`);
+    }
+
+    setIsFormModalOpen(false);
+  };
+
+  // Handle Toggle Status
+  const handleToggleStatus = () => {
+    if (!selectedPolicy) return;
+    const newStatus = selectedPolicy.status === 'Active' ? 'Inactive' : 'Active';
+
+    setPolicies(policies.map(p => p.id === selectedPolicy.id ? { ...p, status: newStatus } : p));
+    showToast(`Policy for "${selectedPolicy.tier}" set to ${newStatus}.`, 'info');
+    setIsConfirmModalOpen(false);
+  };
+
+  // Filtered Policies
+  const filteredPolicies = policies.filter(p =>
+    p.policyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.tier.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -45,10 +204,7 @@ export default function DiscountPolicies() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="badge" style={{ background: 'rgba(87,52,79,0.1)', color: 'var(--primary)', padding: '6px 12px', fontSize: 12 }}>
-            <MS icon="shield" size={16} /> Read-Only Policy Engine
-          </span>
-          <button onClick={() => handleBlockedAction('Add Discount Guardrail Rule')} className="btn btn-primary btn-sm">
+          <button onClick={handleOpenAddModal} className="btn btn-primary btn-sm">
             <MS icon="add" size={16} /> + New Guardrail Rule
           </button>
         </div>
@@ -69,8 +225,8 @@ export default function DiscountPolicies() {
         </div>
 
         <div className="card card-body">
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Fast-Path Cap Range</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>5% - 20%</div>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Active Guardrails</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{policies.filter(p => p.status === 'Active').length} Policies</div>
           <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>By Customer Tier</span>
         </div>
 
@@ -88,21 +244,36 @@ export default function DiscountPolicies() {
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Evaluator Mode</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>Read-Only</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Rule Matrix Active</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>Active</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Guardrail Engine Enforced</span>
         </div>
       </div>
 
       {/* Tier Discount Limits Table */}
       <div className="card">
-        <div className="card-header flex-between">
+        <div className="card-header flex-between" style={{ flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Discount Ceiling Matrix by Customer Tier</h3>
             <p className="body-sm" style={{ color: 'var(--outline)' }}>Fast-path thresholds, manager review triggers, and executive escalation limits</p>
           </div>
-          <button onClick={() => handleBlockedAction('Export Policy Matrix')} className="btn btn-outline btn-sm">
-            <MS icon="download" size={16} /> Export Policy Matrix
-          </button>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              placeholder="Search policy tier..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: '6px 12px 6px 32px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--outline-variant)',
+                fontSize: 13,
+                width: 200
+              }}
+            />
+            <span className="material-symbols-outlined" style={{ position: 'absolute', left: 8, top: 7, fontSize: 18, color: 'var(--outline)' }}>
+              search
+            </span>
+          </div>
         </div>
 
         <div className="table-container">
@@ -110,42 +281,59 @@ export default function DiscountPolicies() {
             <thead>
               <tr>
                 <th>Customer Tier</th>
+                <th>Policy Name</th>
                 <th>Auto-Approve Cap</th>
                 <th>Manager Review Range</th>
                 <th>Executive Dual-Sig Range</th>
                 <th>Hard System Rejection</th>
-                <th>Allowed Stacking</th>
-                <th>Ops</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td><span className="badge badge-surface" style={{ fontSize: 12 }}>STANDARD</span></td>
-                <td className="font-mono text-emerald">&le; 5.0%</td>
-                <td className="font-mono text-amber">5.1% - 10.0%</td>
-                <td className="font-mono text-primary-color">10.1% - 45.0%</td>
-                <td className="font-mono text-error">&gt; 45.0%</td>
-                <td>Single Line Discount</td>
-                <td><button onClick={() => handleBlockedAction('Edit Standard Tier Policy')} className="btn btn-outline btn-sm">Configure</button></td>
-              </tr>
-              <tr>
-                <td><span className="badge badge-amber" style={{ fontSize: 12 }}>GOLD</span></td>
-                <td className="font-mono text-emerald">&le; 12.0%</td>
-                <td className="font-mono text-amber">12.1% - 20.0%</td>
-                <td className="font-mono text-primary-color">20.1% - 45.0%</td>
-                <td className="font-mono text-error">&gt; 45.0%</td>
-                <td>Volume + Line Discount</td>
-                <td><button onClick={() => handleBlockedAction('Edit Gold Tier Policy')} className="btn btn-outline btn-sm">Configure</button></td>
-              </tr>
-              <tr>
-                <td><span className="badge badge-secondary" style={{ fontSize: 12 }}>PLATINUM</span></td>
-                <td className="font-mono text-emerald">&le; 20.0%</td>
-                <td className="font-mono text-amber">20.1% - 30.0%</td>
-                <td className="font-mono text-primary-color">30.1% - 45.0%</td>
-                <td className="font-mono text-error">&gt; 45.0%</td>
-                <td>Custom SLA + Line Discount</td>
-                <td><button onClick={() => handleBlockedAction('Edit Platinum Tier Policy')} className="btn btn-outline btn-sm">Configure</button></td>
-              </tr>
+              {filteredPolicies.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: 'var(--outline)' }}>
+                    No discount policies match your search.
+                  </td>
+                </tr>
+              ) : (
+                filteredPolicies.map((pol) => (
+                  <tr key={pol.id} style={{ opacity: pol.status === 'Inactive' ? 0.6 : 1 }}>
+                    <td>
+                      <span className={`badge ${pol.tier === 'PLATINUM' ? 'badge-secondary' : pol.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
+                        {pol.tier}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{pol.policyName}</div>
+                      <div style={{ fontSize: 11, color: 'var(--outline)' }}>Category: {pol.category}</div>
+                    </td>
+                    <td className="font-mono text-emerald">&le; {pol.autoApproveCap.toFixed(1)}%</td>
+                    <td className="font-mono text-amber">{pol.managerReviewRange}</td>
+                    <td className="font-mono text-primary-color">{pol.executiveRange}</td>
+                    <td className="font-mono text-error">&gt; {pol.hardRejectionCap.toFixed(1)}%</td>
+                    <td>
+                      <span className={`badge ${pol.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
+                        {pol.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => handleOpenDetailModal(pol)} className="btn btn-outline btn-sm" title="View Details">
+                          View
+                        </button>
+                        <button onClick={() => handleOpenEditModal(pol)} className="btn btn-outline btn-sm" title="Configure Policy">
+                          Edit
+                        </button>
+                        <button onClick={() => handleOpenConfirmModal(pol)} className="btn btn-outline btn-sm" style={{ color: pol.status === 'Active' ? '#dc2626' : '#16a34a' }}>
+                          {pol.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -170,27 +358,208 @@ export default function DiscountPolicies() {
         </div>
       </div>
 
-      {/* Read-Only Action Modal */}
+      {/* Add / Edit Form Modal */}
       <Modal
-        isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-        title={modalConfig.title}
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        title={editingPolicy ? `Configure Policy: ${editingPolicy.tier}` : 'Create New Discount Guardrail Policy'}
+      >
+        <form onSubmit={handleSavePolicy} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Policy Rule Name *</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.policyName}
+              onChange={(e) => setFormData({ ...formData, policyName: e.target.value })}
+              placeholder="e.g. Gold Tier Hardware Guardrail"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+            {formErrors.policyName && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.policyName}</span>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Customer Tier *</label>
+              <select
+                className="form-control"
+                value={formData.tier}
+                onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="STANDARD">STANDARD</option>
+                <option value="GOLD">GOLD</option>
+                <option value="PLATINUM">PLATINUM</option>
+                <option value="ENTERPRISE">ENTERPRISE</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Product Category</label>
+              <select
+                className="form-control"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="ALL">ALL Categories</option>
+                <option value="Hardware">Hardware</option>
+                <option value="Software">Software</option>
+                <option value="Service">Service</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Auto-Approve Cap (% max) *</label>
+              <input
+                type="number"
+                step="0.5"
+                className="form-control"
+                value={formData.autoApproveCap}
+                onChange={(e) => setFormData({ ...formData, autoApproveCap: Number(e.target.value) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+              {formErrors.autoApproveCap && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.autoApproveCap}</span>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Hard Rejection Cap (% ceiling) *</label>
+              <input
+                type="number"
+                step="0.5"
+                className="form-control"
+                value={formData.hardRejectionCap}
+                onChange={(e) => setFormData({ ...formData, hardRejectionCap: Number(e.target.value) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+              {formErrors.hardRejectionCap && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.hardRejectionCap}</span>}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Margin Floor Lock (%) *</label>
+              <input
+                type="number"
+                step="0.5"
+                className="form-control"
+                value={formData.marginFloor}
+                onChange={(e) => setFormData({ ...formData, marginFloor: Number(e.target.value) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+              {formErrors.marginFloor && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.marginFloor}</span>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Discount Stacking Rule</label>
+              <select
+                className="form-control"
+                value={formData.stacking}
+                onChange={(e) => setFormData({ ...formData, stacking: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="Single Line Discount">Single Line Discount</option>
+                <option value="Volume + Line Discount">Volume + Line Discount</option>
+                <option value="Custom SLA + Line Discount">Custom SLA + Line Discount</option>
+                <option value="Non-Additive Cap">Non-Additive Strict Cap</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <button type="button" onClick={() => setIsFormModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {editingPolicy ? 'Save Policy Guardrail' : 'Create Guardrail Rule'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* View Detail Modal */}
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={`Policy Details — ${selectedPolicy?.policyName || ''}`}
+      >
+        {selectedPolicy && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: 'var(--surface-container-low)', padding: 14, borderRadius: 8 }}>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Policy ID</span>
+                <strong className="font-mono" style={{ fontSize: 14 }}>{selectedPolicy.id}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Customer Tier</span>
+                <span className={`badge ${selectedPolicy.tier === 'PLATINUM' ? 'badge-secondary' : selectedPolicy.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
+                  {selectedPolicy.tier}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Auto-Approve Fast Path</span>
+                <span className="font-mono text-emerald" style={{ fontSize: 14, fontWeight: 700 }}>&le; {selectedPolicy.autoApproveCap.toFixed(1)}%</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Manager Review Range</span>
+                <span className="font-mono text-amber" style={{ fontSize: 14 }}>{selectedPolicy.managerReviewRange}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Executive Escalation Range</span>
+                <span className="font-mono text-primary-color" style={{ fontSize: 14 }}>{selectedPolicy.executiveRange}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Hard System Rejection</span>
+                <span className="font-mono text-error" style={{ fontSize: 14, fontWeight: 700 }}>&gt; {selectedPolicy.hardRejectionCap.toFixed(1)}%</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Margin Floor</span>
+                <span className="font-mono" style={{ fontSize: 14 }}>{selectedPolicy.marginFloor.toFixed(1)}%</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Stacking Governance</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedPolicy.stacking}</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => { setIsDetailModalOpen(false); handleOpenEditModal(selectedPolicy); }} className="btn btn-outline">
+                Configure Policy
+              </button>
+              <button onClick={() => setIsDetailModalOpen(false)} className="btn btn-primary">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        title={selectedPolicy?.status === 'Active' ? 'Deactivate Discount Guardrail Rule?' : 'Activate Discount Guardrail Rule?'}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            padding: 12, borderRadius: 'var(--radius-md)',
-            background: 'var(--error-container)', color: 'var(--on-error-container)',
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12
-          }}>
-            <MS icon="lock" size={20} />
-            <span><strong>Read-Only Governance Protection:</strong> Policy changes are disabled in backend-disconnected state.</span>
-          </div>
-          <p className="body-md" style={{ color: 'var(--on-surface-variant)' }}>
-            {modalConfig.message}
+          <p style={{ fontSize: 14, color: 'var(--on-surface)' }}>
+            Are you sure you want to {selectedPolicy?.status === 'Active' ? 'deactivate' : 'activate'} policy <strong>{selectedPolicy?.policyName} ({selectedPolicy?.tier})</strong>?
           </p>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="btn btn-primary">
-              Acknowledge & Close
+          <p style={{ fontSize: 12, color: 'var(--on-surface-variant)' }}>
+            {selectedPolicy?.status === 'Active'
+              ? 'Deactivating this guardrail rule will revert this tier to default baseline discount thresholds.'
+              : 'Activating this rule will enforce configured discount ceilings during quotation creation.'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <button onClick={() => setIsConfirmModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button
+              onClick={handleToggleStatus}
+              className={`btn ${selectedPolicy?.status === 'Active' ? 'btn-error' : 'btn-primary'}`}
+            >
+              {selectedPolicy?.status === 'Active' ? 'Deactivate Policy' : 'Activate Policy'}
             </button>
           </div>
         </div>
@@ -198,3 +567,4 @@ export default function DiscountPolicies() {
     </div>
   );
 }
+
