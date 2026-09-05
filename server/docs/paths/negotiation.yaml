@@ -2,7 +2,7 @@
 # NEGOTIATION (INTERNAL VIEW)
 # ═══════════════════════════════════════════
 
-/negotiation-tickets:
+/api/v1/negotiation-tickets:
   get:
     tags: [Negotiation]
     summary: List all negotiation tickets (internal)
@@ -47,7 +47,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/quotes/{quoteId}/negotiation-tickets:
+/api/v1/quotes/{quoteId}/negotiation-tickets:
   get:
     tags: [Negotiation]
     summary: List negotiation tickets for a specific quote
@@ -79,7 +79,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/negotiation-tickets/{ticketId}:
+/api/v1/negotiation-tickets/{ticketId}:
   get:
     tags: [Negotiation]
     summary: Get negotiation ticket detail
@@ -109,7 +109,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/negotiation-tickets/{ticketId}/accept:
+/api/v1/negotiation-tickets/{ticketId}/accept:
   post:
     tags: [Negotiation]
     summary: Accept a negotiation ticket
@@ -164,7 +164,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/negotiation-tickets/{ticketId}/reject:
+/api/v1/negotiation-tickets/{ticketId}/reject:
   post:
     tags: [Negotiation]
     summary: Reject a negotiation ticket
@@ -213,7 +213,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/negotiation-tickets/{ticketId}/counter:
+/api/v1/negotiation-tickets/{ticketId}/counter:
   post:
     tags: [Negotiation]
     summary: Respond with a counter-offer discount
@@ -266,7 +266,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/negotiation-tickets/{ticketId}/hold-status:
+/api/v1/negotiation-tickets/{ticketId}/hold-status:
   get:
     tags: [Negotiation]
     summary: Check product hold status for a ticket

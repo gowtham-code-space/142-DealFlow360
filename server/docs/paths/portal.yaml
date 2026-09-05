@@ -2,7 +2,7 @@
 # CUSTOMER PORTAL
 # ═══════════════════════════════════════════
 
-/portal/quotes:
+/api/v1/portal/quotes:
   get:
     tags: [Portal]
     summary: List customer's own quotes
@@ -41,7 +41,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}:
+/api/v1/portal/quotes/{quoteId}:
   get:
     tags: [Portal]
     summary: View a quote (customer-safe fields only)
@@ -85,7 +85,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}/lines:
+/api/v1/portal/quotes/{quoteId}/lines:
   get:
     tags: [Portal]
     summary: View quote lines (customer-facing fields)
@@ -118,7 +118,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}/status:
+/api/v1/portal/quotes/{quoteId}/status:
   get:
     tags: [Portal]
     summary: Poll quote status from portal
@@ -162,7 +162,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}/negotiate:
+/api/v1/portal/quotes/{quoteId}/negotiate:
   post:
     tags: [Portal]
     summary: Raise a negotiation ticket
@@ -240,7 +240,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}/lines/{lineId}/comment:
+/api/v1/portal/quotes/{quoteId}/lines/{lineId}/comment:
   post:
     tags: [Portal]
     summary: Add a line-level comment
@@ -289,7 +289,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}/confirm:
+/api/v1/portal/quotes/{quoteId}/confirm:
   post:
     tags: [Portal]
     summary: Customer confirms the quotation
@@ -348,7 +348,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}/deposit-info:
+/api/v1/portal/quotes/{quoteId}/deposit-info:
   get:
     tags: [Portal]
     summary: View deposit amount and payment status
@@ -391,7 +391,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/quotes/{quoteId}/deposit/pay:
+/api/v1/portal/quotes/{quoteId}/deposit/pay:
   post:
     tags: [Portal]
     summary: Customer initiates deposit payment
@@ -456,7 +456,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/negotiation-tickets:
+/api/v1/portal/negotiation-tickets:
   get:
     tags: [Portal]
     summary: List customer's own negotiation tickets
@@ -492,7 +492,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/portal/negotiation-tickets/{ticketId}:
+/api/v1/portal/negotiation-tickets/{ticketId}:
   get:
     tags: [Portal]
     summary: Get ticket status, decision, and purchase deadline

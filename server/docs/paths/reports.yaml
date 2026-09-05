@@ -2,7 +2,7 @@
 # REPORTS
 # ═══════════════════════════════════════════
 
-/reports/quotations:
+/api/v1/reports/quotations:
   get:
     tags: [Reports]
     summary: Filterable quotation report
@@ -70,7 +70,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/reports/quotations/export:
+/api/v1/reports/quotations/export:
   get:
     tags: [Reports]
     summary: Export quotation report as PDF or XLS
@@ -115,7 +115,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/reports/sales-performance:
+/api/v1/reports/sales-performance:
   get:
     tags: [Reports]
     summary: Sales rep / team performance report
@@ -171,7 +171,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/reports/product-analysis:
+/api/v1/reports/product-analysis:
   get:
     tags: [Reports]
     summary: Product analysis — best-selling and most-discounted
@@ -238,7 +238,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/reports/discount-summary:
+/api/v1/reports/discount-summary:
   get:
     tags: [Reports]
     summary: Discount usage summary
@@ -293,7 +293,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/reports/pool-utilization:
+/api/v1/reports/pool-utilization:
   get:
     tags: [Reports]
     summary: Pool utilization report
@@ -343,7 +343,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/reports/negotiation-outcomes:
+/api/v1/reports/negotiation-outcomes:
   get:
     tags: [Reports]
     summary: Negotiation ticket outcome report

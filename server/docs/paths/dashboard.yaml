@@ -2,7 +2,7 @@
 # DASHBOARD
 # ═══════════════════════════════════════════
 
-/dashboard/summary:
+/api/v1/dashboard/summary:
   get:
     tags: [Dashboard]
     summary: KPI summary
@@ -35,7 +35,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/dashboard/stalled-deals:
+/api/v1/dashboard/stalled-deals:
   get:
     tags: [Dashboard]
     summary: Stalled deals
@@ -70,7 +70,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/dashboard/discount-anomalies:
+/api/v1/dashboard/discount-anomalies:
   get:
     tags: [Dashboard]
     summary: Discount anomaly alerts
@@ -99,7 +99,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/dashboard/delivery-slippage:
+/api/v1/dashboard/delivery-slippage:
   get:
     tags: [Dashboard]
     summary: Delivery promise slippage
@@ -128,7 +128,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/dashboard/deal-health:
+/api/v1/dashboard/deal-health:
   get:
     tags: [Dashboard]
     summary: Combined deal health feed
@@ -157,7 +157,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/dashboard/pipeline:
+/api/v1/dashboard/pipeline:
   get:
     tags: [Dashboard]
     summary: Kanban pipeline view
@@ -195,7 +195,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/dashboard/region-demand:
+/api/v1/dashboard/region-demand:
   get:
     tags: [Dashboard]
     summary: Region demand feed (Finance/Ops)
@@ -234,7 +234,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/dashboard/pool-health:
+/api/v1/dashboard/pool-health:
   get:
     tags: [Dashboard]
     summary: Pool health overview

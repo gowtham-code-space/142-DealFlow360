@@ -5,15 +5,31 @@ CustomerPublic:
   properties:
     id:
       type: string
+      example: cust_01HXYZ999
     name:
       type: string
+      example: Apex Global Technologies
     email:
       type: string
+      example: procurement@apextech.com
     tier:
       type: string
       enum: [free, premium]
+      example: premium
     isActive:
       type: boolean
+      example: true
+    subscriptionDurationDays:
+      type: integer
+      nullable: true
+      description: Total active subscription duration in days for premium accounts
+      example: 365
+    subscriptionExpiresAt:
+      type: string
+      format: date-time
+      nullable: true
+      description: Active subscription expiry date. Premium access remains valid for this duration without points/credit-limit restrictions.
+      example: "2027-09-05T00:00:00Z"
     createdAt:
       type: string
       format: date-time
@@ -25,20 +41,29 @@ Customer:
       properties:
         phone:
           type: string
+          example: "+1-555-0199"
         address:
           type: string
+          example: "100 Innovation Way, Suite 400, Austin, TX"
         locationLat:
           type: number
           nullable: true
+          example: 30.2672
         locationLng:
           type: number
           nullable: true
+          example: -97.7431
         creditLimit:
           type: string
-          example: "500000.00"
+          nullable: true
+          description: >-
+            Applicable only to standard/credit accounts. For premium subscribers, creditLimit is null
+            and access is active as per subscription duration (no points/credit limits involved).
+          example: null
         orderCount:
           type: integer
           description: Total confirmed orders — used for consistency discount eligibility
+          example: 12
 
 CreateCustomerRequest:
   type: object
@@ -46,9 +71,11 @@ CreateCustomerRequest:
   properties:
     name:
       type: string
+      example: "Nexus Enterprises"
     email:
       type: string
       format: email
+      example: "billing@nexus.com"
     password:
       type: string
       minLength: 8
@@ -58,11 +85,18 @@ CreateCustomerRequest:
       type: string
       enum: [free, premium]
       default: free
+    subscriptionDurationDays:
+      type: integer
+      description: Duration in days when creating or onboarding a premium tier customer
+      example: 365
     creditLimit:
-      type: number
+      type: string
+      nullable: true
+      description: Applicable only for non-premium/standard accounts. Leave null for premium subscribers.
+      example: null
+    address:
+      type: string
     locationLat:
       type: number
     locationLng:
       type: number
-    address:
-      type: string

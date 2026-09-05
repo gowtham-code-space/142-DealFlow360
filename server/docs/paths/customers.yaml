@@ -2,7 +2,7 @@
 # CUSTOMERS
 # ═══════════════════════════════════════════
 
-/customers:
+/api/v1/customers:
   get:
     tags: [Customers]
     summary: List customers
@@ -91,7 +91,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/customers/{customerId}:
+/api/v1/customers/{customerId}:
   get:
     tags: [Customers]
     summary: Get customer by ID
@@ -211,7 +211,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/customers/{customerId}/reactivate:
+/api/v1/customers/{customerId}/reactivate:
   post:
     tags: [Customers]
     summary: Reactivate a deactivated customer
@@ -241,7 +241,7 @@
       '500':
         $ref: '#/components/responses/InternalError'
 
-/customers/{customerId}/quotes:
+/api/v1/customers/{customerId}/quotes:
   get:
     tags: [Customers]
     summary: List quotes for a customer
