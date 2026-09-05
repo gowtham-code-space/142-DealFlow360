@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import StatusBadge, { VerdictBadge } from '../../components/common/StatusBadge';
+import { useNotifications } from '../../context/NotificationContext';
+import { ROLES } from '../../utils/constants';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size }}>{icon}</span>
@@ -10,6 +12,7 @@ const MS = ({ icon, size = 18 }) => (
 
 export default function QuoteCreate() {
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
 
   // Master Data
   const [customers, setCustomers] = useState([]);
@@ -442,7 +445,30 @@ export default function QuoteCreate() {
                 };
                 const res = await api.createQuotation(payload);
                 if (res.success) {
-                  navigate(`/quotations/${res.data.id}`);
+                  const quoteId = res.data?.id || 'Q-2026-NEW';
+                  addNotification({
+                    recipientRole: ROLES.SALES_MANAGER,
+                    type: 'APPROVAL_REQUIRED',
+                    priority: 'ACTION_REQUIRED',
+                    title: 'Approval required',
+                    message: `Quote ${quoteId} requires your approval because requested discount exceeds Sales Representative limit.`,
+                    relatedEntity: 'quote',
+                    relatedId: quoteId,
+                    targetUrl: `/approvals/${quoteId}`
+                  });
+
+                  addNotification({
+                    recipientRole: ROLES.SALES_REP,
+                    type: 'QUOTE_SUBMITTED',
+                    priority: 'INFO',
+                    title: 'Quote submitted for approval',
+                    message: `Quote ${quoteId} has been submitted and is awaiting Sales Manager review.`,
+                    relatedEntity: 'quote',
+                    relatedId: quoteId,
+                    targetUrl: `/quotations/${quoteId}`
+                  });
+
+                  navigate(`/quotations/${quoteId}`);
                 } else {
                   alert(res.error || 'Failed to submit quote. Backend endpoint may be unavailable.');
                 }

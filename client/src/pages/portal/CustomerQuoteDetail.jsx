@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
-import { MOCK_QUOTATIONS } from '../../utils/constants';
+import { MOCK_QUOTATIONS, ROLES } from '../../utils/constants';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
 import Modal from '../../components/common/Modal';
+import { useNotifications } from '../../context/NotificationContext';
 import { ShieldCheck, CheckCircle, Send, ArrowLeft } from 'lucide-react';
 
 const MS = ({ icon, size = 18 }) => (
@@ -14,6 +15,7 @@ const MS = ({ icon, size = 18 }) => (
 export default function CustomerQuoteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
   const quoteId = id || 'Q-2026-002';
 
   const [quote, setQuote] = useState(null);
@@ -96,6 +98,29 @@ export default function CustomerQuoteDetail() {
       }));
       const updatedNeg = await api.getNegotiation(quoteId);
       if (updatedNeg.success) setNegotiation(updatedNeg.data);
+
+      // Notify Sales Rep & Manager
+      addNotification({
+        recipientRole: ROLES.SALES_REP,
+        type: 'NEGOTIATION_REQUEST',
+        priority: 'ACTION_REQUIRED',
+        title: 'Customer requested changes',
+        message: `Nexus HyperScale submitted a counter-offer for Quote ${quoteId}.`,
+        relatedEntity: 'quote',
+        relatedId: quoteId,
+        targetUrl: `/negotiation/${quoteId}`
+      });
+
+      addNotification({
+        recipientRole: ROLES.SALES_MANAGER,
+        type: 'NEGOTIATION_REVIEW',
+        priority: 'ACTION_REQUIRED',
+        title: 'Negotiation requires review',
+        message: `Nexus HyperScale submitted a counter-offer for Quote ${quoteId}.`,
+        relatedEntity: 'quote',
+        relatedId: quoteId,
+        targetUrl: `/negotiation/${quoteId}`
+      });
     }
     setSubmittingCounter(false);
   };
@@ -109,6 +134,29 @@ export default function CustomerQuoteDetail() {
       }));
       setPlacingOrder(false);
       setOrderSuccess(true);
+
+      // Notify Sales Rep & Operations
+      addNotification({
+        recipientRole: ROLES.SALES_REP,
+        type: 'QUOTE_ACCEPTED',
+        priority: 'SUCCESS',
+        title: 'Quote accepted',
+        message: `Nexus HyperScale accepted Quote ${quoteId}.`,
+        relatedEntity: 'quote',
+        relatedId: quoteId,
+        targetUrl: `/quotations/${quoteId}`
+      });
+
+      addNotification({
+        recipientRole: ROLES.OPERATIONS,
+        type: 'ORDER_CREATED',
+        priority: 'SUCCESS',
+        title: 'Order created',
+        message: `Order ORD-2026-0041 was created from Quote ${quoteId}.`,
+        relatedEntity: 'order',
+        relatedId: 'ORD-2026-0041',
+        targetUrl: '/inventory'
+      });
     }, 600);
   };
 

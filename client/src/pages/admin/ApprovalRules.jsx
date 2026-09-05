@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
+import { useNotifications } from '../../context/NotificationContext';
+import { ROLES } from '../../utils/constants';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -16,6 +18,7 @@ const INITIAL_RULES = [
 ];
 
 export default function ApprovalRules() {
+  const { addNotification } = useNotifications();
   const [rules, setRules] = useState(INITIAL_RULES);
   const [filterTier, setFilterTier] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,6 +76,18 @@ export default function ApprovalRules() {
       setRules(prev => [formData, ...prev]);
       showToast(`Approval rule "${formData.name}" created successfully.`);
     }
+
+    addNotification({
+      recipientRole: ROLES.ADMIN,
+      type: 'APPROVAL_RULE_UPDATED',
+      priority: 'INFO',
+      title: editingRule ? 'Approval rule updated' : 'New approval rule created',
+      message: `An approval governance rule (${formData.name}) has been modified.`,
+      relatedEntity: 'rule',
+      relatedId: formData.id || 'ARULE',
+      targetUrl: '/admin/approval-rules'
+    });
+
     setIsFormOpen(false);
   };
 

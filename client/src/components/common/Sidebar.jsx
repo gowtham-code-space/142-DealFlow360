@@ -87,6 +87,11 @@ export default function Sidebar() {
                 <MS icon="support_agent" size={18} />
                 <span>Support & SLA</span>
               </NavLink>
+
+              <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="notifications" size={18} />
+                <span>Notifications</span>
+              </NavLink>
             </>
           ) : isAdminView ? (
             <>
@@ -138,6 +143,11 @@ export default function Sidebar() {
               <NavLink to="/admin/system-settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                 <MS icon="settings" size={18} />
                 <span>System Settings</span>
+              </NavLink>
+
+              <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="notifications" size={18} />
+                <span>Notifications</span>
               </NavLink>
             </>
           ) : isManagerView ? (

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { formatCurrency } from '../../utils/formatters';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
+import NotificationDropdown from './NotificationDropdown';
 import { ROLES } from '../../utils/constants';
 
 const MS = ({ icon, size = 20 }) => (
@@ -12,7 +14,9 @@ export default function Header() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications();
   const [searchValue, setSearchValue] = useState('');
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
 
   const isManagerView = user?.role === ROLES.SALES_MANAGER ||
                         location.pathname.startsWith('/dashboard/manager') || 
@@ -209,17 +213,31 @@ export default function Header() {
         <div style={{ position: 'relative' }}>
           <button
             className="btn-icon"
-            onClick={() => navigate('/notifications')}
-            style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, color: 'var(--on-surface-variant)', cursor: 'pointer' }}
+            onClick={() => setIsNotifOpen(prev => !prev)}
+            title="Notifications"
+            style={{
+              width: 32, height: 32,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 8, color: 'var(--on-surface-variant)', cursor: 'pointer',
+              position: 'relative'
+            }}
           >
             <MS icon="notifications" size={20} />
-            <span style={{
-              position: 'absolute', top: 6, right: 6,
-              width: 8, height: 8, borderRadius: '50%',
-              background: 'var(--error)',
-              boxShadow: '0 0 0 2px var(--surface-container-lowest)'
-            }} />
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: 2, right: 2,
+                minWidth: 16, height: 16, borderRadius: 99,
+                background: 'var(--error, #ef4444)', color: '#fff',
+                fontSize: 10, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '0 4px',
+                boxShadow: '0 0 0 2px var(--surface-container-lowest, #fff)'
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
+          <NotificationDropdown isOpen={isNotifOpen} onClose={() => setIsNotifOpen(false)} />
         </div>
 
         {/* Divider */}

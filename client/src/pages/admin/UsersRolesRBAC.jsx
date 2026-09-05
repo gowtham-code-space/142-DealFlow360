@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
+import { useNotifications } from '../../context/NotificationContext';
+import { ROLES } from '../../utils/constants';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -25,6 +27,7 @@ const DEFAULT_USER_FORM = {
 };
 
 export default function UsersRolesRBAC() {
+  const { addNotification } = useNotifications();
   const [users, setUsers] = useState(INITIAL_USERS);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -97,9 +100,29 @@ export default function UsersRolesRBAC() {
     if (editingUser) {
       setUsers(users.map(u => u.id === editingUser.id ? formData : u));
       showToast(`User account "${formData.name}" updated successfully.`);
+      addNotification({
+        recipientRole: ROLES.ADMIN,
+        type: 'ROLE_UPDATED',
+        priority: 'INFO',
+        title: 'Role updated',
+        message: `User ${formData.name}'s access role has been changed to ${formData.role}.`,
+        relatedEntity: 'user',
+        relatedId: formData.id,
+        targetUrl: '/admin/users-and-roles'
+      });
     } else {
       setUsers([formData, ...users]);
       showToast(`New user "${formData.name}" provisioned successfully.`);
+      addNotification({
+        recipientRole: ROLES.ADMIN,
+        type: 'USER_ADDED',
+        priority: 'INFO',
+        title: 'New user added',
+        message: `A new user (${formData.name}) has been added to DealFlow360.`,
+        relatedEntity: 'user',
+        relatedId: formData.id || 'USR-NEW',
+        targetUrl: '/admin/users-and-roles'
+      });
     }
 
     setIsFormModalOpen(false);

@@ -4,6 +4,8 @@ import { api } from '../../services/api';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
 import Modal from '../../components/common/Modal';
+import { useNotifications } from '../../context/NotificationContext';
+import { ROLES } from '../../utils/constants';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -12,6 +14,7 @@ const MS = ({ icon, size = 18 }) => (
 export default function ManagerApprovalDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -86,6 +89,65 @@ export default function ManagerApprovalDetail() {
           ? `Returned for Revision by Manager: ${auditNote || 'Please reduce discount to tier cap.'}`
           : `Escalated to VP Finance: ${auditNote || 'High value deal requiring dual approval.'}`
       };
+
+      // Dispatch role-specific business event notifications
+      if (modalType === 'approve') {
+        addNotification({
+          recipientRole: ROLES.SALES_REP,
+          type: 'QUOTE_APPROVED',
+          priority: 'SUCCESS',
+          title: 'Quote approved',
+          message: `Quote ${quote.id} has been approved by the Sales Manager.`,
+          relatedEntity: 'quote',
+          relatedId: quote.id,
+          targetUrl: `/quotations/${quote.id}`
+        });
+
+        // Customer notification (clean customer-facing message)
+        addNotification({
+          recipientRole: ROLES.CUSTOMER,
+          type: 'NEW_QUOTE',
+          priority: 'INFO',
+          title: 'Quote updated',
+          message: `Your quote ${quote.id} has been updated and is ready for your review.`,
+          relatedEntity: 'quote',
+          relatedId: quote.id,
+          targetUrl: `/portal/quotes/${quote.id}`
+        });
+      } else if (modalType === 'reject') {
+        addNotification({
+          recipientRole: ROLES.SALES_REP,
+          type: 'QUOTE_REJECTED',
+          priority: 'ACTION_REQUIRED',
+          title: 'Quote requires changes',
+          message: `Quote ${quote.id} was returned for revision by the Sales Manager.`,
+          relatedEntity: 'quote',
+          relatedId: quote.id,
+          targetUrl: `/quotations/${quote.id}`
+        });
+      } else if (modalType === 'return') {
+        addNotification({
+          recipientRole: ROLES.SALES_REP,
+          type: 'QUOTE_REVISION',
+          priority: 'ACTION_REQUIRED',
+          title: 'Quote requires changes',
+          message: `Quote ${quote.id} was returned for revision. Rationale: ${auditNote || 'Please adjust terms.'}`,
+          relatedEntity: 'quote',
+          relatedId: quote.id,
+          targetUrl: `/quotations/${quote.id}`
+        });
+      } else if (modalType === 'escalate') {
+        addNotification({
+          recipientRole: ROLES.OPERATIONS,
+          type: 'FINANCE_ESCALATION',
+          priority: 'ACTION_REQUIRED',
+          title: 'Finance approval required',
+          message: `Quote ${quote.id} requires Finance / Operations approval. Rationale: ${auditNote || 'High-value deal escalation.'}`,
+          relatedEntity: 'quote',
+          relatedId: quote.id,
+          targetUrl: '/finance/approvals'
+        });
+      }
 
       setQuote(updated);
       setActionSuccessMsg(`Action '${modalType.toUpperCase()}' processed successfully.`);

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
+import { useNotifications } from '../../context/NotificationContext';
+import { ROLES } from '../../utils/constants';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -61,6 +63,7 @@ const DEFAULT_POLICY_FORM = {
 };
 
 export default function DiscountPolicies() {
+  const { addNotification } = useNotifications();
   const [policies, setPolicies] = useState(INITIAL_POLICIES);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -153,6 +156,17 @@ export default function DiscountPolicies() {
       setPolicies([...policies, updatedPolicy]);
       showToast(`New discount policy "${updatedPolicy.policyName}" created successfully.`);
     }
+
+    addNotification({
+      recipientRole: ROLES.ADMIN,
+      type: 'POLICY_UPDATED',
+      priority: 'INFO',
+      title: editingPolicy ? 'Discount policy updated' : 'New discount policy created',
+      message: `A discount governance policy (${updatedPolicy.policyName}) has changed.`,
+      relatedEntity: 'policy',
+      relatedId: updatedPolicy.id,
+      targetUrl: '/admin/discount-policies'
+    });
 
     setIsFormModalOpen(false);
   };

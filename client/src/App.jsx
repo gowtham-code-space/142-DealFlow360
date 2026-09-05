@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import DashboardLayout from './layouts/DashboardLayout';
 
 // Pages
@@ -62,7 +63,7 @@ function DashboardRouteWrapper({ children }) {
 
   // Role Route Isolation Guard
   if (user.role === ROLES.CUSTOMER) {
-    const isCustomerAllowed = path.startsWith('/portal');
+    const isCustomerAllowed = path.startsWith('/portal') || path.startsWith('/notifications');
     if (!isCustomerAllowed) {
       return <Navigate to="/portal" replace />;
     }
@@ -102,7 +103,7 @@ function DashboardRouteWrapper({ children }) {
       return <Navigate to="/dashboard/sales" replace />;
     }
   } else if (user.role === ROLES.ADMIN) {
-    const isAdminAllowed = path.startsWith('/admin') || path.startsWith('/dashboard/admin');
+    const isAdminAllowed = path.startsWith('/admin') || path.startsWith('/dashboard/admin') || path.startsWith('/notifications');
     if (!isAdminAllowed) {
       return <Navigate to="/admin/dashboard" replace />;
     }
@@ -134,238 +135,240 @@ function RootRedirect() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* Public Auth */}
-          <Route path="/login" element={<Login />} />
+      <NotificationProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public Auth */}
+            <Route path="/login" element={<Login />} />
 
-          {/* Internal Dashboard Routes */}
-          <Route path="/" element={<RootRedirect />} />
-          
-          <Route path="/dashboard/sales" element={
-            <DashboardRouteWrapper>
-              <SalesDashboard />
-            </DashboardRouteWrapper>
-          } />
-          
-          <Route path="/dashboard/manager" element={
-            <DashboardRouteWrapper>
-              <ManagerDashboard />
-            </DashboardRouteWrapper>
-          } />
+            {/* Internal Dashboard Routes */}
+            <Route path="/" element={<RootRedirect />} />
+            
+            <Route path="/dashboard/sales" element={
+              <DashboardRouteWrapper>
+                <SalesDashboard />
+              </DashboardRouteWrapper>
+            } />
+            
+            <Route path="/dashboard/manager" element={
+              <DashboardRouteWrapper>
+                <ManagerDashboard />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/dashboard/operations" element={
-            <DashboardRouteWrapper>
-              <OperationsDashboard />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/dashboard/operations" element={
+              <DashboardRouteWrapper>
+                <OperationsDashboard />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/dashboard/admin" element={
-            <DashboardRouteWrapper>
-              <AdminDashboard />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/dashboard/admin" element={
+              <DashboardRouteWrapper>
+                <AdminDashboard />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/dashboard" element={
-            <DashboardRouteWrapper>
-              <AdminDashboard />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/dashboard" element={
+              <DashboardRouteWrapper>
+                <AdminDashboard />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/approval-rules" element={
-            <DashboardRouteWrapper>
-              <ApprovalRules />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/approval-rules" element={
+              <DashboardRouteWrapper>
+                <ApprovalRules />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/customers" element={
-            <DashboardRouteWrapper>
-              <CustomerConfig />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/customers" element={
+              <DashboardRouteWrapper>
+                <CustomerConfig />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/products" element={
-            <DashboardRouteWrapper>
-              <ProductCatalogGov />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/products" element={
+              <DashboardRouteWrapper>
+                <ProductCatalogGov />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/resources-warehouses" element={
-            <DashboardRouteWrapper>
-              <ResourcesWarehouses />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/resources-warehouses" element={
+              <DashboardRouteWrapper>
+                <ResourcesWarehouses />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/discount-policies" element={
-            <DashboardRouteWrapper>
-              <DiscountPolicies />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/discount-policies" element={
+              <DashboardRouteWrapper>
+                <DiscountPolicies />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/users-and-roles" element={
-            <DashboardRouteWrapper>
-              <UsersRolesRBAC />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/users-and-roles" element={
+              <DashboardRouteWrapper>
+                <UsersRolesRBAC />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/subscription-plans" element={
-            <DashboardRouteWrapper>
-              <SubscriptionPlans />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/subscription-plans" element={
+              <DashboardRouteWrapper>
+                <SubscriptionPlans />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/audit-logs" element={
-            <DashboardRouteWrapper>
-              <AuditLogs />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/audit-logs" element={
+              <DashboardRouteWrapper>
+                <AuditLogs />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/admin/system-settings" element={
-            <DashboardRouteWrapper>
-              <SystemSettings />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/admin/system-settings" element={
+              <DashboardRouteWrapper>
+                <SystemSettings />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Quotations CPQ */}
-          <Route path="/quotations" element={
-            <DashboardRouteWrapper>
-              <QuoteList />
-            </DashboardRouteWrapper>
-          } />
+            {/* Quotations CPQ */}
+            <Route path="/quotations" element={
+              <DashboardRouteWrapper>
+                <QuoteList />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/quotations/new" element={
-            <DashboardRouteWrapper>
-              <QuoteCreate />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/quotations/new" element={
+              <DashboardRouteWrapper>
+                <QuoteCreate />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/quotations/:id" element={
-            <DashboardRouteWrapper>
-              <QuoteDetails />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/quotations/:id" element={
+              <DashboardRouteWrapper>
+                <QuoteDetails />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Approvals */}
-          <Route path="/approvals" element={
-            <DashboardRouteWrapper>
-              <ApprovalQueue />
-            </DashboardRouteWrapper>
-          } />
+            {/* Approvals */}
+            <Route path="/approvals" element={
+              <DashboardRouteWrapper>
+                <ApprovalQueue />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/manager/approvals" element={
-            <DashboardRouteWrapper>
-              <ApprovalQueue />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/manager/approvals" element={
+              <DashboardRouteWrapper>
+                <ApprovalQueue />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/approvals/:id" element={
-            <DashboardRouteWrapper>
-              <ManagerApprovalDetail />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/approvals/:id" element={
+              <DashboardRouteWrapper>
+                <ManagerApprovalDetail />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/manager/approvals/:id" element={
-            <DashboardRouteWrapper>
-              <ManagerApprovalDetail />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/manager/approvals/:id" element={
+              <DashboardRouteWrapper>
+                <ManagerApprovalDetail />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Finance & Ops Approvals */}
-          <Route path="/finance/approvals" element={
-            <DashboardRouteWrapper>
-              <FinanceApprovalQueue />
-            </DashboardRouteWrapper>
-          } />
+            {/* Finance & Ops Approvals */}
+            <Route path="/finance/approvals" element={
+              <DashboardRouteWrapper>
+                <FinanceApprovalQueue />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Warehouse & Inventory */}
-          <Route path="/inventory" element={
-            <DashboardRouteWrapper>
-              <InventoryAllocation />
-            </DashboardRouteWrapper>
-          } />
+            {/* Warehouse & Inventory */}
+            <Route path="/inventory" element={
+              <DashboardRouteWrapper>
+                <InventoryAllocation />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Billing & Invoicing */}
-          <Route path="/billing" element={
-            <DashboardRouteWrapper>
-              <Billing />
-            </DashboardRouteWrapper>
-          } />
+            {/* Billing & Invoicing */}
+            <Route path="/billing" element={
+              <DashboardRouteWrapper>
+                <Billing />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Deal Negotiation / Redlining */}
-          <Route path="/negotiation" element={
-            <DashboardRouteWrapper>
-              <Negotiation />
-            </DashboardRouteWrapper>
-          } />
-          <Route path="/negotiation/:id" element={
-            <DashboardRouteWrapper>
-              <Negotiation />
-            </DashboardRouteWrapper>
-          } />
+            {/* Deal Negotiation / Redlining */}
+            <Route path="/negotiation" element={
+              <DashboardRouteWrapper>
+                <Negotiation />
+              </DashboardRouteWrapper>
+            } />
+            <Route path="/negotiation/:id" element={
+              <DashboardRouteWrapper>
+                <Negotiation />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Customer Portal */}
-          <Route path="/portal" element={
-            <DashboardRouteWrapper>
-              <CustomerPortal />
-            </DashboardRouteWrapper>
-          } />
+            {/* Customer Portal */}
+            <Route path="/portal" element={
+              <DashboardRouteWrapper>
+                <CustomerPortal />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/portal/quotes" element={
-            <DashboardRouteWrapper>
-              <CustomerQuoteList />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/portal/quotes" element={
+              <DashboardRouteWrapper>
+                <CustomerQuoteList />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/portal/quotes/:id" element={
-            <DashboardRouteWrapper>
-              <CustomerQuoteDetail />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/portal/quotes/:id" element={
+              <DashboardRouteWrapper>
+                <CustomerQuoteDetail />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/portal/orders" element={
-            <DashboardRouteWrapper>
-              <CustomerOrders />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/portal/orders" element={
+              <DashboardRouteWrapper>
+                <CustomerOrders />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/portal/invoices" element={
-            <DashboardRouteWrapper>
-              <CustomerInvoices />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/portal/invoices" element={
+              <DashboardRouteWrapper>
+                <CustomerInvoices />
+              </DashboardRouteWrapper>
+            } />
 
-          <Route path="/portal/support" element={
-            <DashboardRouteWrapper>
-              <CustomerSupport />
-            </DashboardRouteWrapper>
-          } />
+            <Route path="/portal/support" element={
+              <DashboardRouteWrapper>
+                <CustomerSupport />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Sidebar Supporting Routes */}
-          <Route path="/customers" element={
-            <DashboardRouteWrapper>
-              <Customers />
-            </DashboardRouteWrapper>
-          } />
-          <Route path="/conversations" element={
-            <DashboardRouteWrapper>
-              <Conversations />
-            </DashboardRouteWrapper>
-          } />
-          <Route path="/deals" element={
-            <DashboardRouteWrapper>
-              <MyDeals />
-            </DashboardRouteWrapper>
-          } />
-          <Route path="/notifications" element={
-            <DashboardRouteWrapper>
-              <Notifications />
-            </DashboardRouteWrapper>
-          } />
+            {/* Sidebar Supporting Routes */}
+            <Route path="/customers" element={
+              <DashboardRouteWrapper>
+                <Customers />
+              </DashboardRouteWrapper>
+            } />
+            <Route path="/conversations" element={
+              <DashboardRouteWrapper>
+                <Conversations />
+              </DashboardRouteWrapper>
+            } />
+            <Route path="/deals" element={
+              <DashboardRouteWrapper>
+                <MyDeals />
+              </DashboardRouteWrapper>
+            } />
+            <Route path="/notifications" element={
+              <DashboardRouteWrapper>
+                <Notifications />
+              </DashboardRouteWrapper>
+            } />
 
-          {/* Catch-all */}
-          <Route path="*" element={<RootRedirect />} />
-        </Routes>
-      </BrowserRouter>
+            {/* Catch-all */}
+            <Route path="*" element={<RootRedirect />} />
+          </Routes>
+        </BrowserRouter>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
