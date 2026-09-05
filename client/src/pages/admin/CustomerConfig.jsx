@@ -2,24 +2,153 @@ import React, { useState } from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { MOCK_CUSTOMERS } from '../../utils/constants';
 import Modal from '../../components/common/Modal';
+import Toast from '../../components/common/Toast';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-export default function CustomerConfig() {
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '' });
+const DEFAULT_FORM_DATA = {
+  id: '',
+  name: '',
+  tier: 'GOLD',
+  creditLimit: 10000000,
+  riskScore: 25,
+  purchaseModel: 'RECURRING_PREMIUM',
+  slaLevel: 'High-Priority (24h)',
+  contactEmail: '',
+  status: 'Active'
+};
 
-  const handleBlockedAction = (actionTitle) => {
-    setModalConfig({
-      isOpen: true,
-      title: `Backend API Not Connected — ${actionTitle}`,
-      message: `Customer governance modification for "${actionTitle}" is operating in Read-Only Mode. Customer tier assignments and credit limits are enforced via static constants.`
-    });
+export default function CustomerConfig() {
+  const [customers, setCustomers] = useState(
+    MOCK_CUSTOMERS.map(c => ({
+      ...c,
+      status: c.status || 'Active',
+      purchaseModel: c.tier === 'PLATINUM' ? 'RECURRING_PREMIUM' : c.tier === 'GOLD' ? 'BULK_ONE_TIME' : 'ONE_TIME',
+      slaLevel: c.tier === 'PLATINUM' ? 'Mission Critical (4h)' : c.tier === 'GOLD' ? 'High-Priority (24h)' : 'Standard (48h)',
+      contactEmail: `contact@${c.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`
+    }))
+  );
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [tierFilter, setTierFilter] = useState('ALL');
+
+  // Modals state
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  // Form State
+  const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
+  const [formErrors, setFormErrors] = useState({});
+
+  // Toast
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
   };
+
+  // Open Form for Add
+  const handleOpenAddModal = () => {
+    setEditingCustomer(null);
+    setFormData({
+      ...DEFAULT_FORM_DATA,
+      id: `CUST-${String(customers.length + 1).padStart(3, '0')}`
+    });
+    setFormErrors({});
+    setIsFormModalOpen(true);
+  };
+
+  // Open Form for Edit
+  const handleOpenEditModal = (cust) => {
+    setEditingCustomer(cust);
+    setFormData({ ...cust });
+    setFormErrors({});
+    setIsFormModalOpen(true);
+  };
+
+  // Open Details Modal
+  const handleOpenDetailModal = (cust) => {
+    setSelectedCustomer(cust);
+    setIsDetailModalOpen(true);
+  };
+
+  // Confirm Deactivate
+  const handleOpenConfirmModal = (cust) => {
+    setSelectedCustomer(cust);
+    setIsConfirmModalOpen(true);
+  };
+
+  // Validate form
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.name.trim()) errors.name = 'Customer Name is required';
+    if (!formData.tier) errors.tier = 'Customer Tier is required';
+    if (!formData.purchaseModel) errors.purchaseModel = 'Purchase Model is required';
+    if (formData.creditLimit < 0) errors.creditLimit = 'Credit limit cannot be negative';
+    if (formData.riskScore < 0 || formData.riskScore > 100) errors.riskScore = 'Risk score must be between 0 and 100';
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle Save (Add / Edit)
+  const handleSaveCustomer = (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    const maxDisc = formData.tier === 'PLATINUM' ? 30 : formData.tier === 'GOLD' ? 20 : 10;
+    const updatedCustomer = {
+      ...formData,
+      creditLimit: Number(formData.creditLimit),
+      riskScore: Number(formData.riskScore),
+      maxDiscount: maxDisc
+    };
+
+    if (editingCustomer) {
+      setCustomers(customers.map(c => c.id === editingCustomer.id ? updatedCustomer : c));
+      showToast(`Customer account "${updatedCustomer.name}" updated successfully.`);
+    } else {
+      setCustomers([updatedCustomer, ...customers]);
+      showToast(`New customer account "${updatedCustomer.name}" onboarded successfully.`);
+    }
+
+    setIsFormModalOpen(false);
+  };
+
+  // Handle Deactivate / Toggle Status
+  const handleToggleStatus = () => {
+    if (!selectedCustomer) return;
+    const newStatus = selectedCustomer.status === 'Active' ? 'Inactive' : 'Active';
+
+    setCustomers(customers.map(c => c.id === selectedCustomer.id ? { ...c, status: newStatus } : c));
+    showToast(`Account "${selectedCustomer.name}" status updated to ${newStatus}.`, 'info');
+    setIsConfirmModalOpen(false);
+  };
+
+  // Metrics computation
+  const activeCustomers = customers.filter(c => c.status === 'Active');
+  const totalCreditExposure = activeCustomers.reduce((acc, curr) => acc + (curr.creditLimit || 0), 0);
+  const platinumCount = activeCustomers.filter(c => c.tier === 'PLATINUM').length;
+  const goldCount = activeCustomers.filter(c => c.tier === 'GOLD').length;
+  const standardCount = activeCustomers.filter(c => c.tier === 'STANDARD').length;
+
+  // Filtered customers
+  const filteredCustomers = customers.filter(cust => {
+    const matchesSearch = cust.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          cust.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesTier = tierFilter === 'ALL' || cust.tier === tierFilter;
+    return matchesSearch && matchesTier;
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -47,10 +176,7 @@ export default function CustomerConfig() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="badge" style={{ background: 'rgba(87,52,79,0.1)', color: 'var(--primary)', padding: '6px 12px', fontSize: 12 }}>
-            <MS icon="shield" size={16} /> Read-Only Customer Tier Engine
-          </span>
-          <button onClick={() => handleBlockedAction('Onboard New Enterprise Account')} className="btn btn-primary btn-sm">
+          <button onClick={handleOpenAddModal} className="btn btn-primary btn-sm">
             <MS icon="person_add" size={16} /> + Onboard Account
           </button>
         </div>
@@ -60,51 +186,88 @@ export default function CustomerConfig() {
       <div className="grid-metrics">
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Managed Accounts</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>4 Enterprises</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{customers.length} Enterprises</div>
           <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Canonical Customer Directory</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Total Credit Exposure</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>{formatCurrency(51000000)}</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Combined Credit Ceiling</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>{formatCurrency(totalCreditExposure)}</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Active Accounts Credit Ceiling</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Platinum Accounts</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>1 Account</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Apex Global (30% Max Disc)</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>{platinumCount} Accounts</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Apex Tier (30% Max Disc)</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Gold Accounts</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>2 Accounts</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Nexus & Quantum (20% Max)</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>{goldCount} Accounts</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>High Tier (20% Max Disc)</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Standard Accounts</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)' }}>1 Account</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Vanguard (10% Max Disc)</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)' }}>{standardCount} Accounts</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Core Tier (10% Max Disc)</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Risk Governance</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>Real-Time</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>Active</div>
           <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Blended Score Matrix Active</span>
         </div>
       </div>
 
       {/* Customer Directory Table */}
       <div className="card">
-        <div className="card-header flex-between">
+        <div className="card-header flex-between" style={{ flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Enterprise Account Governance Directory</h3>
             <p className="body-sm" style={{ color: 'var(--outline)' }}>Tier classification, credit limits, risk scores, and SLA governance commitments</p>
           </div>
-          <button onClick={() => handleBlockedAction('Export Account Directory')} className="btn btn-outline btn-sm">
-            <MS icon="download" size={16} /> Export Account Spec
-          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Search */}
+            <div style={{ position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Search account name or ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  padding: '6px 12px 6px 32px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--outline-variant)',
+                  fontSize: 13,
+                  width: 220
+                }}
+              />
+              <span className="material-symbols-outlined" style={{ position: 'absolute', left: 8, top: 7, fontSize: 18, color: 'var(--outline)' }}>
+                search
+              </span>
+            </div>
+
+            {/* Filter */}
+            <select
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--outline-variant)',
+                fontSize: 13,
+                background: '#fff'
+              }}
+            >
+              <option value="ALL">All Tiers</option>
+              <option value="PLATINUM">Platinum Tier</option>
+              <option value="GOLD">Gold Tier</option>
+              <option value="STANDARD">Standard Tier</option>
+            </select>
+          </div>
         </div>
 
         <div className="table-container">
@@ -118,44 +281,63 @@ export default function CustomerConfig() {
                 <th>Credit Limit Floor</th>
                 <th>Risk Score</th>
                 <th>Purchase Model</th>
-                <th>SLA Level</th>
-                <th>Ops</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {MOCK_CUSTOMERS.map((cust) => (
-                <tr key={cust.id}>
-                  <td className="font-mono font-semibold">{cust.id}</td>
-                  <td>
-                    <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{cust.name}</div>
-                  </td>
-                  <td>
-                    <span className={`badge ${cust.tier === 'PLATINUM' ? 'badge-secondary' : cust.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
-                      {cust.tier}
-                    </span>
-                  </td>
-                  <td className="font-mono font-semibold">
-                    {cust.tier === 'PLATINUM' ? '30.0%' : cust.tier === 'GOLD' ? '20.0%' : '10.0%'}
-                  </td>
-                  <td className="font-mono">{formatCurrency(cust.creditLimit)}</td>
-                  <td>
-                    <span className={`badge ${cust.riskScore < 25 ? 'badge-success' : cust.riskScore < 50 ? 'badge-amber' : 'badge-error'}`}>
-                      Score {cust.riskScore} / 100 ({cust.riskScore < 25 ? 'LOW' : cust.riskScore < 50 ? 'MEDIUM' : 'HIGH'})
-                    </span>
-                  </td>
-                  <td className="font-mono text-sm">
-                    {cust.tier === 'PLATINUM' ? 'RECURRING_PREMIUM' : cust.tier === 'GOLD' ? 'BULK_ONE_TIME' : 'ONE_TIME'}
-                  </td>
-                  <td>
-                    {cust.tier === 'PLATINUM' ? 'Mission Critical (4h)' : cust.tier === 'GOLD' ? 'High-Priority (24h)' : 'Standard (48h)'}
-                  </td>
-                  <td>
-                    <button onClick={() => handleBlockedAction(`Configure ${cust.name}`)} className="btn btn-outline btn-sm">
-                      Configure
-                    </button>
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: 30, color: 'var(--outline)' }}>
+                    No customer accounts matching your filter.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredCustomers.map((cust) => (
+                  <tr key={cust.id} style={{ opacity: cust.status === 'Inactive' ? 0.6 : 1 }}>
+                    <td className="font-mono font-semibold">{cust.id}</td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{cust.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--outline)' }}>{cust.contactEmail}</div>
+                    </td>
+                    <td>
+                      <span className={`badge ${cust.tier === 'PLATINUM' ? 'badge-secondary' : cust.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
+                        {cust.tier}
+                      </span>
+                    </td>
+                    <td className="font-mono font-semibold">
+                      {cust.tier === 'PLATINUM' ? '30.0%' : cust.tier === 'GOLD' ? '20.0%' : '10.0%'}
+                    </td>
+                    <td className="font-mono">{formatCurrency(cust.creditLimit)}</td>
+                    <td>
+                      <span className={`badge ${cust.riskScore < 25 ? 'badge-success' : cust.riskScore < 50 ? 'badge-amber' : 'badge-error'}`}>
+                        Score {cust.riskScore} / 100 ({cust.riskScore < 25 ? 'LOW' : cust.riskScore < 50 ? 'MEDIUM' : 'HIGH'})
+                      </span>
+                    </td>
+                    <td className="font-mono text-sm">
+                      {cust.purchaseModel}
+                    </td>
+                    <td>
+                      <span className={`badge ${cust.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
+                        {cust.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => handleOpenDetailModal(cust)} className="btn btn-outline btn-sm" title="View Details">
+                          View
+                        </button>
+                        <button onClick={() => handleOpenEditModal(cust)} className="btn btn-outline btn-sm" title="Edit Customer">
+                          Edit
+                        </button>
+                        <button onClick={() => handleOpenConfirmModal(cust)} className="btn btn-outline btn-sm" style={{ color: cust.status === 'Active' ? '#dc2626' : '#16a34a' }}>
+                          {cust.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -192,27 +374,209 @@ export default function CustomerConfig() {
         </div>
       </div>
 
-      {/* Read-Only Action Modal */}
+      {/* Add / Edit Form Modal */}
       <Modal
-        isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-        title={modalConfig.title}
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        title={editingCustomer ? `Edit Customer: ${editingCustomer.name}` : 'Onboard New Customer Account'}
+      >
+        <form onSubmit={handleSaveCustomer} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Customer Enterprise Name *</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g. Acme Cloud Corp"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+            {formErrors.name && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.name}</span>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Customer Tier *</label>
+              <select
+                className="form-control"
+                value={formData.tier}
+                onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="PLATINUM">PLATINUM (30% Ceiling)</option>
+                <option value="GOLD">GOLD (20% Ceiling)</option>
+                <option value="STANDARD">STANDARD (10% Ceiling)</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Purchase Model *</label>
+              <select
+                className="form-control"
+                value={formData.purchaseModel}
+                onChange={(e) => setFormData({ ...formData, purchaseModel: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="RECURRING_PREMIUM">RECURRING_PREMIUM</option>
+                <option value="BULK_ONE_TIME">BULK_ONE_TIME</option>
+                <option value="ONE_TIME">ONE_TIME</option>
+                <option value="RECURRING_FREE">RECURRING_FREE</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Credit Limit Floor (₹) *</label>
+              <input
+                type="number"
+                className="form-control"
+                value={formData.creditLimit}
+                onChange={(e) => setFormData({ ...formData, creditLimit: Number(e.target.value) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+              {formErrors.creditLimit && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.creditLimit}</span>}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Risk Score (0 - 100) *</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                className="form-control"
+                value={formData.riskScore}
+                onChange={(e) => setFormData({ ...formData, riskScore: Number(e.target.value) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+              {formErrors.riskScore && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.riskScore}</span>}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Contact Email</label>
+              <input
+                type="email"
+                className="form-control"
+                value={formData.contactEmail}
+                onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                placeholder="procurement@company.com"
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>SLA Support Commitment</label>
+              <select
+                className="form-control"
+                value={formData.slaLevel}
+                onChange={(e) => setFormData({ ...formData, slaLevel: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="Mission Critical (4h)">Mission Critical (4h)</option>
+                <option value="High-Priority (24h)">High-Priority (24h)</option>
+                <option value="Standard (48h)">Standard (48h)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <button type="button" onClick={() => setIsFormModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {editingCustomer ? 'Save Account Changes' : 'Create Customer Account'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* View Detail Modal */}
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={`Account Specification — ${selectedCustomer?.name || ''}`}
+      >
+        {selectedCustomer && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: 'var(--surface-container-low)', padding: 14, borderRadius: 8 }}>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Account ID</span>
+                <strong className="font-mono" style={{ fontSize: 14 }}>{selectedCustomer.id}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Account Tier</span>
+                <span className={`badge ${selectedCustomer.tier === 'PLATINUM' ? 'badge-secondary' : selectedCustomer.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
+                  {selectedCustomer.tier}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Credit Limit Floor</span>
+                <span className="font-mono" style={{ fontSize: 14, fontWeight: 700 }}>{formatCurrency(selectedCustomer.creditLimit)}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Risk Score Rating</span>
+                <span className={`badge ${selectedCustomer.riskScore < 25 ? 'badge-success' : selectedCustomer.riskScore < 50 ? 'badge-amber' : 'badge-error'}`}>
+                  Score {selectedCustomer.riskScore} / 100 ({selectedCustomer.riskScore < 25 ? 'LOW' : selectedCustomer.riskScore < 50 ? 'MEDIUM' : 'HIGH'})
+                </span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Purchase Model</span>
+                <span className="font-mono" style={{ fontSize: 13 }}>{selectedCustomer.purchaseModel}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>SLA Commitment</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedCustomer.slaLevel}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Primary Contact</span>
+                <span style={{ fontSize: 13 }}>{selectedCustomer.contactEmail}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Governance Status</span>
+                <span className={`badge ${selectedCustomer.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
+                  {selectedCustomer.status}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => { setIsDetailModalOpen(false); handleOpenEditModal(selectedCustomer); }} className="btn btn-outline">
+                Edit Account
+              </button>
+              <button onClick={() => setIsDetailModalOpen(false)} className="btn btn-primary">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirmation Modal for Deactivate */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        title={selectedCustomer?.status === 'Active' ? 'Deactivate Customer Account?' : 'Activate Customer Account?'}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            padding: 12, borderRadius: 'var(--radius-md)',
-            background: 'var(--error-container)', color: 'var(--on-error-container)',
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12
-          }}>
-            <MS icon="lock" size={20} />
-            <span><strong>Read-Only Governance Protection:</strong> Account edits are disabled in backend-disconnected state.</span>
-          </div>
-          <p className="body-md" style={{ color: 'var(--on-surface-variant)' }}>
-            {modalConfig.message}
+          <p style={{ fontSize: 14, color: 'var(--on-surface)' }}>
+            Are you sure you want to {selectedCustomer?.status === 'Active' ? 'deactivate' : 'activate'} customer <strong>{selectedCustomer?.name}</strong>?
           </p>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="btn btn-primary">
-              Acknowledge & Close
+          <p style={{ fontSize: 12, color: 'var(--on-surface-variant)' }}>
+            {selectedCustomer?.status === 'Active'
+              ? 'Deactivating this account will prevent new quotation creation and pause credit limit checks.'
+              : 'Activating this account will enable quotation creation under configured tier governance limits.'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <button onClick={() => setIsConfirmModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button
+              onClick={handleToggleStatus}
+              className={`btn ${selectedCustomer?.status === 'Active' ? 'btn-error' : 'btn-primary'}`}
+            >
+              {selectedCustomer?.status === 'Active' ? 'Deactivate Account' : 'Activate Account'}
             </button>
           </div>
         </div>
@@ -220,3 +584,4 @@ export default function CustomerConfig() {
     </div>
   );
 }
+

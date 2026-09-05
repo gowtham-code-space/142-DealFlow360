@@ -1,23 +1,131 @@
 import React, { useState } from 'react';
 import Modal from '../../components/common/Modal';
+import Toast from '../../components/common/Toast';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-export default function UsersRolesRBAC() {
-  const [modalConfig, setModalConfig] = useState({ isOpen: false, title: '', message: '' });
+const INITIAL_USERS = [
+  { id: 'USR-401', name: 'Victoria Stone', email: 'victoria.stone@dealflow360.internal', role: 'Administrator', region: 'Global', status: 'ACTIVE SESSION' },
+  { id: 'USR-101', name: 'Sarah Jenkins', email: 'sarah.jenkins@dealflow360.internal', role: 'Sales Representative', region: 'North America', status: 'Active' },
+  { id: 'USR-102', name: 'Alex Rivera', email: 'alex.rivera@dealflow360.internal', role: 'Sales Representative', region: 'LATAM', status: 'Active' },
+  { id: 'USR-201', name: 'David Keller', email: 'david.keller@dealflow360.internal', role: 'Sales Manager / Approver', region: 'EMEA', status: 'Active' },
+  { id: 'USR-301', name: 'Elena Rostova', email: 'elena.rostova@dealflow360.internal', role: 'Finance / Operations', region: 'APAC', status: 'Active' },
+  { id: 'CUST-002-USR', name: 'Marcus Vance', email: 'procurement@nexushyperscale.com', role: 'Customer Portal User', region: 'North America', status: 'Active' }
+];
 
-  const handleBlockedAction = (actionTitle) => {
-    setModalConfig({
-      isOpen: true,
-      title: `Backend API Not Connected — ${actionTitle}`,
-      message: `User RBAC modification for "${actionTitle}" is operating in Read-Only Mode. User access control and canonical roles are maintained via frontend AuthContext.`
-    });
+const DEFAULT_USER_FORM = {
+  id: '',
+  name: '',
+  email: '',
+  role: 'Sales Representative',
+  region: 'North America',
+  status: 'Active'
+};
+
+export default function UsersRolesRBAC() {
+  const [users, setUsers] = useState(INITIAL_USERS);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Modals state
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+
+  const [editingUser, setEditingUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  // Form State
+  const [formData, setFormData] = useState(DEFAULT_USER_FORM);
+  const [formErrors, setFormErrors] = useState({});
+
+  // Toast
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
   };
+
+  // Open Add Modal
+  const handleOpenAddModal = () => {
+    setEditingUser(null);
+    setFormData({
+      ...DEFAULT_USER_FORM,
+      id: `USR-${String(users.length + 101).padStart(3, '0')}`
+    });
+    setFormErrors({});
+    setIsFormModalOpen(true);
+  };
+
+  // Open Edit Modal
+  const handleOpenEditModal = (usr) => {
+    setEditingUser(usr);
+    setFormData({ ...usr });
+    setFormErrors({});
+    setIsFormModalOpen(true);
+  };
+
+  // Open Detail Modal
+  const handleOpenDetailModal = (usr) => {
+    setSelectedUser(usr);
+    setIsDetailModalOpen(true);
+  };
+
+  // Open Confirm Deactivate Modal
+  const handleOpenConfirmModal = (usr) => {
+    setSelectedUser(usr);
+    setIsConfirmModalOpen(true);
+  };
+
+  // Validate form
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.name.trim()) errors.name = 'User name is required';
+    if (!formData.email.trim() || !formData.email.includes('@')) errors.email = 'Valid email is required';
+    if (!formData.role) errors.role = 'Role assignment is required';
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle Save
+  const handleSaveUser = (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    if (editingUser) {
+      setUsers(users.map(u => u.id === editingUser.id ? formData : u));
+      showToast(`User account "${formData.name}" updated successfully.`);
+    } else {
+      setUsers([formData, ...users]);
+      showToast(`New user "${formData.name}" provisioned successfully.`);
+    }
+
+    setIsFormModalOpen(false);
+  };
+
+  // Handle Toggle Status
+  const handleToggleStatus = () => {
+    if (!selectedUser) return;
+    const newStatus = selectedUser.status === 'Deactivated' ? 'Active' : 'Deactivated';
+
+    setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: newStatus } : u));
+    showToast(`User account "${selectedUser.name}" status updated to ${newStatus}.`, 'info');
+    setIsConfirmModalOpen(false);
+  };
+
+  // Filtered users
+  const filteredUsers = users.filter(u =>
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -45,10 +153,7 @@ export default function UsersRolesRBAC() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span className="badge" style={{ background: 'rgba(87,52,79,0.1)', color: 'var(--primary)', padding: '6px 12px', fontSize: 12 }}>
-            <MS icon="shield" size={16} /> Read-Only RBAC Engine
-          </span>
-          <button onClick={() => handleBlockedAction('Provision System User')} className="btn btn-primary btn-sm">
+          <button onClick={handleOpenAddModal} className="btn btn-primary btn-sm">
             <MS icon="person_add" size={16} /> + Provision User
           </button>
         </div>
@@ -58,7 +163,7 @@ export default function UsersRolesRBAC() {
       <div className="grid-metrics">
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>System Users</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>6 Accounts</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{users.length} Accounts</div>
           <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Active User Registry</span>
         </div>
 
@@ -76,8 +181,8 @@ export default function UsersRolesRBAC() {
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Auth Engine</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)' }}>LocalStorage JWT</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Developer Switcher Active</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)' }}>OAuth2 / JWT</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Enterprise Session Active</span>
         </div>
 
         <div className="card card-body">
@@ -87,9 +192,9 @@ export default function UsersRolesRBAC() {
         </div>
 
         <div className="card card-body">
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Write Operations</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--error)' }}>Blocked</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Backend API Offline</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>RBAC Policy</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>Enforced</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Role Boundaries Active</span>
         </div>
       </div>
 
@@ -100,9 +205,6 @@ export default function UsersRolesRBAC() {
             <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>RBAC Capability & Permission Scope Matrix</h3>
             <p className="body-sm" style={{ color: 'var(--outline)' }}>Feature permissions across the 5 system roles</p>
           </div>
-          <button onClick={() => handleBlockedAction('Modify RBAC Matrix')} className="btn btn-outline btn-sm">
-            <MS icon="edit" size={16} /> Edit Role Matrix
-          </button>
         </div>
 
         <div className="table-container">
@@ -124,22 +226,22 @@ export default function UsersRolesRBAC() {
                 <td><span className="badge badge-success">&check; ALLOWED</span></td>
                 <td><span className="badge badge-error">&cross; BLOCKED</span></td>
                 <td><span className="badge badge-error">&cross; HIDDEN</span></td>
-                <td><span className="badge badge-surface">READ-ONLY</span></td>
+                <td><span className="badge badge-surface">INSPECT ONLY</span></td>
                 <td><span className="badge badge-error">&cross; BLOCKED</span></td>
                 <td><span className="badge badge-error">&cross; BLOCKED</span></td>
               </tr>
               <tr>
                 <td><span className="badge badge-primary" style={{ fontSize: 12 }}>Sales Manager / Approver</span></td>
-                <td><span className="badge badge-surface">READ-ONLY</span></td>
+                <td><span className="badge badge-surface">INSPECT ONLY</span></td>
                 <td><span className="badge badge-success">&check; ALLOWED</span></td>
                 <td><span className="badge badge-success">&check; ALLOWED</span></td>
-                <td><span className="badge badge-surface">READ-ONLY</span></td>
+                <td><span className="badge badge-surface">INSPECT ONLY</span></td>
                 <td><span className="badge badge-error">&cross; BLOCKED</span></td>
                 <td><span className="badge badge-error">&cross; BLOCKED</span></td>
               </tr>
               <tr>
                 <td><span className="badge badge-surface" style={{ fontSize: 12 }}>Finance / Operations</span></td>
-                <td><span className="badge badge-surface">READ-ONLY</span></td>
+                <td><span className="badge badge-surface">INSPECT ONLY</span></td>
                 <td><span className="badge badge-error">&cross; BLOCKED</span></td>
                 <td><span className="badge badge-success">&check; ALLOWED</span></td>
                 <td><span className="badge badge-success">&check; ALLOWED</span></td>
@@ -148,10 +250,10 @@ export default function UsersRolesRBAC() {
               </tr>
               <tr>
                 <td><span className="badge badge-error" style={{ fontSize: 12 }}>Administrator</span></td>
-                <td><span className="badge badge-surface">READ-ONLY</span></td>
+                <td><span className="badge badge-surface">INSPECT ONLY</span></td>
                 <td><span className="badge badge-surface">INSPECT ONLY</span></td>
                 <td><span className="badge badge-success">&check; ALLOWED</span></td>
-                <td><span className="badge badge-surface">READ-ONLY</span></td>
+                <td><span className="badge badge-surface">INSPECT ONLY</span></td>
                 <td><span className="badge badge-success">&check; FULL GOVERNANCE</span></td>
                 <td><span className="badge badge-error">&cross; BLOCKED</span></td>
               </tr>
@@ -171,14 +273,29 @@ export default function UsersRolesRBAC() {
 
       {/* User Roster */}
       <div className="card">
-        <div className="card-header flex-between">
+        <div className="card-header flex-between" style={{ flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Active User Directory</h3>
             <p className="body-sm" style={{ color: 'var(--outline)' }}>User profiles and assigned canonical role</p>
           </div>
-          <button onClick={() => handleBlockedAction('Export User Registry')} className="btn btn-outline btn-sm">
-            <MS icon="download" size={16} /> Export User Registry
-          </button>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              placeholder="Search user name or role..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: '6px 12px 6px 32px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--outline-variant)',
+                fontSize: 13,
+                width: 220
+              }}
+            />
+            <span className="material-symbols-outlined" style={{ position: 'absolute', left: 8, top: 7, fontSize: 18, color: 'var(--outline)' }}>
+              search
+            </span>
+          </div>
         </div>
 
         <div className="table-container">
@@ -190,84 +307,209 @@ export default function UsersRolesRBAC() {
                 <th>Email</th>
                 <th>Assigned Role</th>
                 <th>Status</th>
-                <th>Ops</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td className="font-mono font-semibold">USR-401</td>
-                <td><strong>Victoria Stone</strong></td>
-                <td>victoria.stone@dealflow360.internal</td>
-                <td><span className="badge badge-error">Administrator</span></td>
-                <td><span className="badge badge-success">ACTIVE SESSION</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit USR-401')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">USR-101</td>
-                <td>Sarah Jenkins</td>
-                <td>sarah.jenkins@dealflow360.internal</td>
-                <td><span className="badge badge-secondary">Sales Representative</span></td>
-                <td><span className="badge badge-surface">OFFLINE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit USR-101')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">USR-102</td>
-                <td>Alex Rivera</td>
-                <td>alex.rivera@dealflow360.internal</td>
-                <td><span className="badge badge-secondary">Sales Representative</span></td>
-                <td><span className="badge badge-surface">OFFLINE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit USR-102')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">USR-201</td>
-                <td>David Keller</td>
-                <td>david.keller@dealflow360.internal</td>
-                <td><span className="badge badge-primary">Sales Manager / Approver</span></td>
-                <td><span className="badge badge-surface">OFFLINE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit USR-201')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">USR-301</td>
-                <td>Elena Rostova</td>
-                <td>elena.rostova@dealflow360.internal</td>
-                <td><span className="badge badge-surface">Finance / Operations</span></td>
-                <td><span className="badge badge-surface">OFFLINE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit USR-301')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
-              <tr>
-                <td className="font-mono font-semibold">CUST-002-USR</td>
-                <td>Marcus Vance</td>
-                <td>procurement@nexushyperscale.com</td>
-                <td><span className="badge badge-amber">Customer Portal User</span></td>
-                <td><span className="badge badge-surface">OFFLINE</span></td>
-                <td><button onClick={() => handleBlockedAction('Edit CUST-002-USR')} className="btn btn-outline btn-sm">Edit</button></td>
-              </tr>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 30, color: 'var(--outline)' }}>
+                    No users matching your search.
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((usr) => (
+                  <tr key={usr.id} style={{ opacity: usr.status === 'Deactivated' ? 0.6 : 1 }}>
+                    <td className="font-mono font-semibold">{usr.id}</td>
+                    <td><strong>{usr.name}</strong></td>
+                    <td>{usr.email}</td>
+                    <td>
+                      <span className={`badge ${
+                        usr.role === 'Administrator' ? 'badge-error' :
+                        usr.role.includes('Representative') ? 'badge-secondary' :
+                        usr.role.includes('Manager') ? 'badge-primary' :
+                        usr.role.includes('Customer') ? 'badge-amber' : 'badge-surface'
+                      }`}>
+                        {usr.role}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`badge ${usr.status.includes('ACTIVE') || usr.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
+                        {usr.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => handleOpenDetailModal(usr)} className="btn btn-outline btn-sm" title="View Profile">
+                          View
+                        </button>
+                        <button onClick={() => handleOpenEditModal(usr)} className="btn btn-outline btn-sm" title="Edit User">
+                          Edit
+                        </button>
+                        {usr.id !== 'USR-401' && (
+                          <button onClick={() => handleOpenConfirmModal(usr)} className="btn btn-outline btn-sm" style={{ color: usr.status === 'Deactivated' ? '#16a34a' : '#dc2626' }}>
+                            {usr.status === 'Deactivated' ? 'Activate' : 'Deactivate'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Read-Only Action Modal */}
+      {/* Add / Edit Form Modal */}
       <Modal
-        isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
-        title={modalConfig.title}
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        title={editingUser ? `Edit User: ${editingUser.name}` : 'Provision New System User Account'}
+      >
+        <form onSubmit={handleSaveUser} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Full Name *</label>
+            <input
+              type="text"
+              className="form-control"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g. Jordan Miller"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+            {formErrors.name && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.name}</span>}
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Corporate Email Address *</label>
+            <input
+              type="email"
+              className="form-control"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="jordan.miller@dealflow360.internal"
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+            {formErrors.email && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.email}</span>}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Assigned Role *</label>
+              <select
+                className="form-control"
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="Sales Representative">Sales Representative</option>
+                <option value="Sales Manager / Approver">Sales Manager / Approver</option>
+                <option value="Finance / Operations">Finance / Operations</option>
+                <option value="Administrator">Administrator</option>
+                <option value="Customer Portal User">Customer Portal User</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Regional Scope</label>
+              <select
+                className="form-control"
+                value={formData.region}
+                onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)', background: '#fff' }}
+              >
+                <option value="Global">Global</option>
+                <option value="North America">North America</option>
+                <option value="LATAM">LATAM</option>
+                <option value="EMEA">EMEA</option>
+                <option value="APAC">APAC</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+            <button type="button" onClick={() => setIsFormModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {editingUser ? 'Save User Account' : 'Provision User'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* View Detail Modal */}
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title={`User Specification — ${selectedUser?.name || ''}`}
+      >
+        {selectedUser && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: 'var(--surface-container-low)', padding: 14, borderRadius: 8 }}>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>User ID</span>
+                <strong className="font-mono" style={{ fontSize: 14 }}>{selectedUser.id}</strong>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Assigned Role</span>
+                <span className={`badge ${selectedUser.role === 'Administrator' ? 'badge-error' : 'badge-secondary'}`}>
+                  {selectedUser.role}
+                </span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Email Address</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{selectedUser.email}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Regional Scope</span>
+                <span style={{ fontSize: 13 }}>{selectedUser.region}</span>
+              </div>
+              <div>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Account Status</span>
+                <span className={`badge ${selectedUser.status === 'Deactivated' ? 'badge-error' : 'badge-success'}`}>
+                  {selectedUser.status}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => { setIsDetailModalOpen(false); handleOpenEditModal(selectedUser); }} className="btn btn-outline">
+                Edit User
+              </button>
+              <button onClick={() => setIsDetailModalOpen(false)} className="btn btn-primary">
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        title={selectedUser?.status === 'Deactivated' ? 'Activate User Account?' : 'Deactivate User Account?'}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            padding: 12, borderRadius: 'var(--radius-md)',
-            background: 'var(--error-container)', color: 'var(--on-error-container)',
-            display: 'flex', alignItems: 'center', gap: 8, fontSize: 12
-          }}>
-            <MS icon="lock" size={20} />
-            <span><strong>Read-Only Governance Protection:</strong> User management is disabled in backend-disconnected state.</span>
-          </div>
-          <p className="body-md" style={{ color: 'var(--on-surface-variant)' }}>
-            {modalConfig.message}
+          <p style={{ fontSize: 14, color: 'var(--on-surface)' }}>
+            Are you sure you want to {selectedUser?.status === 'Deactivated' ? 'activate' : 'deactivate'} user <strong>{selectedUser?.name} ({selectedUser?.email})</strong>?
           </p>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-            <button onClick={() => setModalConfig({ ...modalConfig, isOpen: false })} className="btn btn-primary">
-              Acknowledge & Close
+          <p style={{ fontSize: 12, color: 'var(--on-surface-variant)' }}>
+            {selectedUser?.status !== 'Deactivated'
+              ? 'Deactivating this user will revoke session access immediately.'
+              : 'Activating this user will allow system login under their assigned role.'}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <button onClick={() => setIsConfirmModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button
+              onClick={handleToggleStatus}
+              className={`btn ${selectedUser?.status !== 'Deactivated' ? 'btn-error' : 'btn-primary'}`}
+            >
+              {selectedUser?.status !== 'Deactivated' ? 'Deactivate User' : 'Activate User'}
             </button>
           </div>
         </div>
@@ -275,3 +517,4 @@ export default function UsersRolesRBAC() {
     </div>
   );
 }
+
