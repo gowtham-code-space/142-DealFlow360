@@ -1,122 +1,109 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import DashboardLayout from './layouts/DashboardLayout';
 
-function App() {
-  const [count, setCount] = useState(0)
+// Pages
+import Login from './pages/auth/Login';
+import SalesDashboard from './pages/dashboard/SalesDashboard';
+import ManagerDashboard from './pages/dashboard/ManagerDashboard';
+import OperationsDashboard from './pages/dashboard/OperationsDashboard';
+import QuoteList from './pages/quotations/QuoteList';
+import QuoteCreate from './pages/quotations/QuoteCreate';
+import QuoteDetails from './pages/quotations/QuoteDetails';
+import ApprovalQueue from './pages/approvals/ApprovalQueue';
+import InventoryAllocation from './pages/inventory/InventoryAllocation';
+import Billing from './pages/billing/Billing';
+import Negotiation from './pages/negotiation/Negotiation';
+import CustomerPortal from './pages/portal/CustomerPortal';
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function DashboardRouteWrapper({ children }) {
+  return <DashboardLayout>{children}</DashboardLayout>;
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Auth */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Internal Dashboard Routes */}
+          <Route path="/" element={<Navigate to="/dashboard/sales" replace />} />
+          
+          <Route path="/dashboard/sales" element={
+            <DashboardRouteWrapper>
+              <SalesDashboard />
+            </DashboardRouteWrapper>
+          } />
+          
+          <Route path="/dashboard/manager" element={
+            <DashboardRouteWrapper>
+              <ManagerDashboard />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/dashboard/operations" element={
+            <DashboardRouteWrapper>
+              <OperationsDashboard />
+            </DashboardRouteWrapper>
+          } />
+
+          {/* Quotations CPQ */}
+          <Route path="/quotations" element={
+            <DashboardRouteWrapper>
+              <QuoteList />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/quotations/new" element={
+            <DashboardRouteWrapper>
+              <QuoteCreate />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/quotations/:id" element={
+            <DashboardRouteWrapper>
+              <QuoteDetails />
+            </DashboardRouteWrapper>
+          } />
+
+          {/* Approvals */}
+          <Route path="/approvals" element={
+            <DashboardRouteWrapper>
+              <ApprovalQueue />
+            </DashboardRouteWrapper>
+          } />
+
+          {/* Warehouse & Inventory */}
+          <Route path="/inventory" element={
+            <DashboardRouteWrapper>
+              <InventoryAllocation />
+            </DashboardRouteWrapper>
+          } />
+
+          {/* Billing & Invoicing */}
+          <Route path="/billing" element={
+            <DashboardRouteWrapper>
+              <Billing />
+            </DashboardRouteWrapper>
+          } />
+
+          {/* Deal Negotiation / Redlining */}
+          <Route path="/negotiation" element={
+            <DashboardRouteWrapper>
+              <Negotiation />
+            </DashboardRouteWrapper>
+          } />
+
+          {/* Customer Portal */}
+          <Route path="/portal" element={<CustomerPortal />} />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/dashboard/sales" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
