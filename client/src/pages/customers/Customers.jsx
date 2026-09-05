@@ -17,7 +17,7 @@ export default function Customers() {
     async function loadCustomers() {
       setLoading(true);
       const res = await api.getCustomers();
-      if (res.success) setCustomers(res.data);
+      if (res.success) setCustomers(res.data.items || []);
       setLoading(false);
     }
     loadCustomers();

@@ -23,15 +23,15 @@ export default function OperationsDashboard() {
         api.getQuotations(),
         api.getWarehouses()
       ]);
-      if (qRes.success && Array.isArray(qRes.data)) {
-        setQuotations(qRes.data);
+      if (qRes.success && qRes.data?.items) {
+        setQuotations(qRes.data.items);
       } else {
-        setQuotations(MOCK_QUOTATIONS);
+        setQuotations([]);
       }
-      if (wRes.success && Array.isArray(wRes.data)) {
-        setWarehouses(wRes.data);
+      if (wRes.success && wRes.data?.items) {
+        setWarehouses(wRes.data.items);
       } else {
-        setWarehouses(MOCK_WAREHOUSES);
+        setWarehouses([]);
       }
       setLoading(false);
     }

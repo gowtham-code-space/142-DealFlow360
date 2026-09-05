@@ -19,20 +19,16 @@ export default function MyDeals() {
       setLoading(true);
       // Derive deals from existing quotation API data.
       const res = await api.getQuotations();
-      if (res.success) setDeals(res.data);
+      if (res.success) setDeals(res.data.items || []);
       setLoading(false);
     }
     loadDeals();
   }, []);
 
-  const filteredDeals = deals.filter(d => {
-    const dealId = d.quotationNumber || d.id || '';
-    const customerName = d.customer?.name || d.customerName || '';
-    return (
-      dealId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customerName.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  });
+  const filteredDeals = deals.filter(d => 
+    (d.quotationNumber || d.id).toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (d.customer?.name || d.customerName || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="flex-col gap-4">
@@ -92,39 +88,29 @@ export default function MyDeals() {
                 </tr>
               </thead>
               <tbody>
-                {filteredDeals.map(deal => {
-                  const dealId = deal.quotationNumber || deal.id;
-                  const customerName = deal.customer?.name || deal.customerName || 'Customer Account';
-                  const tier = deal.customer?.tier || deal.tier || 'STANDARD';
-                  const totalValue = deal.estimatedNetTotal || deal.confirmedNetTotal || deal.subtotal || deal.totalValue || 0;
-                  const discountVal = deal.discountTotal || deal.discountPercent || 0;
-                  const marginVal = deal.marginPct || deal.marginPercent || 0;
-                  const createdDate = deal.createdAt || deal.createdDate;
-
-                  return (
-                    <tr key={deal.id}>
-                      <td className="data-mono font-semibold text-primary-color">{dealId}</td>
-                      <td>
-                        <div className="font-semibold">{customerName}</div>
-                        <div className="label-sm text-muted">Tier: {tier}</div>
-                      </td>
-                      <td className="data-mono font-bold">{formatCurrency(totalValue)}</td>
-                      <td className="data-mono">{formatPercent(discountVal)}</td>
-                      <td className={`data-mono font-semibold ${marginVal >= 35 ? 'text-emerald' : 'text-amber'}`}>
-                        {formatPercent(marginVal)}
-                      </td>
-                      <td>
-                        <StatusBadge status={deal.status} />
-                      </td>
-                      <td className="body-sm text-secondary">{formatDate(createdDate)}</td>
-                      <td>
-                        <button className="btn btn-outline btn-sm" onClick={() => navigate(`/quotations/${deal.id}`)}>
-                          <MS icon="open_in_new" size={14} /> View Details
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredDeals.map(deal => (
+                  <tr key={deal.id}>
+                    <td className="data-mono font-semibold text-primary-color">{deal.quotationNumber || deal.id}</td>
+                    <td>
+                      <div className="font-semibold">{deal.customer?.name || deal.customerName}</div>
+                      <div className="label-sm text-muted">Tier: {deal.customer?.tier || deal.tier}</div>
+                    </td>
+                    <td className="data-mono font-bold">{formatCurrency(deal.estimatedNetTotal || deal.totalValue)}</td>
+                    <td className="data-mono">{formatPercent(deal.discountPct !== undefined ? (deal.discountTotal / (deal.subtotal || 1) * 100) : deal.discountPercent)}</td>
+                    <td className={`data-mono font-semibold ${(deal.marginPct || deal.marginPercent) >= 35 ? 'text-emerald' : 'text-amber'}`}>
+                      {formatPercent(deal.marginPct || deal.marginPercent)}
+                    </td>
+                    <td>
+                      <StatusBadge status={deal.status} />
+                    </td>
+                    <td className="body-sm text-secondary">{formatDate(deal.createdAt || deal.createdDate)}</td>
+                    <td>
+                      <button className="btn btn-outline btn-sm" onClick={() => navigate(`/quotations/${deal.id}`)}>
+                        <MS icon="open_in_new" size={14} /> View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

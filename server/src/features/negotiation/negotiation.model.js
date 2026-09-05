@@ -112,6 +112,33 @@ async function createNegotiation(data) {
   });
 }
 
+// ─── Approval & Quotation Helpers ───────────────────────────────────────────
+
+async function createApproval(data) {
+  return prisma.approval.create({ data });
+}
+
+async function updateQuotationStatus(id, status) {
+  return prisma.quotation.update({
+    where: { id },
+    data: { status }
+  });
+}
+
+async function findQuotationContextForExport(quoteId) {
+  return prisma.quotation.findUnique({
+    where: { id: quoteId },
+    include: {
+      customer: true,
+      rep: { select: { id: true, name: true, email: true } },
+      items: { include: { product: true } },
+      negotiationTickets: { orderBy: { createdAt: 'desc' } },
+      negotiations: { orderBy: { createdAt: 'asc' }, include: { sender: { select: { name: true, roleId: true } } } },
+      approvals: { orderBy: { createdAt: 'desc' }, include: { approver: { select: { name: true, roleId: true } } } }
+    }
+  });
+}
+
 module.exports = {
   findNegotiationTickets,
   countNegotiationTickets,
@@ -126,5 +153,8 @@ module.exports = {
   releaseProductHolds,
   findProductHoldsByTicketId,
   findNegotiations,
-  createNegotiation
+  createNegotiation,
+  createApproval,
+  updateQuotationStatus,
+  findQuotationContextForExport
 };

@@ -13,10 +13,12 @@ router.get('/negotiation-tickets/:ticketId', authenticate, authorize(RoleGroups.
 router.post('/negotiation-tickets/:ticketId/accept', authenticate, authorize(RoleGroups.SALES), ctrl.acceptNegotiationTicket);
 router.post('/negotiation-tickets/:ticketId/reject', authenticate, authorize(RoleGroups.SALES), ctrl.rejectNegotiationTicket);
 router.post('/negotiation-tickets/:ticketId/counter', authenticate, authorize(RoleGroups.SALES), ctrl.counterNegotiationTicket);
+router.post('/negotiation-tickets/:ticketId/escalate', authenticate, authorize(RoleGroups.SALES), ctrl.escalateNegotiationTicket);
 router.get('/negotiation-tickets/:ticketId/hold-status', authenticate, authorize(RoleGroups.ALL_USERS), ctrl.getTicketHoldStatus);
 
 // Quote negotiation messages/threads
 router.get('/quotes/:id/negotiations', authenticate, authorize(RoleGroups.ALL_USERS), ctrl.listNegotiations);
 router.post('/quotes/:id/negotiations', authenticate, authorize(RoleGroups.ALL_USERS), ctrl.createNegotiationMessage);
+router.get('/quotes/:id/negotiation-summary.pdf', authenticate, authorize(RoleGroups.ALL_USERS), ctrl.exportNegotiationSummaryPdf);
 
 module.exports = router;

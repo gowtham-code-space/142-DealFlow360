@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { MOCK_WAREHOUSES, MOCK_PRODUCTS } from '../../utils/constants';
 import { formatCurrency } from '../../utils/formatters';
 import { api } from '../../services/api';
 import MetricCard from '../../components/common/MetricCard';
 import { Boxes, Truck, CheckCircle2, Layers } from 'lucide-react';
 
 export default function InventoryAllocation() {
-  const [products, setProducts] = useState(MOCK_PRODUCTS);
-  const [warehouses, setWarehouses] = useState(MOCK_WAREHOUSES);
-  const [selectedProduct, setSelectedProduct] = useState(MOCK_PRODUCTS[0]);
+  const [products, setProducts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState({});
   const [orderQuantity, setOrderQuantity] = useState(25);
   const [destination, setDestination] = useState('New York, NY (East Coast Zone)');
   const [allocationLocked, setAllocationLocked] = useState(false);
+  const [inventoryMap, setInventoryMap] = useState({});
 
   useEffect(() => {
     async function loadData() {
@@ -19,11 +19,29 @@ export default function InventoryAllocation() {
         api.getProducts(),
         api.getWarehouses()
       ]);
-      if (pRes.success && Array.isArray(pRes.data)) setProducts(pRes.data);
-      if (wRes.success && Array.isArray(wRes.data)) setWarehouses(wRes.data);
+      if (pRes.success && pRes.data?.items) {
+        setProducts(pRes.data.items);
+        if (pRes.data.items.length > 0) setSelectedProduct(pRes.data.items[0]);
+      }
+      if (wRes.success && wRes.data?.items) setWarehouses(wRes.data.items);
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    async function loadInventory() {
+      if (!selectedProduct?.id) return;
+      const res = await api.getInventory(selectedProduct.id);
+      if (res.success && res.data?.items) {
+        const map = {};
+        res.data.items.forEach(inv => {
+          map[inv.warehouseId] = (inv.normalPoolQty || 0) + (inv.premiumBulkPoolQty || 0);
+        });
+        setInventoryMap(map);
+      }
+    }
+    loadInventory();
+  }, [selectedProduct?.id]);
 
   // Optimal Split Calculation Algorithm
   const calculateAllocation = () => {
@@ -59,7 +77,7 @@ export default function InventoryAllocation() {
 
   const allocationResult = calculateAllocation();
   const totalFreight = allocationResult.reduce((acc, r) => acc + r.shippingCost, 0);
-  const totalInStock = warehouses.reduce((acc, w) => acc + (w.stock || 0), 0);
+  const totalInStock = warehouses.reduce((acc, w) => acc + (inventoryMap[w.id] || 0), 0);
 
   const handleLockAllocation = () => {
     setAllocationLocked(true);
@@ -277,7 +295,7 @@ export default function InventoryAllocation() {
                   <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--on-surface)', margin: '4px 0' }}>{wh.name}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: '0.8rem' }}>
                     <span style={{ color: 'var(--secondary-text)' }}>In Stock:</span>
-                    <strong style={{ color: '#059669' }}>{wh.stock} units</strong>
+                    <strong style={{ color: '#059669' }}>{inventoryMap[wh.id] || 0} units</strong>
                   </div>
                 </div>
               ))}

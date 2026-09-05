@@ -79,7 +79,7 @@ export default function QuoteDetails() {
               <StatusBadge status={quote.status} />
             </div>
             <p className="body-sm text-secondary" style={{ margin: 0, marginTop: 4 }}>
-              Created on {formatDate(quote.createdDate)} for {quote.customerName}
+              Created on {formatDate(quote.createdAt || quote.createdDate)} for {quote.customer?.name || quote.customerName}
             </p>
           </div>
         </div>
@@ -101,16 +101,16 @@ export default function QuoteDetails() {
             <div className="grid-2">
               <div>
                 <div className="label-sm text-muted">Customer Account</div>
-                <div className="body-md font-bold">{quote.customerName}</div>
-                <div className="body-sm text-secondary">ID: {quote.customerId || 'CUST-002'}</div>
+                <div className="body-md font-bold">{quote.customer?.name || quote.customerName}</div>
+                <div className="body-sm text-secondary">ID: {quote.customer?.id || quote.customerId || 'CUST-002'}</div>
               </div>
               <div>
                 <div className="label-sm text-muted">Customer Tier Policy</div>
-                <div className="body-md font-bold" style={{ color: quote.tier === 'PLATINUM' ? '#6b21a8' : 'var(--primary)' }}>
-                  {quote.tier || 'GOLD'} TIER
+                <div className="body-md font-bold" style={{ color: (quote.customer?.tier || quote.tier) === 'PLATINUM' ? '#6b21a8' : 'var(--primary)' }}>
+                  {quote.customer?.tier || quote.tier || 'GOLD'} TIER
                 </div>
                 <div className="body-sm text-secondary">
-                  Max Policy Ceiling: {quote.tier === 'PLATINUM' ? '30%' : quote.tier === 'GOLD' ? '20%' : '10%'}
+                  Max Policy Ceiling: {(quote.customer?.tier || quote.tier) === 'PLATINUM' ? '30%' : (quote.customer?.tier || quote.tier) === 'GOLD' ? '20%' : '10%'}
                 </div>
               </div>
             </div>
@@ -139,17 +139,17 @@ export default function QuoteDetails() {
                   <tbody>
                     {items.map((item, idx) => {
                       const qty = item.quantity || item.qty || 1;
-                      const listPrice = item.listPrice || item.price || 0;
-                      const discount = item.discountPercent || item.discount || 0;
-                      const lineTotal = item.lineTotal || item.total || (listPrice * qty * (1 - discount / 100));
+                      const listPrice = item.unitListPrice || item.listPrice || item.price || 0;
+                      const discount = item.cumulativeDiscountPct || item.discountPercent || item.discount || 0;
+                      const lineTotal = item.netTotal || item.lineTotal || item.total || (listPrice * qty * (1 - discount / 100));
 
                       return (
                         <tr key={item.id || idx}>
                           <td>
-                            <div className="font-semibold">{item.productName || item.name || 'Custom Product'}</div>
-                            <div className="label-sm text-muted">SKU: {item.sku || item.productId || 'PRD-100'}</div>
+                            <div className="font-semibold">{item.product?.name || item.productName || item.name || 'Custom Product'}</div>
+                            <div className="label-sm text-muted">SKU: {item.product?.id || item.sku || item.productId || 'PRD-100'}</div>
                           </td>
-                          <td className="body-sm text-secondary">{item.billingType || 'One-Time'}</td>
+                          <td className="body-sm text-secondary">{item.product?.productType || item.billingType || 'One-Time'}</td>
                           <td className="data-mono">{qty}</td>
                           <td className="data-mono">{formatCurrency(listPrice)}</td>
                           <td className="data-mono">{formatPercent(discount)}</td>
@@ -174,26 +174,26 @@ export default function QuoteDetails() {
               <StatusBadge status={quote.status} />
             </div>
 
-            {quote.requiresApprovalReason && (
+            {quote.requiresApprovalReason || quote.approvalReason ? (
               <div style={{ padding: 12, background: '#fef3c7', borderRadius: 'var(--radius-sm)', color: '#92400e', marginBottom: 16, display: 'flex', gap: 6 }}>
                 <MS icon="warning" size={16} />
-                <span className="body-sm font-semibold">{quote.requiresApprovalReason}</span>
+                <span className="body-sm font-semibold">{quote.requiresApprovalReason || quote.approvalReason}</span>
               </div>
-            )}
+            ) : null}
 
             <div className="flex-col gap-2" style={{ borderTop: '1px solid var(--border-color)', paddingTop: 16 }}>
               <div className="flex-between">
                 <span className="body-sm text-secondary">Contract Value:</span>
-                <strong className="data-mono">{formatCurrency(quote.totalValue)}</strong>
+                <strong className="data-mono">{formatCurrency(quote.estimatedNetTotal || quote.totalValue)}</strong>
               </div>
               <div className="flex-between">
                 <span className="body-sm text-secondary">Average Discount:</span>
-                <strong className="data-mono">{formatPercent(quote.discountPercent)}</strong>
+                <strong className="data-mono">{formatPercent(quote.discountTotal !== undefined ? (quote.discountTotal / (quote.subtotal || 1)) * 100 : quote.discountPercent)}</strong>
               </div>
               <div className="flex-between">
                 <span className="body-sm text-secondary">Backend Margin %:</span>
-                <strong className={`data-mono ${quote.marginPercent >= 35 ? 'text-emerald' : 'text-amber'}`}>
-                  {formatPercent(quote.marginPercent)}
+                <strong className={`data-mono ${(quote.marginPct || quote.marginPercent) >= 35 ? 'text-emerald' : 'text-amber'}`}>
+                  {formatPercent(quote.marginPct || quote.marginPercent)}
                 </strong>
               </div>
             </div>

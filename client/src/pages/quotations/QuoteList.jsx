@@ -19,16 +19,13 @@ export default function QuoteList() {
     async function loadQuotes() {
       setLoading(true);
       const res = await api.getQuotations();
-      if (res.success) setQuotations(res.data);
+      if (res.success) setQuotations(res.data.items || []);
       setLoading(false);
     }
     loadQuotes();
   }, []);
 
   const filteredQuotations = quotations.filter(q => {
-    const quoteId = q.quotationNumber || q.id || '';
-    const customerName = q.customer?.name || q.customerName || '';
-
     const matchesTab =
       activeTab === 'ALL' ||
       (activeTab === 'DRAFT' && q.status === 'DRAFT') ||
@@ -37,8 +34,8 @@ export default function QuoteList() {
       (activeTab === 'NEGOTIATION' && q.status === 'CUSTOMER_NEGOTIATION');
 
     const matchesSearch =
-      quoteId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customerName.toLowerCase().includes(searchQuery.toLowerCase());
+      (q.quotationNumber || q.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (q.customer?.name || q.customerName || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesTab && matchesSearch;
   });
@@ -122,53 +119,42 @@ export default function QuoteList() {
                 </tr>
               </thead>
               <tbody>
-                {filteredQuotations.map(q => {
-                  const quoteId = q.quotationNumber || q.id;
-                  const customerName = q.customer?.name || q.customerName || 'Customer Account';
-                  const repName = q.rep?.name || q.repName || 'Sales Rep';
-                  const tier = q.customer?.tier || q.tier || 'STANDARD';
-                  const totalValue = q.estimatedNetTotal || q.confirmedNetTotal || q.subtotal || q.totalValue || 0;
-                  const discountVal = q.discountTotal || q.discountPercent || 0;
-                  const marginVal = q.marginPct || q.marginPercent || 0;
-                  const createdDate = q.createdAt || q.createdDate;
-
-                  return (
-                    <tr key={q.id}>
-                      <td className="data-mono font-semibold text-primary-color">{quoteId}</td>
-                      <td>
-                        <div className="font-semibold">{customerName}</div>
-                        <div className="label-sm text-muted">Rep: {repName}</div>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: tier === 'PLATINUM' ? '#6b21a8' : tier === 'GOLD' ? '#854d0e' : '#475569' }}>
-                          {tier}
-                        </span>
-                      </td>
-                      <td className="data-mono font-bold">{formatCurrency(totalValue)}</td>
-                      <td className="data-mono">{formatPercent(discountVal)}</td>
-                      <td className={`data-mono font-semibold ${marginVal >= 35 ? 'text-emerald' : 'text-amber'}`}>
-                        {formatPercent(marginVal)}
-                      </td>
-                      <td>
-                        <StatusBadge status={q.status} />
-                      </td>
-                      <td className="body-sm text-secondary">{formatDate(createdDate)}</td>
-                      <td>
-                        <div className="action-group">
-                          <button className="btn-icon" title="View Details" onClick={() => navigate(`/quotations/${q.id}`)}>
-                            <MS icon="open_in_new" size={16} />
+                {filteredQuotations.map(q => (
+                  <tr key={q.id}>
+                    <td className="data-mono font-semibold text-primary-color">{q.quotationNumber || q.id}</td>
+                    <td>
+                      <div className="font-semibold">{q.customer?.name || q.customerName}</div>
+                      <div className="label-sm text-muted">Rep: {q.rep?.name || q.repName || 'Alex Rivera'}</div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: (q.customer?.tier || q.tier) === 'PLATINUM' ? '#6b21a8' : (q.customer?.tier || q.tier) === 'GOLD' ? '#854d0e' : '#475569' }}>
+                        {q.customer?.tier || q.tier}
+                      </span>
+                    </td>
+                    <td className="data-mono font-bold">{formatCurrency(q.estimatedNetTotal || q.totalValue)}</td>
+                    <td className="data-mono">{formatPercent(q.marginPct !== undefined ? (q.discountTotal / (q.subtotal || 1) * 100) : q.discountPercent)}</td>
+                    <td className={`data-mono font-semibold ${(q.marginPct || q.marginPercent) >= 35 ? 'text-emerald' : 'text-amber'}`}>
+                      {formatPercent(q.marginPct || q.marginPercent)}
+                    </td>
+                    <td>
+                      <StatusBadge status={q.status} />
+                    </td>
+                    <td className="body-sm text-secondary">{formatDate(q.createdAt || q.createdDate)}</td>
+                    <td>
+                      <div className="action-group">
+                        <button className="btn-icon" title="View Details" onClick={() => navigate(`/quotations/${q.id}`)}>
+                          <MS icon="open_in_new" size={16} />
+                        </button>
+                        {(q.status === 'CUSTOMER_NEGOTIATION' || q.status === 'RETURNED') && (
+                          <button className="btn btn-secondary-teal btn-sm" style={{ padding: '4px 8px' }} title="Open Negotiation" onClick={() => navigate(`/negotiation/${q.id}`)}>
+                            <MS icon="forum" size={14} />
+                            <span>Negotiate</span>
                           </button>
-                          {q.status === 'CUSTOMER_NEGOTIATION' && (
-                            <button className="btn btn-secondary-teal btn-sm" style={{ padding: '4px 8px' }} title="Open Negotiation" onClick={() => navigate(`/negotiation/${q.id}`)}>
-                              <MS icon="forum" size={14} />
-                              <span>Negotiate</span>
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

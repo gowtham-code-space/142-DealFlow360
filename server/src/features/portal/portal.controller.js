@@ -63,7 +63,7 @@ async function portalAddLineComment(req, res) {
   if (!customerId) return forbiddenResponse(res, 'User is not associated with a customer account');
   const { content } = req.body;
   if (!content) return badRequestResponse(res, 'content is required');
-  const result = await svc.addLineComment(req.params.quoteId, req.params.lineId, customerId, req.user?.id, content);
+  const result = await svc.addLineComment(req.params.quoteId, req.params.lineId, customerId, req.user?.userId || req.user?.id, content);
   if (result?.notFound) return notFoundResponse(res, 'Quote not found');
   if (result?.forbidden) return forbiddenResponse(res, 'Access denied');
   return createdResponse(res, 'Line comment added', result);

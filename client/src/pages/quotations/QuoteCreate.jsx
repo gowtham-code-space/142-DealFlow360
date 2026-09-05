@@ -27,10 +27,9 @@ export default function QuoteCreate() {
   // Line Items State
   const [lineItems, setLineItems] = useState([]);
 
-  // Backend Evaluation State
-  const [evaluating, setEvaluating] = useState(false);
-  const [evaluationResult, setEvaluationResult] = useState(null);
-  const [evaluationError, setEvaluationError] = useState(null);
+  // Submission State
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
   // Recommendations State
   const [recommendations, setRecommendations] = useState([]);
@@ -43,34 +42,24 @@ export default function QuoteCreate() {
         api.getProducts()
       ]);
 
-      if (cRes.success && cRes.data.length > 0) {
-        setCustomers(cRes.data);
-        setSelectedCustomerId(cRes.data[1].id);
-        setSelectedCustomer(cRes.data[1]);
+      if (cRes.success && cRes.data?.items?.length > 0) {
+        setCustomers(cRes.data.items);
+        setSelectedCustomerId(cRes.data.items[0].id);
+        setSelectedCustomer(cRes.data.items[0]);
       }
 
-      if (pRes.success && pRes.data.length > 0) {
-        setProducts(pRes.data);
+      if (pRes.success && pRes.data?.items?.length > 0) {
+        setProducts(pRes.data.items);
         setLineItems([
           {
-            id: 'item-1',
-            productId: pRes.data[0].id,
-            productName: pRes.data[0].name,
-            sku: pRes.data[0].id,
-            listPrice: pRes.data[0].listPrice,
+            id: `item-${Date.now()}`,
+            productId: pRes.data.items[0].id,
+            productName: pRes.data.items[0].name,
+            sku: pRes.data.items[0].id,
+            listPrice: pRes.data.items[0].listPrice,
             quantity: 4,
             discountPercent: 15,
-            billingType: pRes.data[0].billingType
-          },
-          {
-            id: 'item-2',
-            productId: pRes.data[2].id,
-            productName: pRes.data[2].name,
-            sku: pRes.data[2].id,
-            listPrice: pRes.data[2].listPrice,
-            quantity: 50,
-            discountPercent: 10,
-            billingType: pRes.data[2].billingType
+            billingType: pRes.data.items[0].billingType
           }
         ]);
       }
@@ -83,7 +72,6 @@ export default function QuoteCreate() {
     setSelectedCustomerId(customerId);
     const found = customers.find(c => c.id === customerId);
     setSelectedCustomer(found);
-    setEvaluationResult(null);
   };
 
   const handleItemChange = (id, field, value) => {
@@ -104,7 +92,6 @@ export default function QuoteCreate() {
         return { ...item, [field]: Number(value) || value };
       })
     );
-    setEvaluationResult(null);
   };
 
   const addLineItem = () => {
@@ -121,13 +108,11 @@ export default function QuoteCreate() {
       billingType: defaultProd.billingType
     };
     setLineItems([...lineItems, newItem]);
-    setEvaluationResult(null);
   };
 
   const removeLineItem = (id) => {
     if (lineItems.length === 1) return;
     setLineItems(lineItems.filter(item => item.id !== id));
-    setEvaluationResult(null);
   };
 
   const cloneLineItem = (itemToClone) => {
@@ -136,7 +121,6 @@ export default function QuoteCreate() {
       id: `item-${Date.now()}`
     };
     setLineItems([...lineItems, cloned]);
-    setEvaluationResult(null);
   };
 
   const subtotal = lineItems.reduce((acc, item) => acc + item.listPrice * item.quantity, 0);
@@ -147,52 +131,86 @@ export default function QuoteCreate() {
   const netTotal = subtotal - totalDiscountAmount;
   const averageDiscountPercent = subtotal > 0 ? ((totalDiscountAmount / subtotal) * 100).toFixed(1) : 0;
 
-  const handleEvaluateQuote = async () => {
-    setEvaluating(true);
-    setEvaluationError(null);
-    const payload = {
-      customerId: selectedCustomer?.id,
-      tier: selectedCustomer?.tier,
-      totalValue: netTotal,
-      discountPercent: averageDiscountPercent,
-      lineItems
-    };
+  const handleSubmitQuote = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
 
-    const res = await api.evaluateDiscount(payload);
-    if (res.success) {
-      setEvaluationResult(res.data);
-    } else {
-      setEvaluationError(res.error || 'Discount Evaluation API unavailable');
-      setEvaluationResult(null);
-    }
+    try {
+      // 1. Create Draft Quote
+      const quotePayload = {
+        customerId: selectedCustomer?.id,
+        validUntil: new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString()
+      };
+      
+      const quoteRes = await api.createQuotation(quotePayload);
+      if (!quoteRes.success) {
+        throw new Error(quoteRes.error || 'Failed to create quotation');
+      }
+      
+      const quoteId = quoteRes.quote?.id || quoteRes.data?.id;
 
-    const recRes = await api.getRecommendations(selectedCustomer?.id, lineItems);
-    if (recRes.success) {
-      setRecommendations(recRes.data);
+      // 2. Add Line Items
+      for (const item of lineItems) {
+        const lineRes = await api.addQuoteLine(quoteId, {
+          productId: item.productId,
+          quantity: item.quantity,
+          discountPercent: item.discountPercent
+        });
+        if (!lineRes.success) {
+          throw new Error(`Failed to add line item ${item.productName}: ${lineRes.error}`);
+        }
+      }
+
+      // 3. Submit Quote (triggers backend discount engine and risk rules)
+      const submitRes = await api.submitQuotation(quoteId);
+      if (!submitRes.success) {
+        throw new Error(submitRes.error || 'Failed to submit quotation for approval');
+      }
+
+      const returnedQuote = submitRes.quote || submitRes.data;
+
+      if (returnedQuote.requiresApproval) {
+        addNotification({
+          recipientRole: ROLES.SALES_MANAGER,
+          type: 'APPROVAL_REQUIRED',
+          priority: 'ACTION_REQUIRED',
+          title: 'Approval required',
+          message: `Quote ${returnedQuote.quotationNumber || quoteId} requires your approval. Reason: ${returnedQuote.approvalReason}`,
+          relatedEntity: 'quote',
+          relatedId: quoteId,
+          targetUrl: `/approvals/${quoteId}`
+        });
+
+        addNotification({
+          recipientRole: ROLES.SALES_REP,
+          type: 'QUOTE_SUBMITTED',
+          priority: 'INFO',
+          title: 'Quote submitted for approval',
+          message: `Quote ${returnedQuote.quotationNumber || quoteId} is awaiting Manager review.`,
+          relatedEntity: 'quote',
+          relatedId: quoteId,
+          targetUrl: `/quotations/${quoteId}`
+        });
+      }
+
+      navigate(`/quotations/${quoteId}`);
+
+    } catch (err) {
+      setSubmitError(err.message);
+    } finally {
+      setSubmitting(false);
     }
-    setEvaluating(false);
   };
 
-  const handleAddRecommendation = (rec) => {
-    const newItem = {
-      id: `item-${Date.now()}`,
-      productId: rec.productId,
-      productName: rec.name,
-      sku: rec.productId,
-      listPrice: rec.recommendedPrice,
-      quantity: 1,
-      discountPercent: 5,
-      billingType: 'ONE_TIME'
-    };
-    setLineItems([...lineItems, newItem]);
-    setEvaluationResult(null);
+  const handleValidateDiscountLimitation = () => {
+    alert("Backend Limitation: The backend currently lacks a read-only endpoint for discount evaluation without submitting the quote. Please 'Submit Quote' to evaluate.");
   };
 
   if (loading) {
     return (
       <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
         <div className="spin" style={{ display: 'inline-block', marginBottom: 8 }}><MS icon="sync" size={24} /></div>
-        <p>Loading Quote Builder & Discount Engine...</p>
+        <p>Loading Quote Builder & Database References...</p>
       </div>
     );
   }
@@ -203,21 +221,31 @@ export default function QuoteCreate() {
       <div className="card card-body flex-between">
         <div>
           <div className="flex-gap-2 items-center">
-            <h1 className="headline-lg" style={{ margin: 0 }}>Create Quote & Discount Engine Workspace</h1>
+            <h1 className="headline-lg" style={{ margin: 0 }}>Create Quote Workspace</h1>
             <span className="badge badge-primary">Sales Rep CPQ</span>
           </div>
           <p className="body-sm text-muted" style={{ marginTop: 2, marginBottom: 0 }}>
-            Configure SKUs, request discounts, and evaluate real-time backend governance rules
+            Configure SKUs and enter quantities to generate a customer proposal
           </p>
         </div>
         <div className="flex-gap-2">
           <button className="btn btn-outline" onClick={() => navigate('/quotations')}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleEvaluateQuote} disabled={evaluating}>
-            {evaluating ? <div className="spin flex"><MS icon="sync" size={16} /></div> : <MS icon="policy" size={16} />}
+          <button className="btn btn-primary" onClick={handleValidateDiscountLimitation} title="No read-only evaluation API">
+            <MS icon="policy" size={16} />
             <span>Validate Policy & Discount</span>
           </button>
         </div>
       </div>
+
+      {submitError && (
+        <div className="card card-body" style={{ borderLeft: '4px solid var(--error)', background: 'var(--surface-container-low)' }}>
+          <div className="flex-gap-2 text-error" style={{ marginBottom: 8, alignItems: 'center' }}>
+            <MS icon="warning" size={24} />
+            <h3 className="headline-md" style={{ margin: 0 }}>Submission Error</h3>
+          </div>
+          <p className="body-md" style={{ margin: 0, color: 'var(--text-secondary)' }}>{submitError}</p>
+        </div>
+      )}
 
       {/* Customer Intelligence Header */}
       <div className="card card-body">
@@ -240,7 +268,7 @@ export default function QuoteCreate() {
             <div className="label-sm text-muted">Customer Tier Policy</div>
             <div className="headline-sm text-primary-color" style={{ marginTop: 4 }}>{selectedCustomer?.tier} TIER</div>
             <div className="body-sm text-secondary" style={{ marginTop: 2 }}>
-              Credit Limit: <strong>{formatCurrency(selectedCustomer?.creditLimit || 150000)}</strong> | Risk: <strong className="text-emerald">Low ({selectedCustomer?.riskScore || 20})</strong>
+              Credit Limit: <strong>{selectedCustomer?.creditLimit != null ? formatCurrency(selectedCustomer.creditLimit) : 'N/A'}</strong> | Risk: <strong className={selectedCustomer?.riskScore == null ? "text-muted" : selectedCustomer.riskScore < 30 ? "text-emerald" : selectedCustomer.riskScore < 60 ? "text-warning" : "text-error"}>{selectedCustomer?.riskScore == null ? 'Unknown' : selectedCustomer.riskScore < 30 ? 'Low' : selectedCustomer.riskScore < 60 ? 'Medium' : 'High'} ({selectedCustomer?.riskScore != null ? selectedCustomer.riskScore : 'N/A'})</strong>
             </div>
           </div>
 
@@ -295,7 +323,7 @@ export default function QuoteCreate() {
                         ))}
                       </select>
                       <div className="body-sm text-muted" style={{ marginTop: 4 }}>
-                        SKU: {item.sku} | Stock: <strong className="text-emerald">Available (East Depot)</strong>
+                        SKU: {item.sku}
                       </div>
                     </td>
                     <td className="data-mono font-semibold">{formatCurrency(item.listPrice)}</td>
@@ -324,97 +352,11 @@ export default function QuoteCreate() {
         </div>
       </div>
 
-      {/* Backend Policy Engine Result */}
-      {evaluationError && (
-        <div className="card card-body" style={{ borderLeft: '4px solid var(--error)', background: 'var(--surface-container-low)' }}>
-          <div className="flex-gap-2 text-error" style={{ marginBottom: 8, alignItems: 'center' }}>
-            <MS icon="warning" size={24} />
-            <h3 className="headline-md" style={{ margin: 0 }}>Backend Engine Error</h3>
-          </div>
-          <p className="body-md" style={{ margin: 0, color: 'var(--text-secondary)' }}>{evaluationError}</p>
-        </div>
-      )}
-
-      {evaluationResult && (
-        <div className="card card-body" style={{ borderLeft: '4px solid var(--primary)', background: 'var(--surface-container-low)' }}>
-          <div className="flex-between" style={{ marginBottom: 16 }}>
-            <div className="flex-gap-2">
-              <span className="text-primary-color"><MS icon="policy" size={20} /></span>
-              <h3 className="headline-md" style={{ margin: 0 }}>3. Backend Policy Engine Verdict</h3>
-            </div>
-            <VerdictBadge verdict={evaluationResult.verdict} />
-          </div>
-
-          <div className="grid-3 gap-3">
-            <div className="card card-body" style={{ background: '#fff' }}>
-              <div className="label-sm text-muted">Backend Verdict</div>
-              <div className="headline-sm text-primary-color" style={{ marginTop: 4 }}>{evaluationResult.verdict.replace(/_/g, ' ')}</div>
-              {evaluationResult.requiresApprovalReason && (
-                <div className="body-sm font-semibold text-amber" style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <MS icon="warning" size={14} /> {evaluationResult.requiresApprovalReason}
-                </div>
-              )}
-            </div>
-
-            <div className="card card-body" style={{ background: '#fff' }}>
-              <div className="label-sm text-muted" style={{ marginBottom: 6 }}>Approval Workflow Path</div>
-              <div className="flex-col gap-1">
-                {evaluationResult.approvalPath.map((step, idx) => (
-                  <div key={idx} className="body-sm flex-gap-2">
-                    <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{idx + 1}</span>
-                    <span>{step}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="card card-body" style={{ background: '#fff' }}>
-              <div className="label-sm text-muted">Gross Margin & Risk Score</div>
-              <div className={`headline-lg ${evaluationResult.calculatedMarginPercent >= 35 ? 'text-emerald' : 'text-amber'}`} style={{ marginTop: 4 }}>
-                {formatPercent(evaluationResult.calculatedMarginPercent)} Margin
-              </div>
-              <div className="body-sm text-secondary" style={{ marginTop: 4 }}>
-                Risk Score: <strong>{evaluationResult.riskScore} ({evaluationResult.riskLevel})</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Layout: AI Recommendations and Summary Toolbar */}
-      <div className="grid-quote-bottom">
-        {/* Recommendations */}
-        {recommendations.length > 0 ? (
-          <div className="card card-body">
-            <div className="flex-gap-2" style={{ marginBottom: 12 }}>
-              <span className="text-secondary-color"><MS icon="auto_awesome" size={18} /></span>
-              <h3 className="headline-sm" style={{ margin: 0 }}>Recommended Cross-Sells (Backend AI)</h3>
-            </div>
-            <div className="flex-col gap-2">
-              {recommendations.map(rec => (
-                <div key={rec.id} className="compact-row" style={{ padding: '8px 12px', background: 'var(--surface-container-low)', borderRadius: 'var(--radius-md)', opacity: 1, border: '1px solid var(--border-color)' }}>
-                  <div>
-                    <div className="body-sm font-semibold">{rec.name}</div>
-                    <div className="label-sm text-muted" style={{ marginTop: 2 }}>{rec.reason}</div>
-                    <div className="data-mono-sm flex-gap-2" style={{ marginTop: 4 }}>
-                      <span className="text-secondary-color font-bold">{rec.marginImpact}</span>
-                      <span className="text-muted">|</span>
-                      <span>Price: <strong>{formatCurrency(rec.recommendedPrice)}</strong></span>
-                    </div>
-                  </div>
-                  <button className="btn btn-outline btn-sm" onClick={() => handleAddRecommendation(rec)}>
-                    <MS icon="add" size={14} /> Add
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : <div />}
-
-        {/* Financial Summary & Actions Toolbar */}
+      {/* Bottom Layout: Financial Summary */}
+      <div className="grid-quote-bottom" style={{ gridTemplateColumns: '1fr' }}>
         <div className="card flex-col justify-between" style={{ background: 'var(--surface-container-low)' }}>
           <div className="card-body">
-            <h3 className="headline-sm" style={{ marginBottom: 16 }}>Financial Summary</h3>
+            <h3 className="headline-sm" style={{ marginBottom: 16 }}>Financial Summary (Estimate)</h3>
             <div className="flex-col gap-3">
               <div className="flex-between">
                 <span className="body-sm text-muted">Gross Subtotal</span>
@@ -434,56 +376,10 @@ export default function QuoteCreate() {
           
           <div className="card-body" style={{ background: 'rgba(255,255,255,0.5)', borderTop: '1px solid var(--border-color)' }}>
             <div className="flex-col gap-2">
-              <button className="btn btn-primary" style={{ width: '100%', padding: '12px' }} onClick={async () => {
-                const payload = {
-                  customerId: selectedCustomer?.id,
-                  customerName: selectedCustomer?.name,
-                  tier: selectedCustomer?.tier,
-                  totalValue: netTotal,
-                  discountPercent: averageDiscountPercent,
-                  lineItems
-                };
-                const res = await api.createQuotation(payload);
-                if (res.success) {
-                  const quoteId = res.data?.id || 'Q-2026-NEW';
-                  addNotification({
-                    recipientRole: ROLES.SALES_MANAGER,
-                    type: 'APPROVAL_REQUIRED',
-                    priority: 'ACTION_REQUIRED',
-                    title: 'Approval required',
-                    message: `Quote ${quoteId} requires your approval because requested discount exceeds Sales Representative limit.`,
-                    relatedEntity: 'quote',
-                    relatedId: quoteId,
-                    targetUrl: `/approvals/${quoteId}`
-                  });
-
-                  addNotification({
-                    recipientRole: ROLES.SALES_REP,
-                    type: 'QUOTE_SUBMITTED',
-                    priority: 'INFO',
-                    title: 'Quote submitted for approval',
-                    message: `Quote ${quoteId} has been submitted and is awaiting Sales Manager review.`,
-                    relatedEntity: 'quote',
-                    relatedId: quoteId,
-                    targetUrl: `/quotations/${quoteId}`
-                  });
-
-                  navigate(`/quotations/${quoteId}`);
-                } else {
-                  alert(res.error || 'Failed to submit quote. Backend endpoint may be unavailable.');
-                }
-              }}>
-                <MS icon="send" size={18} /> <span>Submit Quote</span>
+              <button className="btn btn-primary" style={{ width: '100%', padding: '12px' }} onClick={handleSubmitQuote} disabled={submitting}>
+                {submitting ? <div className="spin flex"><MS icon="sync" size={18} /></div> : <MS icon="send" size={18} />}
+                <span>Submit Quote to Backend Engine</span>
               </button>
-              
-              <div className="grid-2">
-                <button className="btn btn-outline" onClick={() => { alert('Save Draft API not yet implemented.'); }}>
-                  <MS icon="save" size={16} /> <span>Save Draft</span>
-                </button>
-                <button className="btn btn-secondary-teal" onClick={() => { alert('Request Negotiation API not yet implemented for new quotes.'); }}>
-                  <MS icon="forum" size={16} /> <span>Request Negotiation</span>
-                </button>
-              </div>
             </div>
           </div>
         </div>

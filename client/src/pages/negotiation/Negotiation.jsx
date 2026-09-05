@@ -31,8 +31,50 @@ export default function Negotiation() {
   useEffect(() => {
     async function loadNegotiation() {
       setLoading(true);
-      const res = await api.getNegotiation(id);
-      if (res.success) setNegotiation(res.data);
+      
+      const [quoteRes, ticketsRes, msgsRes] = await Promise.all([
+        api.getQuotationById(id),
+        api.getNegotiationTickets(id),
+        api.getNegotiation(id)
+      ]);
+
+      if (quoteRes.success) {
+        const q = quoteRes.data;
+        const activeTicket = ticketsRes.success && ticketsRes.data?.length > 0 ? ticketsRes.data[0] : null;
+        const msgs = msgsRes.success ? msgsRes.data : [];
+
+        // Build the composite negotiation object
+        setNegotiation({
+          quoteId: q.id,
+          status: q.status,
+          customerName: q.customer?.name || q.customerName,
+          tier: q.customer?.tier || q.tier,
+          originalTerms: {
+            totalValue: q.estimatedNetTotal || q.totalValue,
+            discountPercent: q.discountTotal ? (q.discountTotal / (q.subtotal || 1) * 100).toFixed(1) : q.discountPercent,
+            paymentTerms: 'Net 30',
+            marginPercent: q.marginPct || q.marginPercent
+          },
+          counterOffer: activeTicket ? {
+            id: activeTicket.id,
+            timestamp: new Date(activeTicket.createdAt).toLocaleString(),
+            customerNote: activeTicket.comments || 'No comments provided',
+            requestedDiscountPercent: activeTicket.requestedDiscountPct,
+            requestedTerms: 'Net 60' // Mocked parameter for now
+          } : null,
+          messages: msgs.map(m => ({
+            id: m.id,
+            sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+            author: m.senderRole === 'CUSTOMER' ? (q.customer?.name || 'Customer') : 'Sales Representative',
+            timestamp: new Date(m.createdAt).toLocaleString(),
+            text: m.message
+          })),
+          parameterDiffs: activeTicket ? [
+            { field: 'Discount', original: `${q.discountTotal ? (q.discountTotal / (q.subtotal || 1) * 100).toFixed(1) : q.discountPercent}%`, counter: `${activeTicket.requestedDiscountPct}%`, delta: `+${(activeTicket.requestedDiscountPct - (q.discountPercent || 0)).toFixed(1)}%` },
+            { field: 'Payment Terms', original: 'Net 30', counter: 'Net 60', delta: '+30 Days' }
+          ] : []
+        });
+      }
       setLoading(false);
     }
     loadNegotiation();
@@ -42,41 +84,99 @@ export default function Negotiation() {
     if (!messageText.trim()) return;
     setSendingMsg(true);
     const res = await api.sendNegotiationMessage(id, {
-      sender: 'rep',
-      author: 'Sales Representative',
-      timestamp: 'Sep 3, 2026 - 14:15',
-      text: messageText
+      senderRole: 'REP',
+      message: messageText
     });
     if (res.success) {
       setMessageText('');
-      const fresh = await api.getNegotiation(id);
-      if (fresh.success) setNegotiation(fresh.data);
+      // Trigger a re-fetch of the messages
+      const msgsRes = await api.getNegotiation(id);
+      if (msgsRes.success) {
+        setNegotiation(prev => ({
+          ...prev,
+          messages: msgsRes.data.map(m => ({
+            id: m.id,
+            sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+            author: m.senderRole === 'CUSTOMER' ? (prev.customerName || 'Customer') : 'Sales Representative',
+            timestamp: new Date(m.createdAt).toLocaleString(),
+            text: m.message
+          }))
+        }));
+      }
     }
     setSendingMsg(false);
   };
 
   const handleSubmitRepCounter = async () => {
+    if (!negotiation?.counterOffer?.id) {
+      alert("No active negotiation ticket to counter.");
+      return;
+    }
+    
     setSubmittingCounter(true);
     const payload = {
-      proposedDiscount: counterDiscount,
-      proposedPaymentTerms: counterPaymentTerms
+      counterDiscountPct: counterDiscount,
+      comments: `Proposed Payment Terms: ${counterPaymentTerms}`
     };
 
-    const res = await api.submitCounterOffer(id, payload);
+    const res = await api.submitCounterOffer(negotiation.counterOffer.id, payload);
     if (res.success) {
       setReapprovalState(res.data);
 
       await api.sendNegotiationMessage(id, {
-        sender: 'rep',
-        author: 'Sales Representative',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `Submitted revised counter-offer: ${counterDiscount}% discount with ${counterPaymentTerms} payment terms.`
+        senderRole: 'REP',
+        message: `Submitted revised counter-offer: ${counterDiscount}% discount with ${counterPaymentTerms} payment terms.`
       });
 
-      const fresh = await api.getNegotiation(id);
-      if (fresh.success) setNegotiation(fresh.data);
+      // Simple reload to get updated ticket status and messages
+      window.location.reload();
+    } else {
+      alert(res.error || 'Failed to submit counter offer');
     }
     setSubmittingCounter(false);
+  };
+
+  const handleAcceptTerms = async () => {
+    if (!negotiation?.counterOffer?.id) {
+      alert("No active negotiation ticket to accept.");
+      return;
+    }
+    if (window.confirm("Are you sure you want to accept the customer's terms? This will update the quotation status.")) {
+      const res = await api.acceptNegotiationTicket(negotiation.counterOffer.id, {
+        comments: 'Accepted by Sales Rep from Negotiation Workspace'
+      });
+      if (res.success) {
+        alert("Terms accepted successfully!");
+        navigate(`/quotations/${id}`);
+      } else {
+        alert("Failed to accept terms: " + res.error);
+      }
+    }
+  };
+
+  const handleEscalate = async () => {
+    if (!negotiation?.counterOffer?.id) {
+      alert("No active negotiation ticket to escalate.");
+      return;
+    }
+    if (window.confirm("Are you sure you want to escalate this negotiation to your Manager?")) {
+      const res = await api.escalateNegotiationTicket(negotiation.counterOffer.id, {
+        comments: 'Escalated by Sales Rep for Manager Review'
+      });
+      if (res.success) {
+        alert("Negotiation escalated to Manager successfully!");
+        navigate(`/quotations/${id}`);
+      } else {
+        alert("Failed to escalate: " + res.error);
+      }
+    }
+  };
+
+  const handleExportPdf = async () => {
+    const res = await api.exportNegotiationSummaryPdf(id);
+    if (!res.success) {
+      alert("Failed to export PDF: " + res.error);
+    }
   };
 
   if (loading) {
@@ -218,10 +318,10 @@ export default function Negotiation() {
 
             <div className="flex-between">
               <div className="flex-gap-2">
-                <button className="btn btn-outline btn-sm" style={{ color: 'var(--success)', borderColor: 'var(--success)', background: '#fff' }} onClick={() => alert('Accept Terms API not yet implemented.')}>
+                <button className="btn btn-outline btn-sm" style={{ color: 'var(--success)', borderColor: 'var(--success)', background: '#fff' }} onClick={handleAcceptTerms}>
                   <MS icon="check_circle" size={14} /> <span>Accept Terms</span>
                 </button>
-                <button className="btn btn-outline btn-sm" style={{ color: 'var(--warning)', borderColor: 'var(--warning)', background: '#fff' }} onClick={() => alert('Escalate to Manager API not yet implemented.')}>
+                <button className="btn btn-outline btn-sm" style={{ color: 'var(--warning)', borderColor: 'var(--warning)', background: '#fff' }} onClick={handleEscalate}>
                   <MS icon="gavel" size={14} /> <span>Escalate to Manager</span>
                 </button>
               </div>
@@ -310,7 +410,7 @@ export default function Negotiation() {
           </div>
 
           <div className="card card-body flex-col gap-2">
-            <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={() => alert('Export PDF API not yet implemented.')}>
+            <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={handleExportPdf}>
               <MS icon="download" size={16} /> <span>Export Negotiation Summary PDF</span>
             </button>
             <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={() => navigate('/quotations')}>

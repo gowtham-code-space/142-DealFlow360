@@ -81,6 +81,39 @@ async function acceptNegotiationTicket(id, { purchaseDeadlineDays = 7, comments 
     comments: comments ? `${ticket.comments || ''}\nAcceptance notes: ${comments}`.trim() : ticket.comments
   });
 
+  // Update Quotation status
+  await negModel.updateQuotationStatus(ticket.quoteId, 'CUSTOMER_ACCEPTED');
+
+  return updated;
+}
+
+async function escalateNegotiationTicket(id, { comments } = {}) {
+  const ticket = await negModel.findRawTicketById(id);
+  if (!ticket) return { notFound: true };
+  if (ticket.status !== NegotiationTicketStatus.OPEN && ticket.status !== NegotiationTicketStatus.COUNTERED) {
+    return { invalidStatus: true, currentStatus: ticket.status };
+  }
+
+  const updated = await negModel.updateNegotiationTicket(id, {
+    status: NegotiationTicketStatus.ESCALATED,
+    comments: comments ? `${ticket.comments || ''}\nEscalation notes: ${comments}`.trim() : ticket.comments
+  });
+
+  // Create an Approval record for the Manager
+  const uuidv4 = require('uuid').v4;
+  await negModel.createApproval({
+    id: uuidv4(),
+    quotationId: ticket.quoteId,
+    quoteRevision: 1,
+    stage: 'SALES_MANAGER',
+    level: 2,
+    status: 'PENDING',
+    comments: `Escalated from Negotiation Ticket ${ticket.id}. ${comments || ''}`
+  });
+
+  // Update Quotation status to MANAGER_REVIEW
+  await negModel.updateQuotationStatus(ticket.quoteId, 'MANAGER_REVIEW');
+
   return updated;
 }
 
@@ -142,5 +175,5 @@ async function createNegotiationMessage(quotationId, { senderId, senderRole, mes
 module.exports = {
   listNegotiationTickets, listQuoteNegotiationTickets, getNegotiationTicketById,
   createNegotiationTicket, acceptNegotiationTicket, rejectNegotiationTicket, counterNegotiationTicket,
-  getTicketHoldStatus, listNegotiations, createNegotiationMessage
+  escalateNegotiationTicket, getTicketHoldStatus, listNegotiations, createNegotiationMessage
 };

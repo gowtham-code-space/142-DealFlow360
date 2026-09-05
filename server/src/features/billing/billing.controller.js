@@ -87,7 +87,7 @@ async function recordPayment(req, res) {
   if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
     return badRequestResponse(res, 'A valid positive amount is required');
   }
-  const result = await svc.recordPayment(req.params.id, { amount, method, reference }, req.user?.id);
+  const result = await svc.recordPayment(req.params.id, { amount, method, reference }, req.user?.userId || req.user?.id);
   if (result?.notFound) return notFoundResponse(res, 'Invoice not found');
   if (result?.alreadyPaid) return conflictResponse(res, 'Invoice is already fully paid');
   if (result?.exceedsBalance) {

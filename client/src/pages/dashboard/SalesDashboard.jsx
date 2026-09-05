@@ -17,15 +17,19 @@ export default function SalesDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ALL');
 
+  const [summary, setSummary] = useState(null);
+
   useEffect(() => {
     async function loadDashboardData() {
       setLoading(true);
-      const [qRes, wRes] = await Promise.all([
+      const [qRes, wRes, summaryRes] = await Promise.all([
         api.getQuotations(),
-        api.getWarehouses()
+        api.getWarehouses(),
+        api.getDashboardSummary()
       ]);
-      if (qRes.success) setQuotations(qRes.data);
-      if (wRes.success) setWarehouses(wRes.data);
+      if (qRes.success) setQuotations(qRes.data?.items || []);
+      if (wRes.success) setWarehouses(wRes.data?.items || []);
+      if (summaryRes.success) setSummary(summaryRes.data);
       setLoading(false);
     }
     loadDashboardData();
@@ -42,10 +46,10 @@ export default function SalesDashboard() {
     alert(`${featureName} is currently unavailable. Backend endpoint not connected.`);
   };
 
-  const pipelineValue = quotations.reduce((sum, q) => sum + (Number(q.totalValue) || 0), 0);
-  const pendingCount = quotations.filter(q => q.status === 'PENDING_APPROVAL').length;
-  const activeNegCount = quotations.filter(q => q.status === 'CUSTOMER_NEGOTIATION').length;
-  const approvedCount = quotations.filter(q => q.status === 'APPROVED').length;
+  const pipelineValue = summary ? summary.confirmedRevenue : quotations.reduce((sum, q) => sum + (Number(q.estimatedNetTotal || q.totalValue) || 0), 0);
+  const pendingCount = summary ? summary.pendingApprovals : quotations.filter(q => q.status === 'PENDING_APPROVAL' || q.status === 'MANAGER_REVIEW' || q.status === 'FINANCE_REVIEW' || q.status === 'SALES_REP_REVIEW').length;
+  const activeNegCount = quotations.filter(q => q.status === 'CUSTOMER_NEGOTIATION' || q.status === 'RETURNED').length;
+  const approvedCount = summary ? summary.approvedQuotes : quotations.filter(q => q.status === 'APPROVED').length;
 
   return (
     <div className="flex-col gap-4">
@@ -162,19 +166,19 @@ export default function SalesDashboard() {
                     {filteredQuotes.map(q => (
                       <tr key={q.id}>
                         <td>
-                          <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: 13 }}>{q.id}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{q.customerName}</div>
+                          <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: 13 }}>{q.quotationNumber || q.id}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{q.customer?.name || q.customerName}</div>
                         </td>
                         <td>
-                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: q.tier === 'PLATINUM' ? '#6b21a8' : q.tier === 'GOLD' ? '#854d0e' : '#475569' }}>
-                            {q.tier}
+                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: (q.customer?.tier || q.tier) === 'PLATINUM' ? '#6b21a8' : (q.customer?.tier || q.tier) === 'GOLD' ? '#854d0e' : '#475569' }}>
+                            {q.customer?.tier || q.tier}
                           </span>
                         </td>
-                        <td style={{ fontWeight: 600, fontFeatureSettings: "'tnum'" }}>{formatCurrency(q.totalValue)}</td>
-                        <td style={{ fontFeatureSettings: "'tnum'" }}>{formatPercent(q.discountPercent)}</td>
+                        <td style={{ fontWeight: 600, fontFeatureSettings: "'tnum'" }}>{formatCurrency(q.estimatedNetTotal || q.totalValue)}</td>
+                        <td style={{ fontFeatureSettings: "'tnum'" }}>{formatPercent(q.marginPct !== undefined ? (q.discountTotal / (q.subtotal || 1) * 100) : q.discountPercent)}</td>
                         <td>
-                          <span style={{ fontWeight: 600, fontFeatureSettings: "'tnum'", color: q.marginPercent >= 35 ? 'var(--success)' : 'var(--warning)' }}>
-                            {formatPercent(q.marginPercent)}
+                          <span style={{ fontWeight: 600, fontFeatureSettings: "'tnum'", color: (q.marginPct || q.marginPercent) >= 35 ? 'var(--success)' : 'var(--warning)' }}>
+                            {formatPercent(q.marginPct || q.marginPercent)}
                           </span>
                         </td>
                         <td>
@@ -238,9 +242,6 @@ export default function SalesDashboard() {
               <button className="btn btn-outline" style={{ justifyContent: 'flex-start', background: '#fff' }} onClick={() => navigate('/negotiation/Q-2026-002')}>
                 <MS icon="forum" size={16} /> <span>Direct Customer Chat</span>
               </button>
-              <button className="btn btn-outline" style={{ justifyContent: 'flex-start', background: '#fff' }} onClick={() => handleUnavailableFeature('Simulate Floor Path')}>
-                <MS icon="tune" size={16} /> <span>Simulate Floor Path</span>
-              </button>
             </div>
           </div>
 
@@ -278,7 +279,7 @@ export default function SalesDashboard() {
               <MS icon="trending_up" size={16} />
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-              Portfolio Avg Margin: <strong style={{ color: 'var(--success)' }}>40.9%</strong>
+              Portfolio Avg Margin: <strong style={{ color: 'var(--success)' }}>{summary ? `${(50 - summary.avgCumulativeDiscountPct).toFixed(1)}%` : '40.9%'}</strong>
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
               Deal Health Index: <strong style={{ color: 'var(--primary)' }}>92/100 (Optimal)</strong>
