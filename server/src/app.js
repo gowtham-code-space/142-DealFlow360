@@ -51,26 +51,31 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Mount API Routers
-app.use('/api/v1/auth', authRoutes);
-app.use('/api/v1/users', usersRoutes);
-app.use('/api/v1/customers', customersRoutes);
-app.use('/api/v1/products', productsRoutes);
-app.use('/api/v1/price-lists', priceListsRoutes);
-app.use('/api/v1/config', configRoutes);
-app.use('/api/v1/warehouses', warehousesRoutes);
-app.use('/api/v1/inventory', inventoryRoutes);
-app.use('/api/v1/quotes', quotationsRoutes);
-app.use('/api/v1/approvals', approvalsRoutes);
-app.use('/api/v1', fulfillmentRoutes);
-app.use('/api/v1', billingRoutes);
-app.use('/api/v1', negotiationRoutes);
-app.use('/api/v1', dashboardRoutes);
-app.use('/api/v1', auditRoutes);
-app.use('/api/v1', notificationsRoutes);
-app.use('/api/v1', recommendationsRoutes);
-app.use('/api/v1', reportsRoutes);
-app.use('/api/v1', portalRoutes);
+// Mount API Routers (supporting both /api/v1 and /api)
+const mountRouters = (prefix) => {
+  app.use(`${prefix}/auth`, authRoutes);
+  app.use(`${prefix}/users`, usersRoutes);
+  app.use(`${prefix}/customers`, customersRoutes);
+  app.use(`${prefix}/products`, productsRoutes);
+  app.use(`${prefix}/price-lists`, priceListsRoutes);
+  app.use(`${prefix}/config`, configRoutes);
+  app.use(`${prefix}/warehouses`, warehousesRoutes);
+  app.use(`${prefix}/inventory`, inventoryRoutes);
+  app.use(`${prefix}/quotes`, quotationsRoutes);
+  app.use(`${prefix}/approvals`, approvalsRoutes);
+  app.use(prefix, fulfillmentRoutes);
+  app.use(prefix, billingRoutes);
+  app.use(prefix, negotiationRoutes);
+  app.use(prefix, dashboardRoutes);
+  app.use(prefix, auditRoutes);
+  app.use(prefix, notificationsRoutes);
+  app.use(prefix, recommendationsRoutes);
+  app.use(prefix, reportsRoutes);
+  app.use(prefix, portalRoutes);
+};
+
+mountRouters('/api/v1');
+mountRouters('/api');
 
 // Serve OpenAPI / Swagger Documentation
 app.use('/docs', express.static(path.join(__dirname, '../docs')));
@@ -136,7 +141,7 @@ app.get('/redoc', (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/v1/health', (req, res) => {
+app.get(['/api/v1/health', '/api/health'], (req, res) => {
   res.json({
     status: 'ok',
     service: 'DealFlow360 Backend API',
