@@ -6,13 +6,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('dealflow_user');
-    return saved ? JSON.parse(saved) : {
-      id: 'USR-101',
-      name: 'Sarah Jenkins',
-      email: 'sarah.jenkins@dealflow360.internal',
-      role: ROLES.SALES_REP,
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80'
-    };
+    return saved ? JSON.parse(saved) : null;
   });
 
   useEffect(() => {
@@ -28,15 +22,15 @@ export function AuthProvider({ children }) {
       id: 'USR-101',
       name: 'Sarah Jenkins',
       email: 'sarah.jenkins@dealflow360.internal',
-      role: newRole,
+      role: newRole || ROLES.SALES_REP,
       avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80'
     };
 
     if (newRole === ROLES.SALES_MANAGER) {
       mockProfile = {
         id: 'USR-201',
-        name: 'David Keller (VP Sales)',
-        email: 'david.keller@dealflow360.internal',
+        name: 'David K. Vance',
+        email: 'david.vance@dealflow360.internal',
         role: newRole,
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
       };
@@ -47,6 +41,14 @@ export function AuthProvider({ children }) {
         email: 'elena.rostova@dealflow360.internal',
         role: newRole,
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+      };
+    } else if (newRole === ROLES.ADMIN) {
+      mockProfile = {
+        id: 'USR-401',
+        name: 'Victoria Stone (System Admin)',
+        email: 'victoria.stone@dealflow360.internal',
+        role: newRole,
+        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
       };
     } else if (newRole === ROLES.CUSTOMER) {
       mockProfile = {
