@@ -1,5 +1,7 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../utils/constants';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -7,17 +9,22 @@ const MS = ({ icon, size = 18 }) => (
 
 export default function Sidebar() {
   const location = useLocation();
+  const { user } = useAuth();
 
-  const isManagerView = location.pathname.startsWith('/dashboard/manager') || 
+  const isAdminView = user?.role === ROLES.ADMIN ||
+                    location.pathname.startsWith('/dashboard/admin') ||
+                    location.pathname.startsWith('/admin');
+
+  const isManagerView = user?.role === ROLES.SALES_MANAGER ||
+                        location.pathname.startsWith('/dashboard/manager') || 
                         location.pathname.startsWith('/approvals') || 
                         location.pathname.startsWith('/manager');
 
-  const isOpsView = location.pathname.startsWith('/dashboard/operations') ||
+  const isOpsView = user?.role === ROLES.OPERATIONS ||
+                    location.pathname.startsWith('/dashboard/operations') ||
                     location.pathname.startsWith('/inventory') ||
-                    location.pathname.startsWith('/billing');
-
-  const isAdminView = location.pathname.startsWith('/dashboard/admin') ||
-                    location.pathname.startsWith('/admin');
+                    location.pathname.startsWith('/billing') ||
+                    location.pathname.startsWith('/finance');
 
   return (
     <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -172,6 +179,22 @@ export default function Sidebar() {
               <NavLink to="/dashboard/operations" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                 <MS icon="speed" size={18} />
                 <span>Operations Dashboard</span>
+              </NavLink>
+
+              <NavLink
+                to="/finance/approvals"
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                style={{ justifyContent: 'space-between' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <MS icon="shield" size={18} />
+                  <span>Finance Approvals</span>
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99,
+                  background: 'rgba(234, 179, 8, 0.15)', color: '#ca8a04',
+                  lineHeight: '16px'
+                }}>2</span>
               </NavLink>
 
               <NavLink to="/inventory" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>

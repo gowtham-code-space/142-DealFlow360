@@ -57,7 +57,7 @@ export default function Login() {
       route: '/dashboard/operations',
       badgeColor: '#0284c7',
       badgeBg: 'rgba(2, 132, 199, 0.1)',
-      isDeveloped: false
+      isDeveloped: true
     },
     {
       role: ROLES.ADMIN,

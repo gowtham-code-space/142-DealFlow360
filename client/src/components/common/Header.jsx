@@ -14,13 +14,16 @@ export default function Header() {
   const { user, logout } = useAuth();
   const [searchValue, setSearchValue] = useState('');
 
-  const isManagerView = location.pathname.startsWith('/dashboard/manager') || 
+  const isManagerView = user?.role === ROLES.SALES_MANAGER ||
+                        location.pathname.startsWith('/dashboard/manager') || 
                         location.pathname.startsWith('/approvals') || 
                         location.pathname.startsWith('/manager');
 
   const isOpsView = location.pathname.startsWith('/dashboard/operations') ||
                     location.pathname.startsWith('/inventory') ||
-                    location.pathname.startsWith('/billing');
+                    location.pathname.startsWith('/billing') ||
+                    location.pathname.startsWith('/finance') ||
+                    user?.role === ROLES.OPERATIONS;
 
   const isAdminView = location.pathname.startsWith('/dashboard/admin') ||
                     location.pathname.startsWith('/admin') ||

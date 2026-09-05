@@ -22,6 +22,7 @@ import QuoteList from './pages/quotations/QuoteList';
 import QuoteCreate from './pages/quotations/QuoteCreate';
 import QuoteDetails from './pages/quotations/QuoteDetails';
 import ApprovalQueue from './pages/approvals/ApprovalQueue';
+import FinanceApprovalQueue from './pages/approvals/FinanceApprovalQueue';
 import ManagerApprovalDetail from './pages/approvals/ManagerApprovalDetail';
 import InventoryAllocation from './pages/inventory/InventoryAllocation';
 import Billing from './pages/billing/Billing';
@@ -34,6 +35,7 @@ import MyDeals from './pages/deals/MyDeals';
 import Notifications from './pages/notifications/Notifications';
 import { useAuth } from './context/AuthContext';
 import { ROLES } from './utils/constants';
+import { useLocation } from 'react-router-dom';
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
@@ -45,9 +47,57 @@ function ProtectedRoute({ children }) {
 
 function DashboardRouteWrapper({ children }) {
   const { user } = useAuth();
+  const location = useLocation();
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  const path = location.pathname;
+
+  // Role Route Isolation Guard
+  if (user.role === ROLES.OPERATIONS) {
+    const isOpsAllowed = path.startsWith('/dashboard/operations') ||
+                         path.startsWith('/inventory') ||
+                         path.startsWith('/billing') ||
+                         path.startsWith('/finance') ||
+                         path.startsWith('/quotations') ||
+                         path.startsWith('/customers') ||
+                         path.startsWith('/notifications');
+    if (!isOpsAllowed) {
+      return <Navigate to="/dashboard/operations" replace />;
+    }
+  } else if (user.role === ROLES.SALES_MANAGER) {
+    const isManagerAllowed = path.startsWith('/dashboard/manager') ||
+                            path.startsWith('/approvals') ||
+                            path.startsWith('/manager') ||
+                            path.startsWith('/quotations') ||
+                            path.startsWith('/customers') ||
+                            path.startsWith('/negotiation') ||
+                            path.startsWith('/conversations') ||
+                            path.startsWith('/deals') ||
+                            path.startsWith('/notifications');
+    if (!isManagerAllowed) {
+      return <Navigate to="/dashboard/manager" replace />;
+    }
+  } else if (user.role === ROLES.SALES_REP) {
+    const isRepAllowed = path.startsWith('/dashboard/sales') ||
+                         path.startsWith('/quotations') ||
+                         path.startsWith('/customers') ||
+                         path.startsWith('/negotiation') ||
+                         path.startsWith('/conversations') ||
+                         path.startsWith('/deals') ||
+                         path.startsWith('/notifications');
+    if (!isRepAllowed) {
+      return <Navigate to="/dashboard/sales" replace />;
+    }
+  } else if (user.role === ROLES.ADMIN) {
+    const isAdminAllowed = path.startsWith('/admin') || path.startsWith('/dashboard/admin');
+    if (!isAdminAllowed) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+  }
+
   return <DashboardLayout>{children}</DashboardLayout>;
 }
 
@@ -207,6 +257,13 @@ export default function App() {
           <Route path="/manager/approvals/:id" element={
             <DashboardRouteWrapper>
               <ManagerApprovalDetail />
+            </DashboardRouteWrapper>
+          } />
+
+          {/* Finance & Ops Approvals */}
+          <Route path="/finance/approvals" element={
+            <DashboardRouteWrapper>
+              <FinanceApprovalQueue />
             </DashboardRouteWrapper>
           } />
 
