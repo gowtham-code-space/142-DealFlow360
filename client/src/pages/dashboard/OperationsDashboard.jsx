@@ -78,7 +78,7 @@ export default function OperationsDashboard() {
       <div className="grid-metrics">
         <MetricCard
           title="Total Network Stock"
-          value={`${totalWarehouseUnits || 1370} Units`}
+          value={`${totalWarehouseUnits || 0} Units`}
           change="Optimal Multi-Warehouse Stock"
           isPositive={true}
           icon={Boxes}
@@ -102,8 +102,8 @@ export default function OperationsDashboard() {
         />
         <MetricCard
           title="Monthly Recurring Revenue"
-          value={`${formatCurrency(1450000)}/mo`}
-          change="+8.2% Subscription Growth"
+          value={`Tracking Pipeline`}
+          change="Subscription Growth"
           isPositive={true}
           icon={RefreshCw}
           color="#7c3aed"
@@ -269,7 +269,7 @@ export default function OperationsDashboard() {
                   <span>Pending Finance Clearance</span>
                 </div>
                 <div style={{ color: 'var(--on-surface)', marginTop: 4 }}>
-                  Quotation #Q-2026-001 (Nexus HyperScale) requires credit limit re-evaluation.
+                  {pendingApprovalsCount} quotation(s) require credit limit evaluation or manual clearance.
                 </div>
               </div>
 
@@ -282,7 +282,7 @@ export default function OperationsDashboard() {
                   <span>Fulfillment Allocation Optimal</span>
                 </div>
                 <div style={{ color: 'var(--secondary-text)', marginTop: 4 }}>
-                  Order #Q-2026-004 allocated with 0 backorders across Midwest and East depots.
+                  Approved orders successfully allocated across active depots with minimal backorders.
                 </div>
               </div>
             </div>

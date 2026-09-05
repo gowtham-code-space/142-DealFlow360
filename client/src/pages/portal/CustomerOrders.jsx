@@ -26,7 +26,7 @@ export default function CustomerOrders() {
       carrier: 'FedEx Freight Priority',
       trackingNo: 'FX-99821-NEX',
       origin: 'Midwest Hub (IL)',
-      destination: 'Nexus Data Center (CA)',
+      destination: 'Regional Data Center',
       items: [
         { name: 'Enterprise Cloud Server X1', sku: 'PRD-101', qty: 6, price: 1000000 },
         { name: '24/7 Mission Critical Support SLA', sku: 'PRD-202', qty: 1, price: 1800000 }
@@ -44,7 +44,7 @@ export default function CustomerOrders() {
       carrier: 'DHL Express Corporate',
       trackingNo: 'DHL-4401-NEX',
       origin: 'East Coast Distribution (NJ)',
-      destination: 'Nexus Data Center (CA)',
+      destination: 'Regional Data Center',
       items: [
         { name: 'High-Density Switch 48-Port', sku: 'PRD-102', qty: 5, price: 250000 },
         { name: 'DealFlow Platform SaaS License', sku: 'PRD-201', qty: 35, price: 35000 }
@@ -62,7 +62,7 @@ export default function CustomerOrders() {
       carrier: 'UPS Supply Chain',
       trackingNo: 'UPS-1002-NEX',
       origin: 'West Coast Logistics (CA)',
-      destination: 'Nexus Tech Lab (CA)',
+      destination: 'Corporate Tech Lab',
       items: [
         { name: 'Optical Fiber SFP+ Transceiver Pack', sku: 'PRD-301', qty: 40, price: 40000 }
       ]
@@ -203,7 +203,7 @@ export default function CustomerOrders() {
           <div style={{ padding: 12, borderRadius: 8, background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>
             <div style={{ color: 'var(--outline)', fontSize: '0.72rem', textTransform: 'uppercase', fontWeight: 700 }}>Destination Address</div>
             <div style={{ fontWeight: 700, color: 'var(--on-surface)', marginTop: 4 }}>{activeOrder.destination}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)', marginTop: 2 }}>Nexus HyperScale Bay Area Facility</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)', marginTop: 2 }}>Corporate Facility</div>
           </div>
 
           <div style={{ padding: 12, borderRadius: 8, background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>

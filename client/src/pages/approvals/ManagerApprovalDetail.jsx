@@ -82,9 +82,9 @@ export default function ManagerApprovalDetail() {
         ...quote,
         status: newStatus,
         requiresApprovalReason: modalType === 'approve' 
-          ? `Approved by Manager (David K.): ${auditNote || 'Discount exception granted.'}` 
+          ? `Approved by Manager: ${auditNote || 'Discount exception granted.'}` 
           : modalType === 'reject'
-          ? `Rejected by Manager (David K.): ${auditNote || 'Discount exceeds margin threshold.'}`
+          ? `Rejected by Manager: ${auditNote || 'Discount exceeds margin threshold.'}`
           : modalType === 'return'
           ? `Returned for Revision by Manager: ${auditNote || 'Please reduce discount to tier cap.'}`
           : `Escalated to VP Finance: ${auditNote || 'High value deal requiring dual approval.'}`
@@ -249,7 +249,7 @@ export default function ManagerApprovalDetail() {
           </div>
 
           <p style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', marginTop: 4 }}>
-            Submitted by <strong>{quote.repName || 'Alex Rivera'}</strong> on {formatDate(quote.createdDate)} for <strong>{quote.customerName}</strong>
+            Submitted by <strong>{quote.repName || 'Sales Rep'}</strong> on {formatDate(quote.createdDate)} for <strong>{quote.customerName}</strong>
           </p>
         </div>
 
@@ -521,7 +521,7 @@ export default function ManagerApprovalDetail() {
                 <div>
                   <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Quotation Submitted for Approval</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>
-                    {quote.repName || 'Alex Rivera'} • {formatDate(quote.createdDate)} 10:15 AM
+                    {quote.repName || 'Sales Rep'} • {formatDate(quote.createdDate)} 10:15 AM
                   </div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--secondary-text)', marginTop: 4, background: 'var(--surface-container-low)', padding: '6px 10px', borderRadius: 6 }}>
                     "Requesting 22% discount for Nexus HyperScale to match competitor pricing on 40-node server cluster."
@@ -555,7 +555,7 @@ export default function ManagerApprovalDetail() {
                   </div>
                   <div>
                     <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#047857' }}>Quotation Approved by Manager</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>David K. Vance (Sales Manager) • Just now</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>Sales Manager • Just now</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--secondary-text)', marginTop: 4, background: 'rgba(16, 185, 129, 0.05)', padding: '6px 10px', borderRadius: 6 }}>
                       {quote.requiresApprovalReason || 'Discount exception approved under executive strategic authority.'}
                     </div>

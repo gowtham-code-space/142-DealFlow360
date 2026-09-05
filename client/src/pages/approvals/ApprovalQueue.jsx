@@ -55,7 +55,7 @@ export default function ApprovalQueue() {
         return {
           ...q,
           status: modalType === 'approve' ? 'APPROVED' : modalType === 'reject' ? 'REJECTED' : 'CUSTOMER_NEGOTIATION',
-          requiresApprovalReason: `Manager Decision (David K.): ${auditNote || (modalType === 'approve' ? 'Approved discount exception' : 'Discount rejected')}`
+          requiresApprovalReason: `Manager Decision: ${auditNote || (modalType === 'approve' ? 'Approved discount exception' : 'Discount rejected')}`
         };
       }
       return q;
@@ -231,7 +231,7 @@ export default function ApprovalQueue() {
                               <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{q.customerName}</div>
                               <span className="badge badge-gold" style={{ fontSize: '0.7rem' }}>{q.tier || 'GOLD'}</span>
                             </td>
-                            <td style={{ fontSize: '0.85rem' }}>{q.repName || 'Alex Rivera'}</td>
+                            <td style={{ fontSize: '0.85rem' }}>{q.repName || 'Sales Rep'}</td>
                             <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(q.totalValue)}</td>
                             <td style={{ color: isHighRisk ? '#b91c1c' : 'inherit', fontWeight: 700 }}>
                               {formatPercent(q.discountPercent)}

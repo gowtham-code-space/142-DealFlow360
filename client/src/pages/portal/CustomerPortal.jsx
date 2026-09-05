@@ -6,12 +6,14 @@ import { api } from '../../services/api';
 import { MOCK_QUOTATIONS } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { ShieldCheck, Truck, FileSpreadsheet, Award, CheckCircle, Clock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
 export default function CustomerPortal() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
@@ -22,11 +24,12 @@ export default function CustomerPortal() {
       setLoading(true);
       const res = await api.getQuotations();
       if (res.success && Array.isArray(res.data)) {
-        // Filter quotes for Nexus HyperScale (CUST-002 / Nexus)
-        const nexusQuotes = res.data.filter(q =>
-          q.customerId === 'CUST-002' || (q.customerName && q.customerName.includes('Nexus'))
+        // Filter quotes for the authenticated user if applicable
+        const companyName = user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'Corporate Account';
+        const userQuotes = res.data.filter(q =>
+          q.customerId === 'CUST-002' || (q.customerName && q.customerName.includes(companyName))
         );
-        setQuotes(nexusQuotes.length > 0 ? nexusQuotes : res.data);
+        setQuotes(userQuotes.length > 0 ? userQuotes : res.data);
       } else {
         setQuotes(MOCK_QUOTATIONS);
       }
@@ -52,10 +55,10 @@ export default function CustomerPortal() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h1 className="page-title" style={{ margin: 0, fontSize: '1.4rem' }}>
-                Welcome back, Marcus Vance
+                Welcome back, {user?.name?.split(' (')[0] || 'Customer'}
               </h1>
               <span className="badge badge-gold" style={{ background: 'rgba(5, 150, 105, 0.1)', color: '#059669', border: '1px solid rgba(5, 150, 105, 0.25)' }}>
-                Nexus HyperScale Ltd • Gold Corporate Account
+                {user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'Corporate Account'} • Customer Portal
               </span>
             </div>
             <p className="page-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.85rem' }}>
@@ -216,7 +219,7 @@ export default function CustomerPortal() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--outline)' }}>
                 <span>Dispatched: Midwest Hub (IL)</span>
-                <span>Destination: Nexus Data Center (CA)</span>
+                <span>Destination: Regional Data Center</span>
                 <span>Carrier: FedEx Freight Priority</span>
               </div>
             </div>
@@ -280,12 +283,12 @@ export default function CustomerPortal() {
                   width: 38, height: 38, borderRadius: '50%', background: 'var(--primary)',
                   color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700
                 }}>
-                  AR
+                  DF
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>Alex Rivera</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>DealFlow Account Exec</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Account Executive</div>
-                  <div style={{ fontSize: '0.72rem', color: '#059669' }}>alex.rivera@dealflow360.internal</div>
+                  <div style={{ fontSize: '0.72rem', color: '#059669' }}>sales@dealflow360.internal</div>
                 </div>
               </div>
 
@@ -294,12 +297,12 @@ export default function CustomerPortal() {
                   width: 38, height: 38, borderRadius: '50%', background: '#0284c7',
                   color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700
                 }}>
-                  SJ
+                  OPS
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>Sarah Jenkins</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>DealFlow Fulfillment</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Fulfillment Lead</div>
-                  <div style={{ fontSize: '0.72rem', color: '#0284c7' }}>sarah.jenkins@dealflow360.internal</div>
+                  <div style={{ fontSize: '0.72rem', color: '#0284c7' }}>ops@dealflow360.internal</div>
                 </div>
               </div>
 

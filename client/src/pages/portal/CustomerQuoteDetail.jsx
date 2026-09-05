@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { MOCK_QUOTATIONS, ROLES } from '../../utils/constants';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
@@ -16,6 +17,7 @@ export default function CustomerQuoteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+  const { user } = useAuth();
   const quoteId = id || 'Q-2026-002';
 
   const [quote, setQuote] = useState(null);
@@ -67,7 +69,7 @@ export default function CustomerQuoteDetail() {
 
     const msgPayload = {
       sender: 'customer',
-      author: 'Marcus Vance (Nexus HyperScale)',
+      author: user?.name || 'Customer',
       text: chatInput.trim()
     };
 
@@ -192,7 +194,7 @@ export default function CustomerQuoteDetail() {
                 <StatusBadge status={quote?.status} />
               </div>
               <p className="page-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>
-                Customer Portal • Quote Reference: <strong style={{ color: 'var(--primary)' }}>{quote?.id}</strong> • Created for <strong>Nexus HyperScale Ltd</strong>
+                Customer Portal • Quote Reference: <strong style={{ color: 'var(--primary)' }}>{quote?.id}</strong> • Created for <strong>{user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'Corporate Account'}</strong>
               </p>
             </div>
           </div>
@@ -445,7 +447,7 @@ export default function CustomerQuoteDetail() {
                 })
               ) : (
                 <div style={{ textAlign: 'center', padding: '16px', color: 'var(--secondary-text)', fontSize: '0.8rem' }}>
-                  No messages exchanged yet. Use the message field below to communicate with Alex Rivera.
+                  No messages exchanged yet. Use the message field below to communicate with {quote?.repName || 'Account Executive'}.
                 </div>
               )}
             </div>
@@ -454,7 +456,7 @@ export default function CustomerQuoteDetail() {
               <input
                 type="text"
                 className="input-field"
-                placeholder="Type a message to your Account Executive (Alex Rivera)..."
+                placeholder={`Type a message to your Account Executive (${quote?.repName || 'Sales Rep'})...`}
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 style={{ flex: 1 }}
@@ -592,9 +594,9 @@ export default function CustomerQuoteDetail() {
                   AR
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>Alex Rivera</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Senior Account Executive</div>
-                  <div style={{ fontSize: '0.72rem', color: '#059669' }}>alex.rivera@dealflow360.internal</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>DealFlow Account Exec</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Account Executive</div>
+                  <div style={{ fontSize: '0.72rem', color: '#059669' }}>sales@dealflow360.internal</div>
                 </div>
               </div>
 
@@ -606,9 +608,9 @@ export default function CustomerQuoteDetail() {
                   SJ
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>Sarah Jenkins</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>DealFlow Fulfillment</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Fulfillment & Operations Lead</div>
-                  <div style={{ fontSize: '0.72rem', color: '#0284c7' }}>sarah.jenkins@dealflow360.internal</div>
+                  <div style={{ fontSize: '0.72rem', color: '#0284c7' }}>ops@dealflow360.internal</div>
                 </div>
               </div>
             </div>
@@ -645,7 +647,7 @@ export default function CustomerQuoteDetail() {
           </div>
           <h3 style={{ margin: 0, color: 'var(--on-surface)', fontSize: '1.1rem' }}>Order Placed & Warehouse Reserved</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', margin: 0 }}>
-            Quotation <strong>{quote?.id}</strong> has been authorized for <strong>Nexus HyperScale Ltd</strong> under PO Reference <strong>{poNumber}</strong>.
+            Quotation <strong>{quote?.id}</strong> has been authorized for <strong>{user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'Corporate Account'}</strong> under PO Reference <strong>{poNumber}</strong>.
           </p>
           <div style={{
             padding: 12, borderRadius: 8, background: 'var(--surface-container-low)',

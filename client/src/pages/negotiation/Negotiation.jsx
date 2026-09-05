@@ -43,7 +43,8 @@ export default function Negotiation() {
     setSendingMsg(true);
     const res = await api.sendNegotiationMessage(id, {
       sender: 'rep',
-      author: 'Alex Rivera (Sales Rep)',
+      author: 'Sales Representative',
+      timestamp: 'Sep 3, 2026 - 14:15',
       text: messageText
     });
     if (res.success) {
@@ -67,7 +68,8 @@ export default function Negotiation() {
 
       await api.sendNegotiationMessage(id, {
         sender: 'rep',
-        author: 'Alex Rivera (Sales Rep)',
+        author: 'Sales Representative',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         text: `Submitted revised counter-offer: ${counterDiscount}% discount with ${counterPaymentTerms} payment terms.`
       });
 
@@ -155,7 +157,10 @@ export default function Negotiation() {
             <div className="card-header flex-between" style={{ borderBottom: '1px solid var(--border-color)' }}>
               <div>
                 <h3 className="headline-sm" style={{ margin: 0 }}>Direct Customer Chat Timeline</h3>
-                <span className="label-sm text-muted">Marcus Vance (VP Procurement, Apex Global)</span>
+                <div className="flex-between">
+                  <span className="label-sm text-muted">Customer Contacts</span>
+                  <span className="badge badge-surface" style={{ fontSize: 10 }}>Primary</span>
+                </div>
               </div>
               <span className="label-sm text-emerald flex-gap-2 font-bold">
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)' }} /> Online

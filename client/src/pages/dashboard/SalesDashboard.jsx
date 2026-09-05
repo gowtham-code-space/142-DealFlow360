@@ -42,6 +42,11 @@ export default function SalesDashboard() {
     alert(`${featureName} is currently unavailable. Backend endpoint not connected.`);
   };
 
+  const pipelineValue = quotations.reduce((sum, q) => sum + (Number(q.totalValue) || 0), 0);
+  const pendingCount = quotations.filter(q => q.status === 'PENDING_APPROVAL').length;
+  const activeNegCount = quotations.filter(q => q.status === 'CUSTOMER_NEGOTIATION').length;
+  const approvedCount = quotations.filter(q => q.status === 'APPROVED').length;
+
   return (
     <div className="flex-col gap-4">
       {/* Executive Performance Banner */}
@@ -55,12 +60,12 @@ export default function SalesDashboard() {
               Q3 2026 Fiscal Performance
             </span>
             <span style={{ fontSize: 12, color: 'var(--secondary-container)', fontWeight: 600 }}>
-              Sales Representative: {user?.name || 'Alex Rivera'}
+              Sales Representative: {user?.name || 'Sales Rep'}
             </span>
           </div>
           <h1 className="headline-lg" style={{ color: '#fff', margin: '4px 0' }}>Sales Representative Dashboard</h1>
           <p className="body-md" style={{ color: 'rgba(255,255,255,0.85)', margin: 0 }}>
-            Quota Attainment: <strong style={{ color: '#fff' }}>{formatCurrency(68000000)}</strong> of {formatCurrency(100000000)} Target (<strong style={{ color: '#fff' }}>68% Achieved</strong>) — Pace: <span style={{ color: 'var(--secondary-container)', fontWeight: 700 }}>+4.2% ahead of schedule</span>
+            Active Pipeline: <strong style={{ color: '#fff' }}>{formatCurrency(pipelineValue)}</strong> across {quotations.length} deals — Pace: <span style={{ color: 'var(--secondary-container)', fontWeight: 700 }}>Tracking positively</span>
           </p>
         </div>
         <div>
@@ -81,9 +86,9 @@ export default function SalesDashboard() {
             <span>Active Pipeline Value</span>
             <MS icon="description" size={16} />
           </div>
-          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>{formatCurrency(28072000)}</div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>{formatCurrency(pipelineValue)}</div>
           <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <MS icon="trending_up" size={14} /> +12.4% vs last month
+            <MS icon="trending_up" size={14} /> Tracking all active quotes
           </div>
         </div>
 
@@ -92,8 +97,8 @@ export default function SalesDashboard() {
             <span>Pending Manager Review</span>
             <span style={{ color: 'var(--warning)' }}><MS icon="schedule" size={16} /></span>
           </div>
-          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>2 Quotes</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Avg SLA wait: 3.2 hours</div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>{pendingCount} Quotes</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Pending SLA tracking</div>
         </div>
 
         <div className="card card-body">
@@ -101,8 +106,8 @@ export default function SalesDashboard() {
             <span>Active Negotiations</span>
             <span style={{ color: 'var(--secondary)' }}><MS icon="forum" size={16} /></span>
           </div>
-          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>1 Deal ({formatCurrency(11360000)})</div>
-          <div style={{ fontSize: 11, color: 'var(--secondary)', marginTop: 2, fontWeight: 600 }}>Apex Global counter-offer waiting</div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>{activeNegCount} Deals</div>
+          <div style={{ fontSize: 11, color: 'var(--secondary)', marginTop: 2, fontWeight: 600 }}>Action required</div>
         </div>
 
         <div className="card card-body">
@@ -110,8 +115,8 @@ export default function SalesDashboard() {
             <span>Approved Ready to Send</span>
             <span style={{ color: 'var(--success)' }}><MS icon="check_circle" size={16} /></span>
           </div>
-          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>1 Quote ({formatCurrency(2272000)})</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Approved by Sales Manager</div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>{approvedCount} Quotes</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Cleared for customer</div>
         </div>
       </div>
 
@@ -245,21 +250,21 @@ export default function SalesDashboard() {
               <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Sep 4, 14:32</span>
             </div>
 
-            <h4 className="headline-sm" style={{ margin: 0 }}>Apex Global Technologies</h4>
+            <h4 className="headline-sm" style={{ margin: 0 }}>Active Counter Offer Tracking</h4>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-              Quote ID: <strong style={{ color: 'var(--text-primary)' }}>Q-2026-002</strong> ({formatCurrency(11360000)} list)
+              Check Negotiation states in the Pipeline table.
             </div>
 
             <div style={{
               background: 'var(--surface-container-low)', padding: '10px 12px', borderRadius: 'var(--radius-md)',
               margin: '12px 0', fontSize: 12, color: 'var(--text-primary)', borderLeft: '2px solid var(--secondary)'
             }}>
-              "Requested 25% discount and Net 60 terms for Q3 sign-off."
+              Direct integration with customer chat for active negotiation quotes.
             </div>
 
             <div className="flex-between" style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12 }}>
-              <span>Impact: <strong>Margin 36.8%</strong></span>
-              <StatusBadge status="CUSTOMER_NEGOTIATION" text="Action Required" />
+              <span>Status tracking</span>
+              <StatusBadge status="CUSTOMER_NEGOTIATION" text="Action Tracking" />
             </div>
 
             <button className="btn btn-secondary-teal" style={{ width: '100%' }} onClick={() => navigate('/negotiation/Q-2026-002')}>

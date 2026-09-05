@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { Download, CreditCard } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function CustomerInvoices() {
+  const { user } = useAuth();
   const [invoices, setInvoices] = useState([
     { id: 'INV-2026-089', orderId: 'ORD-2026-0041', date: '2026-09-03', dueDate: '2026-10-30', amount: 7680000, status: 'PENDING_PAYMENT' },
     { id: 'INV-2026-074', orderId: 'ORD-2026-0038', date: '2026-08-30', dueDate: '2026-09-30', amount: 2272000, status: 'PAID' },
@@ -24,7 +26,7 @@ export default function CustomerInvoices() {
           Billing, Invoices & Payment Gateway
         </h1>
         <p className="page-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.85rem' }}>
-          Verified tax invoices, ACH wire instructions, and corporate payment ledger for Nexus HyperScale Ltd.
+          Verified tax invoices, ACH wire instructions, and corporate payment ledger for {user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'your organization'}.
         </p>
       </div>
 

@@ -59,7 +59,7 @@ export default function ManagerDashboard() {
         return {
           ...q,
           status: modalType === 'approve' ? 'APPROVED' : modalType === 'reject' ? 'REJECTED' : 'CUSTOMER_NEGOTIATION',
-          requiresApprovalReason: `Decision by Sales Manager (David K.): ${managerNote || (modalType === 'approve' ? 'Approved discount exception' : modalType === 'reject' ? 'Discount rejected' : 'Returned for revision')}`
+          requiresApprovalReason: `Decision by Sales Manager: ${managerNote || (modalType === 'approve' ? 'Approved discount exception' : modalType === 'reject' ? 'Discount rejected' : 'Returned for revision')}`
         };
       }
       return q;
@@ -115,7 +115,7 @@ export default function ManagerDashboard() {
         <MetricCard
           title="Pending Approvals"
           value={pendingQuotes.length}
-          change={`${urgentCount} Urgent SLA`}
+          change={`${urgentCount} High Risk`}
           isPositive={false}
           icon={ShieldAlert}
           color="#f59e0b"
@@ -130,16 +130,16 @@ export default function ManagerDashboard() {
         />
         <MetricCard
           title="Avg Discount Exception"
-          value="21.4%"
-          change="+3.4% above tier cap"
+          value="Tracking"
+          change="Policy cap audits"
           isPositive={false}
           icon={FileSpreadsheet}
           color="#ef4444"
         />
         <MetricCard
-          title="Approvals Completed (WTD)"
-          value="14"
-          change="92% within 4h SLA"
+          title="Approvals Completed"
+          value={quotes.filter(q => q.status === 'APPROVED' || q.status === 'REJECTED').length}
+          change="Processed Queue"
           isPositive={true}
           icon={CheckCircle}
           color="#10b981"
@@ -233,7 +233,7 @@ export default function ManagerDashboard() {
                               <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{q.customerName}</div>
                               <span className="badge badge-gold" style={{ fontSize: '0.7rem' }}>{q.tier}</span>
                             </td>
-                            <td style={{ fontSize: '0.85rem' }}>{q.repName || 'Alex Rivera'}</td>
+                            <td style={{ fontSize: '0.85rem' }}>{q.repName || 'Sales Rep'}</td>
                             <td style={{ color: isHighRisk ? '#b91c1c' : 'inherit', fontWeight: 700 }}>
                               {formatPercent(q.discountPercent)}
                             </td>

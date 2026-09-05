@@ -26,9 +26,9 @@ export default function CustomerSupport() {
                 AR
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--on-surface)' }}>Alex Rivera</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--secondary-text)' }}>Senior Account Executive</div>
-                <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: 2 }}>alex.rivera@dealflow360.internal</div>
+                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--on-surface)' }}>DealFlow Account Exec</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Senior Account Executive</div>
+                <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: 2 }}>sales@dealflow360.internal</div>
               </div>
             </div>
 

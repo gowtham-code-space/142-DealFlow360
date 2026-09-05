@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import StatusBadge from '../../components/common/StatusBadge';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { MOCK_QUOTATIONS } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
@@ -8,6 +9,7 @@ import { formatCurrency, formatPercent } from '../../utils/formatters';
 
 export default function CustomerQuoteList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,7 +45,7 @@ export default function CustomerQuoteList() {
               My Quotations & Proposals
             </h1>
             <p className="page-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.85rem' }}>
-              Review commercial quotes, inspect component pricing, and place corporate orders for Nexus HyperScale Ltd.
+              Review commercial quotes, inspect component pricing, and place corporate orders for {user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'your organization'}.
             </p>
           </div>
 
