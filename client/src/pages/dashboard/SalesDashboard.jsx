@@ -1,163 +1,289 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import MetricCard from '../../components/common/MetricCard';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../../services/api';
+import { formatCurrency, formatPercent } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
-import { MOCK_QUOTATIONS } from '../../utils/constants';
-import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
-import {
-  TrendingUp,
-  DollarSign,
-  FileCheck2,
-  AlertCircle,
-  Plus,
-  Sparkles,
-  ArrowUpRight,
-  Filter
-} from 'lucide-react';
+
+const MS = ({ icon, size = 18 }) => (
+  <span className="material-symbols-outlined" style={{ fontSize: size }}>{icon}</span>
+);
 
 export default function SalesDashboard() {
-  const [quotations] = useState(MOCK_QUOTATIONS);
+  const navigate = useNavigate();
+  const [quotations, setQuotations] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('ALL');
 
-  const totalPipeline = quotations.reduce((acc, q) => acc + q.totalValue, 0);
-  const avgMargin = quotations.reduce((acc, q) => acc + q.marginPercent, 0) / quotations.length;
-  const pendingApprovals = quotations.filter(q => q.status === 'PENDING_APPROVAL').length;
+  useEffect(() => {
+    async function loadDashboardData() {
+      setLoading(true);
+      const [qRes, wRes] = await Promise.all([
+        api.getQuotations(),
+        api.getWarehouses()
+      ]);
+      if (qRes.success) setQuotations(qRes.data);
+      if (wRes.success) setWarehouses(wRes.data);
+      setLoading(false);
+    }
+    loadDashboardData();
+  }, []);
+
+  const filteredQuotes = quotations.filter(q => {
+    if (activeTab === 'PENDING') return q.status === 'PENDING_APPROVAL';
+    if (activeTab === 'APPROVED') return q.status === 'APPROVED';
+    if (activeTab === 'DRAFT') return q.status === 'DRAFT';
+    return true;
+  });
+
+  const handleUnavailableFeature = (featureName) => {
+    alert(`${featureName} is currently unavailable. Backend endpoint not connected.`);
+  };
 
   return (
-    <div>
-      {/* Top Header & Action */}
-      <div className="flex-between" style={{ marginBottom: '24px' }}>
+    <div className="flex-col gap-4">
+      {/* Executive Performance Banner */}
+      <div className="card flex-between" style={{
+        background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-container) 100%)',
+        color: '#ffffff', padding: '20px 24px', borderRadius: 'var(--radius-xl)'
+      }}>
         <div>
-          <h1 className="page-title">Sales Representative Dashboard</h1>
-          <p className="page-subtitle">Track quote lifecycles, real-time margins, and automated approval triggers.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: 4 }}>
+              Q3 2026 Fiscal Performance
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--secondary-container)', fontWeight: 600 }}>
+              Sales Representative: Alex Rivera
+            </span>
+          </div>
+          <h1 className="headline-lg" style={{ color: '#fff', margin: '4px 0' }}>Sales Representative Dashboard</h1>
+          <p className="body-md" style={{ color: 'rgba(255,255,255,0.85)', margin: 0 }}>
+            Quota Attainment: <strong style={{ color: '#fff' }}>{formatCurrency(68000000)}</strong> of {formatCurrency(100000000)} Target (<strong style={{ color: '#fff' }}>68% Achieved</strong>) — Pace: <span style={{ color: 'var(--secondary-container)', fontWeight: 700 }}>+4.2% ahead of schedule</span>
+          </p>
         </div>
-        <div className="flex-gap-2">
-          <Link to="/quotations/new" className="btn btn-primary">
-            <Plus size={16} />
-            <span>Create New Quote (CPQ)</span>
-          </Link>
+        <div>
+          <button className="btn" style={{
+            background: 'var(--secondary-container)', color: 'var(--on-secondary-container)',
+            fontWeight: 700, padding: '10px 16px', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-sm)'
+          }} onClick={() => navigate('/quotations/new')}>
+            <MS icon="add_circle" size={20} />
+            <span>Create New Quote</span>
+          </button>
         </div>
       </div>
 
-      {/* KPI Metrics */}
-      <div className="grid-metrics">
-        <MetricCard
-          title="Total Pipeline Value"
-          value={formatCurrency(totalPipeline)}
-          change="18.4%"
-          isPositive={true}
-          icon={DollarSign}
-          color="#6366f1"
-        />
-        <MetricCard
-          title="Average Deal Margin"
-          value={formatPercent(avgMargin)}
-          change="2.1%"
-          isPositive={true}
-          icon={TrendingUp}
-          color="#10b981"
-        />
-        <MetricCard
-          title="Pending Approvals"
-          value={pendingApprovals}
-          change="1 high discount"
-          isPositive={false}
-          icon={AlertCircle}
-          color="#f59e0b"
-        />
-        <MetricCard
-          title="Win Rate (Q3)"
-          value="68.5%"
-          change="5.2%"
-          isPositive={true}
-          icon={FileCheck2}
-          color="#06b6d4"
-        />
+      {/* KPI Ribbon Cards */}
+      <div className="grid-metrics" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="card card-body">
+          <div className="flex-between" style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>
+            <span>Active Pipeline Value</span>
+            <MS icon="description" size={16} />
+          </div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>{formatCurrency(28072000)}</div>
+          <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <MS icon="trending_up" size={14} /> +12.4% vs last month
+          </div>
+        </div>
+
+        <div className="card card-body">
+          <div className="flex-between" style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>
+            <span>Pending Manager Review</span>
+            <span style={{ color: 'var(--warning)' }}><MS icon="schedule" size={16} /></span>
+          </div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>2 Quotes</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Avg SLA wait: 3.2 hours</div>
+        </div>
+
+        <div className="card card-body">
+          <div className="flex-between" style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>
+            <span>Active Negotiations</span>
+            <span style={{ color: 'var(--secondary)' }}><MS icon="forum" size={16} /></span>
+          </div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>1 Deal ({formatCurrency(11360000)})</div>
+          <div style={{ fontSize: 11, color: 'var(--secondary)', marginTop: 2, fontWeight: 600 }}>Apex Global counter-offer waiting</div>
+        </div>
+
+        <div className="card card-body">
+          <div className="flex-between" style={{ color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600 }}>
+            <span>Approved Ready to Send</span>
+            <span style={{ color: 'var(--success)' }}><MS icon="check_circle" size={16} /></span>
+          </div>
+          <div className="headline-lg" style={{ marginTop: 6, color: 'var(--text-primary)' }}>1 Quote ({formatCurrency(2272000)})</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>Approved by Sales Manager</div>
+        </div>
       </div>
 
-      {/* Smart AI Upsell Banner */}
-      <div className="card" style={{ marginBottom: '24px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%)', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
-        <div className="flex-between">
-          <div className="flex-gap-3">
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-              <Sparkles size={20} />
+      {/* Main Grid: Pipeline Table & Right Sidebar */}
+      <div className="grid-3">
+        {/* Left Column (2 spans): Pipeline Table & Regional Stock */}
+        <div className="flex-col gap-4" style={{ gridColumn: 'span 2' }}>
+          <div className="card">
+            <div className="card-header flex-between">
+              <div>
+                <h2 className="headline-sm" style={{ margin: 0 }}>Quote Pipeline & Re-Approval Matrix</h2>
+                <p className="body-sm" style={{ color: 'var(--text-secondary)', margin: 0 }}>Track discount verdicts, SLA timers, and customer response states</p>
+              </div>
+              <div className="tab-bar">
+                {['ALL', 'PENDING', 'APPROVED', 'DRAFT'].map(tab => (
+                  <button key={tab} className={`tab-btn ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div>
-              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: '#fff' }}>AI Deal Intelligence & Upsell Trigger</h4>
-              <p style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
-                Quote <strong>#Q-2026-001 (Nexus HyperScale)</strong> includes Enterprise Servers. Adding <strong>Optical Fiber SFP+ Packs</strong> will boost overall gross margin by +4.2%.
-              </p>
+
+            {loading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <div className="spin" style={{ display: 'inline-block', marginBottom: 8 }}><MS icon="sync" size={24} /></div>
+                <p>Fetching backend quotation status...</p>
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Quote ID & Customer</th>
+                      <th>Tier</th>
+                      <th>Value</th>
+                      <th>Discount</th>
+                      <th>Margin</th>
+                      <th>Status / Verdict</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredQuotes.map(q => (
+                      <tr key={q.id}>
+                        <td>
+                          <div style={{ fontWeight: 600, color: 'var(--primary)', fontSize: 13 }}>{q.id}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{q.customerName}</div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: q.tier === 'PLATINUM' ? '#6b21a8' : q.tier === 'GOLD' ? '#854d0e' : '#475569' }}>
+                            {q.tier}
+                          </span>
+                        </td>
+                        <td style={{ fontWeight: 600, fontFeatureSettings: "'tnum'" }}>{formatCurrency(q.totalValue)}</td>
+                        <td style={{ fontFeatureSettings: "'tnum'" }}>{formatPercent(q.discountPercent)}</td>
+                        <td>
+                          <span style={{ fontWeight: 600, fontFeatureSettings: "'tnum'", color: q.marginPercent >= 35 ? 'var(--success)' : 'var(--warning)' }}>
+                            {formatPercent(q.marginPercent)}
+                          </span>
+                        </td>
+                        <td>
+                          <StatusBadge status={q.status} />
+                        </td>
+                        <td>
+                          <div className="action-group">
+                            <button className="btn-icon" title="View Details" onClick={() => navigate(`/quotations/${q.id}`)}>
+                              <MS icon="open_in_new" size={16} />
+                            </button>
+                            {q.status === 'CUSTOMER_NEGOTIATION' && (
+                              <button className="btn btn-secondary-teal btn-sm" style={{ padding: '4px 8px' }} title="Open Negotiation" onClick={() => navigate(`/negotiation/${q.id}`)}>
+                                <MS icon="forum" size={14} />
+                                <span>Negotiate</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Regional Resource / Warehouse Depot Stock */}
+          <div className="card card-body">
+            <div className="flex-between" style={{ marginBottom: 12 }}>
+              <div className="flex-gap-2">
+                <span style={{ color: 'var(--primary)' }}><MS icon="inventory_2" size={18} /></span>
+                <h3 className="headline-sm" style={{ margin: 0 }}>Regional Resource / Warehouse Depot Stock</h3>
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Backend Real-Time Inventory Feed</span>
             </div>
-          </div>
-          <Link to="/quotations/Q-2026-001" className="btn btn-secondary btn-sm">
-            <span>Review & Apply</span>
-            <ArrowUpRight size={14} />
-          </Link>
-        </div>
-      </div>
 
-      {/* Recent Quotations Table */}
-      <div className="card">
-        <div className="flex-between" style={{ marginBottom: '16px' }}>
-          <div>
-            <h3 className="section-title" style={{ margin: 0 }}>Active Quotations</h3>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Real-time status updates & approval status</span>
-          </div>
-          <div className="flex-gap-2">
-            <button className="btn btn-secondary btn-sm">
-              <Filter size={14} />
-              <span>Filter Status</span>
-            </button>
-            <Link to="/quotations" className="btn btn-secondary btn-sm">
-              View All
-            </Link>
-          </div>
-        </div>
-
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Quote ID</th>
-                <th>Customer</th>
-                <th>Tier</th>
-                <th>Value</th>
-                <th>Discount</th>
-                <th>Gross Margin</th>
-                <th>Status</th>
-                <th>Approval Reason</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quotations.map((q) => (
-                <tr key={q.id}>
-                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                    <Link to={`/quotations/${q.id}`} style={{ textDecoration: 'underline' }}>{q.id}</Link>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{q.customerName}</td>
-                  <td>
-                    <span className={`badge badge-${q.tier.toLowerCase()}`}>{q.tier}</span>
-                  </td>
-                  <td style={{ fontWeight: 700 }}>{formatCurrency(q.totalValue)}</td>
-                  <td style={{ color: q.discountPercent > 20 ? '#ef4444' : 'var(--text-primary)', fontWeight: 600 }}>
-                    {formatPercent(q.discountPercent)}
-                  </td>
-                  <td style={{ color: '#10b981', fontWeight: 600 }}>{formatPercent(q.marginPercent)}</td>
-                  <td>
-                    <StatusBadge status={q.status} />
-                  </td>
-                  <td style={{ fontSize: '0.78rem', color: q.requiresApprovalReason ? '#f59e0b' : 'var(--text-muted)' }}>
-                    {q.requiresApprovalReason || 'Auto-cleared'}
-                  </td>
-                  <td>
-                    <Link to={`/quotations/${q.id}`} className="btn btn-secondary btn-sm" style={{ padding: '4px 8px' }}>
-                      Inspect
-                    </Link>
-                  </td>
-                </tr>
+            <div className="grid-3" style={{ gap: 12, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+              {warehouses.map(w => (
+                <div key={w.id} style={{ background: 'var(--surface-container-low)', padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>{w.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                    Available Stock: <strong style={{ color: 'var(--success)' }}>{w.stock} units</strong>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Shipping Cost: {formatCurrency(w.shippingCostRate)}/kg
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (1 span): Shortcuts & Negotiation Card */}
+        <div className="flex-col gap-4">
+          <div className="card card-body" style={{ background: 'var(--surface-container-low)' }}>
+            <h3 className="headline-sm" style={{ marginBottom: 12 }}>Quick Actions</h3>
+            <div className="flex-col gap-2">
+              <button className="btn btn-primary" style={{ justifyContent: 'flex-start' }} onClick={() => navigate('/quotations/new')}>
+                <MS icon="add_circle" size={16} /> <span>Create New Customer Quote</span>
+              </button>
+              <button className="btn btn-outline" style={{ justifyContent: 'flex-start', background: '#fff' }} onClick={() => navigate('/negotiation/Q-2026-002')}>
+                <MS icon="forum" size={16} /> <span>Direct Customer Chat</span>
+              </button>
+              <button className="btn btn-outline" style={{ justifyContent: 'flex-start', background: '#fff' }} onClick={() => handleUnavailableFeature('Simulate Floor Path')}>
+                <MS icon="tune" size={16} /> <span>Simulate Floor Path</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="card card-body" style={{ borderLeft: '4px solid var(--secondary)' }}>
+            <div className="flex-between" style={{ marginBottom: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Active Counter Offer</span>
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Sep 4, 14:32</span>
+            </div>
+
+            <h4 className="headline-sm" style={{ margin: 0 }}>Apex Global Technologies</h4>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+              Quote ID: <strong style={{ color: 'var(--text-primary)' }}>Q-2026-002</strong> ({formatCurrency(11360000)} list)
+            </div>
+
+            <div style={{
+              background: 'var(--surface-container-low)', padding: '10px 12px', borderRadius: 'var(--radius-md)',
+              margin: '12px 0', fontSize: 12, color: 'var(--text-primary)', borderLeft: '2px solid var(--secondary)'
+            }}>
+              "Requested 25% discount and Net 60 terms for Q3 sign-off."
+            </div>
+
+            <div className="flex-between" style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              <span>Impact: <strong>Margin 36.8%</strong></span>
+              <StatusBadge status="CUSTOMER_NEGOTIATION" text="Action Required" />
+            </div>
+
+            <button className="btn btn-secondary-teal" style={{ width: '100%' }} onClick={() => navigate('/negotiation/Q-2026-002')}>
+              <MS icon="forum" size={16} /> <span>Review & Respond</span>
+            </button>
+          </div>
+
+          <div className="card card-body">
+            <div className="flex-between" style={{ marginBottom: 8 }}>
+              <h4 className="headline-sm" style={{ margin: 0 }}>Margin & Deal Risk Pulse</h4>
+              <MS icon="trending_up" size={16} />
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+              Portfolio Avg Margin: <strong style={{ color: 'var(--success)' }}>40.9%</strong>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              Deal Health Index: <strong style={{ color: 'var(--primary)' }}>92/100 (Optimal)</strong>
+            </div>
+            <div style={{
+              marginTop: 12, padding: '8px 10px', background: '#fef3c7', borderRadius: 'var(--radius-sm)',
+              fontSize: 11, color: '#92400e', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500
+            }}>
+              <MS icon="warning" size={14} />
+              <span>1 quote requires Manager re-approval if discount &gt; 20%</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
