@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../utils/constants';
+import DealFlowLogo from '../../components/common/DealFlowLogo';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -115,27 +116,10 @@ export default function Login() {
         }}>
           <div>
             {/* Brand Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '10px',
-                background: '#57344f',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0
-              }}>
-                <MS icon="hub" size={22} />
-              </div>
-              <div>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1b1c1c', margin: 0, letterSpacing: '-0.01em' }}>
-                  DealFlow360
-                </h1>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#80747a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  Enterprise Q2C Platform
-                </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+              <DealFlowLogo variant="login" />
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#80747a', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '4px' }}>
+                Enterprise Q2C Platform
               </div>
             </div>
 

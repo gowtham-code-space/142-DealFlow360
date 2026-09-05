@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import NotificationDropdown from './NotificationDropdown';
 import { ROLES } from '../../utils/constants';
+import DealFlowLogo from './DealFlowLogo';
 
 const MS = ({ icon, size = 20 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -47,25 +48,26 @@ export default function Header() {
   return (
     <header className="top-navbar">
       {/* Left: Role + Context */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <DealFlowLogo variant="header" />
         {isCustomerView ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'rgba(5, 150, 105, 0.1)', color: '#059669',
                 fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                 border: '1px solid rgba(5, 150, 105, 0.25)'
               }}>CUSTOMER PORTAL</span>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
                 fontSize: 11, fontWeight: 500
               }}>Nexus HyperScale Ltd</span>
             </div>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 99,
+              padding: '6px 14px', borderRadius: 99,
               background: 'var(--surface-container-low)',
               border: '1px solid rgba(209,195,202,0.3)',
               color: 'var(--on-surface-variant)'
@@ -80,13 +82,13 @@ export default function Header() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'rgba(124, 58, 237, 0.15)', color: '#7c3aed',
                 fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                 border: '1px solid rgba(124, 58, 237, 0.3)'
               }}>ADMINISTRATOR</span>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
                 fontSize: 11, fontWeight: 500
               }}>System Governance</span>
@@ -96,20 +98,20 @@ export default function Header() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'rgba(87,52,79,0.15)', color: 'var(--primary)',
                 fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                 border: '1px solid rgba(87,52,79,0.3)'
               }}>SALES MANAGER / APPROVER</span>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
                 fontSize: 11, fontWeight: 500
               }}>North America West & Enterprise</span>
             </div>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 99,
+              padding: '6px 14px', borderRadius: 99,
               background: 'rgba(239, 68, 68, 0.08)',
               border: '1px solid rgba(239, 68, 68, 0.25)',
               color: '#b91c1c'
@@ -124,20 +126,20 @@ export default function Header() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'rgba(2, 132, 199, 0.1)', color: '#0284c7',
                 fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
                 border: '1px solid rgba(2, 132, 199, 0.25)'
               }}>FINANCE & OPERATIONS</span>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
                 fontSize: 11, fontWeight: 500
               }}>Global Warehouses & Logistics</span>
             </div>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 99,
+              padding: '6px 14px', borderRadius: 99,
               background: 'var(--surface-container-low)',
               border: '1px solid rgba(209,195,202,0.3)',
               color: 'var(--on-surface-variant)'
@@ -152,19 +154,19 @@ export default function Header() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'rgba(87,52,79,0.1)', color: 'var(--primary)',
                 fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em'
               }}>SALES REPRESENTATIVE</span>
               <span style={{
-                padding: '2px 8px', borderRadius: 99,
+                padding: '4px 12px', borderRadius: 99,
                 background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
                 fontSize: 11, fontWeight: 500
               }}>Midwest Commercial</span>
             </div>
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              padding: '3px 10px', borderRadius: 99,
+              padding: '6px 14px', borderRadius: 99,
               background: 'var(--surface-container-low)',
               border: '1px solid rgba(209,195,202,0.3)',
               color: 'var(--on-surface-variant)'
@@ -180,7 +182,7 @@ export default function Header() {
       </div>
 
       {/* Right: Search + Notifications + User Profile + Logout */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {/* Search */}
         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <span className="material-symbols-outlined" style={{
@@ -192,10 +194,10 @@ export default function Header() {
             onChange={e => setSearchValue(e.target.value)}
             placeholder={isManagerView ? "Search approvals, quotes, reps, risk rules..." : "Search quotes, customers, products..."}
             style={{
-              height: 32, paddingLeft: 32, paddingRight: 40, paddingTop: 0, paddingBottom: 0,
+              height: 36, paddingLeft: 36, paddingRight: 40, paddingTop: 0, paddingBottom: 0,
               borderRadius: 'var(--radius-md)', background: 'var(--surface-container-low)',
               border: '1px solid rgba(209,195,202,0.3)', color: 'var(--on-surface)',
-              fontSize: 12, outline: 'none', width: 260,
+              fontSize: 13, outline: 'none', width: 320,
               fontFamily: 'inherit', transition: 'border-color 0.15s'
             }}
             onFocus={e => { e.target.style.borderColor = 'var(--primary)'; e.target.style.background = '#fff'; }}
@@ -216,7 +218,7 @@ export default function Header() {
             onClick={() => setIsNotifOpen(prev => !prev)}
             title="Notifications"
             style={{
-              width: 32, height: 32,
+              width: 36, height: 36,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               borderRadius: 8, color: 'var(--on-surface-variant)', cursor: 'pointer',
               position: 'relative'
@@ -241,11 +243,11 @@ export default function Header() {
         </div>
 
         {/* Divider */}
-        <div style={{ width: 1, height: 24, background: 'rgba(209,195,202,0.3)' }} />
+        <div style={{ width: 1, height: 32, background: 'rgba(209,195,202,0.3)', margin: '0 4px' }} />
 
         {/* User Avatar & Logout */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingLeft: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ position: 'relative' }}>
               <div style={{
                 width: 32, height: 32, borderRadius: '50%',
@@ -275,12 +277,13 @@ export default function Header() {
             onClick={handleLogout}
             title="Log Out & Switch Role"
             style={{
-              padding: '4px 8px', borderRadius: 6,
+              padding: '6px 12px', borderRadius: 8,
               border: '1px solid rgba(209,195,202,0.4)',
               background: 'var(--surface-container-low)',
               color: 'var(--on-surface-variant)',
-              fontSize: 11, fontWeight: 600, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 4
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'background 0.2s'
             }}
           >
             <MS icon="logout" size={14} />

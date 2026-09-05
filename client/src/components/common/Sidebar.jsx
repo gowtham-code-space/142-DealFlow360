@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../utils/constants';
+import DealFlowLogo from './DealFlowLogo';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -34,23 +35,14 @@ export default function Sidebar() {
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Brand */}
         <div style={{
-          height: 'var(--header-height)', padding: '0 12px',
-          display: 'flex', alignItems: 'center', gap: 8,
-          borderBottom: '1px solid rgba(209,195,202,0.2)'
+          padding: '24px 16px',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 6,
+          borderBottom: '1px solid rgba(209,195,202,0.2)',
+          background: 'var(--surface-container-low)'
         }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8, 
-            background: isCustomerView ? '#059669' : isManagerView ? '#57344f' : isOpsView ? '#0284c7' : isAdminView ? '#7c3aed' : 'var(--primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', flexShrink: 0
-          }}>
-            <MS icon={isCustomerView ? "storefront" : isManagerView ? "verified_user" : isOpsView ? "inventory_2" : isAdminView ? "admin_panel_settings" : "hub"} size={18} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.01em' }}>DealFlow360</span>
-            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
-              {isCustomerView ? 'Customer Portal' : isManagerView ? 'Manager Console' : isOpsView ? 'Finance & Operations' : isAdminView ? 'System Admin Console' : 'Sales Workspace'}
-            </span>
+          <DealFlowLogo variant="sidebar" />
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {isCustomerView ? 'Customer Portal' : isManagerView ? 'Manager Console' : isOpsView ? 'Finance & Operations' : isAdminView ? 'System Admin Console' : 'Sales Workspace'}
           </div>
         </div>
 

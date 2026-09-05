@@ -2,6 +2,7 @@ import React from 'react';
 import Header from '../components/common/Header';
 import { Layers, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import DealFlowLogo from '../components/common/DealFlowLogo';
 
 export default function PortalLayout({ children }) {
   return (
@@ -17,21 +18,9 @@ export default function PortalLayout({ children }) {
         padding: '0 32px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '36px',
-            height: '36px',
-            borderRadius: '10px',
-            background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff'
-          }}>
-            <Layers size={20} />
-          </div>
-          <div>
-            <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#fff' }}>DealFlow360</span>
-            <span style={{ fontSize: '0.75rem', marginLeft: '8px', color: '#10b981', background: 'var(--success-light)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Customer Portal</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <DealFlowLogo variant="portal" />
+            <span style={{ fontSize: '0.75rem', color: '#10b981', background: 'var(--success-light)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>Customer Portal</span>
           </div>
         </div>
 

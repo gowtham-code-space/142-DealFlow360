@@ -79,7 +79,7 @@
 
   /* Layout */
   --sidebar-width: 240px;
-  --header-height: 48px;
+  --header-height: 64px;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -146,7 +146,7 @@ button, input, select, textarea { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 24px;
 }
 
 .page-body {
