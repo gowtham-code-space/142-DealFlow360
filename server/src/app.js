@@ -1,24 +1,41 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
-const errorHandler = require("./middleware/error.middleware");
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const errorMiddleware = require('./middleware/error.middleware');
+const { notFoundResponse } = require('./utils/response');
+const { CORS_ORIGIN } = require('./config/env');
 
 const app = express();
 
-app.use(cors());
+// Restricted CORS Configuration
+const allowedOrigins = CORS_ORIGIN;
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, or Postman) or matched allowed origins
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS policy restriction: Origin '${origin}' is not allowed`));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Serve static docs directory (swagger.yaml, openapi.yaml, paths, schemas)
-app.use("/docs", express.static(path.join(__dirname, "../docs")));
+// Serve OpenAPI / Swagger Documentation
+app.use('/docs', express.static(path.join(__dirname, '../docs')));
 
-// Raw swagger.yaml endpoint
-app.get("/api-docs/swagger.yaml", (req, res) => {
-  res.sendFile(path.join(__dirname, "../docs/swagger.yaml"));
+app.get('/api-docs/swagger.yaml', (req, res) => {
+  res.sendFile(path.join(__dirname, '../docs/swagger.yaml'));
 });
 
-// Interactive Swagger UI via CDN (no extra npm packages required)
-app.get(["/api-docs", "/docs-ui"], (req, res) => {
+app.get(['/api-docs', '/docs-ui'], (req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -57,8 +74,7 @@ app.get(["/api-docs", "/docs-ui"], (req, res) => {
 </html>`);
 });
 
-// Interactive Redoc view
-app.get("/redoc", (req, res) => {
+app.get('/redoc', (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
   <head>
@@ -76,20 +92,26 @@ app.get("/redoc", (req, res) => {
 });
 
 // Health check endpoint
-app.get("/api/v1/health", (req, res) => {
+app.get('/api/v1/health', (req, res) => {
   res.json({
-    status: "ok",
-    service: "DealFlow360 Backend API",
-    version: "2.0.0",
-    docs: "/api-docs"
+    status: 'ok',
+    service: 'DealFlow360 Backend API',
+    version: '2.0.0',
+    timestamp: new Date().toISOString(),
+    docs: '/api-docs'
   });
 });
 
-app.get("/", (req, res) => {
-  res.redirect("/api-docs");
+app.get('/', (req, res) => {
+  res.redirect('/api-docs');
 });
 
-app.use(errorHandler);
+// 404 Handler for undefined routes
+app.use((req, res) => {
+  return notFoundResponse(res, `Route ${req.method} ${req.originalUrl} not found`);
+});
+
+// Centralized Error Handling Middleware
+app.use(errorMiddleware);
 
 module.exports = app;
-
