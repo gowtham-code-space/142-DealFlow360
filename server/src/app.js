@@ -1,9 +1,31 @@
 const express = require('express');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 const errorMiddleware = require('./middleware/error.middleware');
 const { notFoundResponse } = require('./utils/response');
 const { CORS_ORIGIN } = require('./config/env');
+
+// Feature Routers
+const authRoutes = require('./features/auth/auth.routes');
+const usersRoutes = require('./features/users/users.routes');
+const customersRoutes = require('./features/customers/customers.routes');
+const productsRoutes = require('./features/products/products.routes');
+const priceListsRoutes = require('./features/products/pricelists.routes');
+const configRoutes = require('./features/config/config.routes');
+const warehousesRoutes = require('./features/warehouses/warehouses.routes');
+const inventoryRoutes = require('./features/inventory/inventory.routes');
+const quotationsRoutes = require('./features/quotations/quotations.routes');
+const approvalsRoutes = require('./features/approvals/approvals.routes');
+const fulfillmentRoutes = require('./features/fulfillment/fulfillment.routes');
+const billingRoutes = require('./features/billing/billing.routes');
+const negotiationRoutes = require('./features/negotiation/negotiation.routes');
+const dashboardRoutes = require('./features/dashboard/dashboard.routes');
+const auditRoutes = require('./features/audit/audit.routes');
+const notificationsRoutes = require('./features/notifications/notifications.routes');
+const recommendationsRoutes = require('./features/recommendations/recommendations.routes');
+const reportsRoutes = require('./features/reports/reports.routes');
+const portalRoutes = require('./features/portal/portal.routes');
 
 const app = express();
 
@@ -13,7 +35,7 @@ const allowedOrigins = CORS_ORIGIN;
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps, curl, or Postman) or matched allowed origins
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
       callback(new Error(`CORS policy restriction: Origin '${origin}' is not allowed`));
@@ -27,6 +49,28 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Mount API Routers
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/customers', customersRoutes);
+app.use('/api/v1/products', productsRoutes);
+app.use('/api/v1/price-lists', priceListsRoutes);
+app.use('/api/v1/config', configRoutes);
+app.use('/api/v1/warehouses', warehousesRoutes);
+app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/quotes', quotationsRoutes);
+app.use('/api/v1/approvals', approvalsRoutes);
+app.use('/api/v1', fulfillmentRoutes);
+app.use('/api/v1', billingRoutes);
+app.use('/api/v1', negotiationRoutes);
+app.use('/api/v1', dashboardRoutes);
+app.use('/api/v1', auditRoutes);
+app.use('/api/v1', notificationsRoutes);
+app.use('/api/v1', recommendationsRoutes);
+app.use('/api/v1', reportsRoutes);
+app.use('/api/v1', portalRoutes);
 
 // Serve OpenAPI / Swagger Documentation
 app.use('/docs', express.static(path.join(__dirname, '../docs')));

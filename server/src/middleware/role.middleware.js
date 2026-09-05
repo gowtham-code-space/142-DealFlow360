@@ -1,7 +1,7 @@
 const { unauthorizedResponse, forbiddenResponse } = require('../utils/response');
 
-const roleMiddleware = (allowedRoles = []) => {
-  const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
+const roleMiddleware = (...allowedRoles) => {
+  const roles = allowedRoles.flat();
 
   return (req, res, next) => {
     if (!req.user || !req.user.role) {
