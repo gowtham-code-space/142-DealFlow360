@@ -1,179 +1,116 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { ROLES } from '../../utils/constants';
-import {
-  LayoutDashboard,
-  FileText,
-  PlusCircle,
-  CheckSquare,
-  Boxes,
-  Receipt,
-  MessageSquareDiff,
-  ExternalLink,
-  Layers,
-  Sparkles
-} from 'lucide-react';
+
+const MS = ({ icon, size = 18 }) => (
+  <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
+);
 
 export default function Sidebar() {
-  const { user } = useAuth();
-  const isCustomer = user?.role === ROLES.CUSTOMER;
-
   return (
-    <aside className="sidebar">
-      {/* Brand Header */}
-      <div style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: 'var(--glass-border)' }}>
+    <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Brand */}
         <div style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, #6366f1 0%, #06b6d4 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff'
+          height: 'var(--header-height)', padding: '0 12px',
+          display: 'flex', alignItems: 'center', gap: 8,
+          borderBottom: '1px solid rgba(209,195,202,0.2)'
         }}>
-          <Layers size={20} />
-        </div>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.02em', background: 'linear-gradient(90deg, #fff 0%, #cbd5e1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            DealFlow<span style={{ color: '#6366f1', WebkitTextFillColor: '#6366f1' }}>360</span>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, background: 'var(--primary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#fff', flexShrink: 0
+          }}>
+            <MS icon="hub" size={18} />
           </div>
-          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Quote-to-Cash Engine
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', letterSpacing: '-0.01em' }}>DealFlow360</span>
+            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>Sales Workspace</span>
           </div>
         </div>
+
+        {/* Nav label */}
+        <div className="nav-section-label">Sales Operations</div>
+
+        {/* Navigation */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingBottom: 8 }}>
+          <NavLink to="/dashboard/sales" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MS icon="speed" size={18} />
+            <span>Sales Dashboard</span>
+          </NavLink>
+
+          <NavLink to="/quotations" end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MS icon="request_quote" size={18} />
+            <span>My Quotes</span>
+          </NavLink>
+
+          <NavLink to="/quotations/new" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MS icon="post_add" size={18} />
+            <span>Create Quote</span>
+          </NavLink>
+
+          <NavLink to="/customers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MS icon="domain" size={18} />
+            <span>Customers</span>
+          </NavLink>
+
+          <NavLink
+            to="/negotiation"
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            style={{ justifyContent: 'space-between' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <MS icon="handshake" size={18} />
+              <span>Negotiations</span>
+            </div>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 99,
+              background: 'var(--secondary-container)', color: 'var(--on-secondary-container)',
+              lineHeight: '16px'
+            }}>3</span>
+          </NavLink>
+
+          <NavLink to="/conversations" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MS icon="forum" size={18} />
+            <span>Conversations</span>
+          </NavLink>
+
+          <NavLink to="/deals" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MS icon="monetization_on" size={18} />
+            <span>My Deals</span>
+          </NavLink>
+
+          <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <MS icon="notifications" size={18} />
+            <span>Notifications</span>
+          </NavLink>
+        </nav>
       </div>
 
-      {/* Nav Menu */}
-      <nav style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, padding: '8px 12px 4px' }}>
-          {isCustomer ? 'Customer Portal' : 'Workspace'}
+      {/* Territory Stats */}
+      <div style={{
+        margin: 8, padding: 10, borderRadius: 10,
+        background: 'var(--surface-container-low)',
+        border: '1px solid rgba(209,195,202,0.2)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Territory Stats</span>
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 99,
+            background: 'rgba(0,105,110,0.1)', color: 'var(--secondary)'
+          }}>Midwest Region</span>
         </div>
-
-        {isCustomer ? (
-          <>
-            <NavLink
-              to="/portal"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <ExternalLink size={18} />
-              <span>Customer Portal</span>
-            </NavLink>
-            <NavLink
-              to="/negotiation"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <MessageSquareDiff size={18} />
-              <span>Negotiation Hub</span>
-            </NavLink>
-          </>
-        ) : (
-          <>
-            <NavLink
-              to="/dashboard/sales"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <LayoutDashboard size={18} />
-              <span>Sales Dashboard</span>
-            </NavLink>
-
-            <NavLink
-              to="/quotations"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <FileText size={18} />
-              <span>Quotations</span>
-            </NavLink>
-
-            <NavLink
-              to="/quotations/new"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <PlusCircle size={18} />
-              <span>New Quote (CPQ)</span>
-            </NavLink>
-
-            <NavLink
-              to="/approvals"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <CheckSquare size={18} />
-              <span>Approval Queue</span>
-            </NavLink>
-
-            <NavLink
-              to="/inventory"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <Boxes size={18} />
-              <span>Warehouse Allocation</span>
-            </NavLink>
-
-            <NavLink
-              to="/billing"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <Receipt size={18} />
-              <span>Billing & Invoices</span>
-            </NavLink>
-
-            <NavLink
-              to="/negotiation"
-              className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-            >
-              <MessageSquareDiff size={18} />
-              <span>Deal Redlining</span>
-            </NavLink>
-          </>
-        )}
-
-        <div style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 700, padding: '18px 12px 4px' }}>
-          Role Views
-        </div>
-
-        <NavLink
-          to="/dashboard/manager"
-          className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-        >
-          <Sparkles size={18} />
-          <span>Manager Dashboard</span>
-        </NavLink>
-
-        <NavLink
-          to="/dashboard/operations"
-          className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-        >
-          <Boxes size={18} />
-          <span>Operations Dashboard</span>
-        </NavLink>
-
-        <NavLink
-          to="/portal"
-          className={({ isActive }) => `btn ${isActive ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ justifyContent: 'flex-start', textAlign: 'left', border: 'none', background: ({ isActive }) => isActive ? undefined : 'transparent' }}
-        >
-          <ExternalLink size={18} />
-          <span>Customer Portal View</span>
-        </NavLink>
-      </nav>
-
-      {/* System Badge */}
-      <div style={{ padding: '16px', borderTop: 'var(--glass-border)', background: 'rgba(0,0,0,0.2)' }}>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span>Database Mode:</span>
-          <span style={{ color: '#10b981', fontWeight: 700, background: 'var(--success-light)', padding: '2px 6px', borderRadius: '4px' }}>MySQL</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11, color: 'var(--on-surface-variant)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--outline)' }}>Deal Floor Lock:</span>
+            <span style={{ fontWeight: 600, color: 'var(--on-surface)', fontFeatureSettings: "'tnum'" }}>22.0% Enforced</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--outline)' }}>Fast-Path Cap:</span>
+            <span style={{ fontWeight: 600, color: 'var(--secondary)', fontFeatureSettings: "'tnum'" }}>≤12.0%</span>
+          </div>
+          <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+            <div style={{ width: '84.2%', height: '100%', background: 'var(--secondary)', borderRadius: 99 }} />
+          </div>
         </div>
       </div>
     </aside>

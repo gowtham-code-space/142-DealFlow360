@@ -1,109 +1,318 @@
-import React, { useState } from 'react';
-import { MessageSquare, Send, CheckCircle, AlertCircle, ArrowLeftRight } from 'lucide-react';
-import { formatCurrency } from '../../utils/formatters';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { api } from '../../services/api';
+import { formatCurrency, formatPercent } from '../../utils/formatters';
+import StatusBadge from '../../components/common/StatusBadge';
+
+const MS = ({ icon, size = 18 }) => (
+  <span className="material-symbols-outlined" style={{ fontSize: size }}>{icon}</span>
+);
 
 export default function Negotiation() {
-  const [messages, setMessages] = useState([
-    {
-      sender: 'Marcus Vance (Customer Procurement)',
-      role: 'Customer',
-      time: '10:14 AM',
-      text: 'We are prepared to sign Quote #Q-2026-002 today if we can get a 22% discount on the Enterprise Cloud Servers instead of 18%.'
-    },
-    {
-      sender: 'Sarah Jenkins (Sales Rep)',
-      role: 'Sales Rep',
-      time: '10:45 AM',
-      text: 'Thank you Marcus! We submitted a 22% discount exception for Manager Approval. The VP of Sales approved it with 1-year prepaid terms. Revised quotation updated in your portal!'
-    }
-  ]);
-  const [inputMsg, setInputMsg] = useState('');
+  const { id = 'Q-2026-002' } = useParams();
+  const navigate = useNavigate();
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    if (!inputMsg.trim()) return;
-    setMessages([
-      ...messages,
-      {
-        sender: 'Sarah Jenkins (Sales Rep)',
-        role: 'Sales Rep',
-        time: 'Just now',
-        text: inputMsg
-      }
-    ]);
-    setInputMsg('');
+  const [negotiation, setNegotiation] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [messageText, setMessageText] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
+
+  // Counter proposal inputs
+  const [counterDiscount, setCounterDiscount] = useState(22);
+  const [counterPaymentTerms, setCounterPaymentTerms] = useState('Net 45');
+
+  // Backend Reapproval Evaluation State
+  const [submittingCounter, setSubmittingCounter] = useState(false);
+  const [_reapprovalState, setReapprovalState] = useState(null);
+
+  // Customer-facing preview toggle
+  const [customerPreview, setCustomerPreview] = useState(false);
+
+  useEffect(() => {
+    async function loadNegotiation() {
+      setLoading(true);
+      const res = await api.getNegotiation(id);
+      if (res.success) setNegotiation(res.data);
+      setLoading(false);
+    }
+    loadNegotiation();
+  }, [id]);
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) return;
+    setSendingMsg(true);
+    const res = await api.sendNegotiationMessage(id, {
+      sender: 'rep',
+      author: 'Alex Rivera (Sales Rep)',
+      text: messageText
+    });
+    if (res.success) {
+      setMessageText('');
+      const fresh = await api.getNegotiation(id);
+      if (fresh.success) setNegotiation(fresh.data);
+    }
+    setSendingMsg(false);
   };
 
+  const handleSubmitRepCounter = async () => {
+    setSubmittingCounter(true);
+    const payload = {
+      proposedDiscount: counterDiscount,
+      proposedPaymentTerms: counterPaymentTerms
+    };
+
+    const res = await api.submitCounterOffer(id, payload);
+    if (res.success) {
+      setReapprovalState(res.data);
+
+      await api.sendNegotiationMessage(id, {
+        sender: 'rep',
+        author: 'Alex Rivera (Sales Rep)',
+        text: `Submitted revised counter-offer: ${counterDiscount}% discount with ${counterPaymentTerms} payment terms.`
+      });
+
+      const fresh = await api.getNegotiation(id);
+      if (fresh.success) setNegotiation(fresh.data);
+    }
+    setSubmittingCounter(false);
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <div className="spin flex-center"><MS icon="sync" size={24} /></div>
+        <p style={{ marginTop: 8 }}>Loading Customer Negotiation Workspace...</p>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <div className="flex-between" style={{ marginBottom: '24px' }}>
-        <div>
-          <h1 className="page-title">Deal Redlining & Negotiation Hub</h1>
-          <p className="page-subtitle">Real-time collaborative counter-proposals, line-item feedback, and audit history with buyers.</p>
+    <div className="flex-col gap-4">
+      {/* 1. TOP HEADER & CONTEXT BAR */}
+      <div className="card card-body flex-between">
+        <div className="flex-gap-3">
+          <button className="btn btn-outline btn-sm" onClick={() => navigate('/quotations')}>
+            <MS icon="arrow_back" size={16} /> <span>Pipeline</span>
+          </button>
+          <div>
+            <div className="flex-gap-2 items-center">
+              <h1 className="headline-md" style={{ margin: 0 }}>Negotiation Workspace: {negotiation?.quoteId}</h1>
+              <StatusBadge status={negotiation?.status} />
+            </div>
+            <div className="body-sm text-secondary" style={{ marginTop: 2 }}>
+              Account: <strong className="text-primary-color">{negotiation?.customerName}</strong> ({negotiation?.tier} Tier) | Quoted: <strong>{formatCurrency(negotiation?.originalTerms?.totalValue || 142000)}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-gap-2">
+          <button className={`btn btn-sm ${customerPreview ? 'btn-primary' : 'btn-outline'}`} onClick={() => setCustomerPreview(!customerPreview)}>
+            <MS icon={customerPreview ? "visibility_off" : "visibility"} size={16} />
+            <span>{customerPreview ? 'Customer View Active' : 'Toggle Customer Preview'}</span>
+          </button>
         </div>
       </div>
 
-      <div className="grid-3" style={{ alignItems: 'start' }}>
-        <div className="card" style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', height: '600px' }}>
-          <div className="flex-between" style={{ borderBottom: 'var(--glass-border)', paddingBottom: '12px', marginBottom: '16px' }}>
-            <div className="flex-gap-2">
-              <MessageSquare size={18} color="var(--primary)" />
-              <h3 className="section-title" style={{ margin: 0 }}>Quote #Q-2026-002 Negotiation Thread</h3>
-            </div>
-            <span className="badge badge-negotiating">Live Negotiation</span>
-          </div>
+      {customerPreview && (
+        <div className="banner-info flex-gap-2">
+          <MS icon="visibility" size={18} />
+          <span className="body-sm font-semibold">Customer Portal View Mode — Internal margins, risk scores, and approval rules are hidden.</span>
+        </div>
+      )}
 
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px', paddingRight: '8px' }}>
-            {messages.map((m, idx) => (
-              <div
-                key={idx}
-                style={{
-                  background: m.role === 'Customer' ? 'rgba(6, 182, 212, 0.1)' : 'rgba(99, 102, 241, 0.1)',
-                  border: `1px solid ${m.role === 'Customer' ? 'rgba(6, 182, 212, 0.25)' : 'rgba(99, 102, 241, 0.25)'}`,
-                  borderRadius: 'var(--radius-md)',
-                  padding: '12px 16px'
-                }}
-              >
-                <div className="flex-between" style={{ marginBottom: '6px' }}>
-                  <strong style={{ fontSize: '0.85rem', color: m.role === 'Customer' ? '#06b6d4' : 'var(--primary)' }}>
-                    {m.sender}
-                  </strong>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{m.time}</span>
-                </div>
-                <p style={{ fontSize: '0.875rem', color: '#fff', lineHeight: 1.5 }}>{m.text}</p>
+      {/* 2. DENSE STITCH 2-COLUMN WORKSPACE */}
+      <div className="grid-negotation">
+        
+        {/* LEFT COLUMN: Conversation, Chat & Counter Controls */}
+        <div className="flex-col gap-4">
+          
+          {/* Customer Counter Offer Summary Header */}
+          <div className="card card-body" style={{ borderLeft: '4px solid var(--secondary)' }}>
+            <div className="flex-between" style={{ marginBottom: 12 }}>
+              <div className="flex-gap-2 text-secondary-color">
+                <MS icon="forum" size={20} />
+                <h3 className="headline-sm" style={{ margin: 0 }}>Customer Counter-Proposal Received</h3>
               </div>
-            ))}
+              <span className="label-sm text-muted">Received {negotiation?.counterOffer?.timestamp}</span>
+            </div>
+
+            <div style={{
+              background: 'var(--surface-container-low)', padding: '12px 16px', borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-color)', fontSize: 13, color: 'var(--on-surface)', fontStyle: 'italic',
+              marginBottom: 12
+            }}>
+              "{negotiation?.counterOffer?.customerNote}"
+            </div>
+
+            <div className="flex-between body-sm text-secondary">
+              <span>Requested Discount: <strong className="text-secondary-color font-bold">{negotiation?.counterOffer?.requestedDiscountPercent}%</strong> (Orig: {negotiation?.originalTerms?.discountPercent}%)</span>
+              <span>Requested Payment: <strong className="text-secondary-color font-bold">{negotiation?.counterOffer?.requestedTerms}</strong> (Orig: {negotiation?.originalTerms?.paymentTerms})</span>
+            </div>
           </div>
 
-          {/* Input */}
-          <form onSubmit={handleSend} style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
-            <input
-              type="text"
-              placeholder="Type counter proposal, note or discount clarification..."
-              className="input-field"
-              value={inputMsg}
-              onChange={(e) => setInputMsg(e.target.value)}
-            />
-            <button type="submit" className="btn btn-primary">
-              <Send size={16} />
-              <span>Send</span>
-            </button>
-          </form>
+          {/* Direct Negotiation Chat Timeline */}
+          <div className="card flex-col" style={{ height: 420 }}>
+            <div className="card-header flex-between" style={{ borderBottom: '1px solid var(--border-color)' }}>
+              <div>
+                <h3 className="headline-sm" style={{ margin: 0 }}>Direct Customer Chat Timeline</h3>
+                <span className="label-sm text-muted">Marcus Vance (VP Procurement, Apex Global)</span>
+              </div>
+              <span className="label-sm text-emerald flex-gap-2 font-bold">
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)' }} /> Online
+              </span>
+            </div>
+
+            <div className="card-body" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {negotiation?.messages?.map((msg) => {
+                const isRep = msg.sender === 'rep';
+                return (
+                  <div key={msg.id} style={{ alignSelf: isRep ? 'flex-end' : 'flex-start', maxWidth: '85%' }} className={`body-md ${isRep ? 'chat-rep' : 'chat-customer'}`}>
+                    <div style={{ padding: '10px 14px' }}>
+                      <div style={{ fontSize: 10, opacity: 0.8, marginBottom: 4, fontWeight: 600, letterSpacing: '0.02em' }}>
+                        {msg.author} • {msg.timestamp}
+                      </div>
+                      <div>{msg.text}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="card-body" style={{ borderTop: '1px solid var(--border-color)', background: 'var(--surface-container-lowest)' }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text" className="input-field" placeholder="Type response to customer..."
+                  value={messageText} onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                />
+                <button className="btn btn-primary" onClick={handleSendMessage} disabled={sendingMsg || !messageText.trim()}>
+                  <MS icon="send" size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Rep Counter Controls & Decision Toolbar */}
+          <div className="card card-body" style={{ background: 'var(--surface-container-low)' }}>
+            <h3 className="headline-sm" style={{ marginBottom: 16 }}>Sales Rep Decision & Counter Builder</h3>
+
+            <div className="grid-2" style={{ marginBottom: 16 }}>
+              <div className="input-group">
+                <label className="input-label">Revised Counter Discount %</label>
+                <input type="number" min="0" max="40" className="input-field" value={counterDiscount} onChange={(e) => setCounterDiscount(Number(e.target.value))} />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Revised Payment Terms</label>
+                <select className="select-field" value={counterPaymentTerms} onChange={(e) => setCounterPaymentTerms(e.target.value)}>
+                  <option value="Net 30">Net 30 (Standard)</option>
+                  <option value="Net 45">Net 45 (Compromise)</option>
+                  <option value="Net 60">Net 60 (Requested)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex-between">
+              <div className="flex-gap-2">
+                <button className="btn btn-outline btn-sm" style={{ color: 'var(--success)', borderColor: 'var(--success)', background: '#fff' }} onClick={() => alert('Accept Terms API not yet implemented.')}>
+                  <MS icon="check_circle" size={14} /> <span>Accept Terms</span>
+                </button>
+                <button className="btn btn-outline btn-sm" style={{ color: 'var(--warning)', borderColor: 'var(--warning)', background: '#fff' }} onClick={() => alert('Escalate to Manager API not yet implemented.')}>
+                  <MS icon="gavel" size={14} /> <span>Escalate to Manager</span>
+                </button>
+              </div>
+              <button className="btn btn-primary" onClick={handleSubmitRepCounter} disabled={submittingCounter}>
+                {submittingCounter ? <div className="spin flex"><MS icon="sync" size={14} /></div> : <MS icon="send" size={14} />}
+                <span>Submit Revised Counter</span>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Counter Summary */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h3 className="section-title">Active Terms</h3>
-          <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: 'var(--radius-md)', border: 'var(--glass-border)' }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Deal Target:</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff', marginTop: '4px' }}>$142,000</div>
-            <div style={{ fontSize: '0.85rem', color: '#10b981', marginTop: '6px' }}>Agreed Discount: 22%</div>
+        {/* RIGHT COLUMN (420px): Parameter Differential, Governance & Analytics */}
+        <div className="flex-col gap-4">
+          
+          <div className="card card-body">
+            <div className="flex-between" style={{ marginBottom: 12 }}>
+              <h3 className="headline-sm" style={{ margin: 0 }}>Parameter Differential</h3>
+              <span className="text-primary-color"><MS icon="tune" size={18} /></span>
+            </div>
+            <div className="table-container">
+              <table className="data-table">
+                <thead><tr><th>Term</th><th>Original</th><th>Counter</th><th>Delta</th></tr></thead>
+                <tbody>
+                  {negotiation?.parameterDiffs?.map((diff, idx) => (
+                    <tr key={idx}>
+                      <td className="font-semibold">{diff.field}</td>
+                      <td className="body-sm">{diff.original}</td>
+                      <td className="body-sm text-secondary-color font-bold">{diff.counter}</td>
+                      <td className="data-mono-sm text-error font-bold">{diff.delta}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <button className="btn btn-success" onClick={() => alert('Counter proposal accepted! Quotation status updated to CUSTOMER_ACCEPTED.')}>
-            <CheckCircle size={16} />
-            <span>Accept Current Counter Terms</span>
-          </button>
+
+          {!customerPreview && (
+            <div className="card card-body">
+              <h3 className="headline-sm" style={{ marginBottom: 12 }}>Backend Margin & Deal Risk Pulse</h3>
+              <div className="flex-col gap-2">
+                <div className="flex-between compact-row" style={{ background: 'var(--surface-container-low)', padding: '10px 12px', borderRadius: 'var(--radius-md)', opacity: 1, border: '1px solid var(--border-color)' }}>
+                  <span className="body-sm text-secondary">Original Gross Margin:</span>
+                  <strong className="data-mono text-emerald">{formatPercent(negotiation?.originalTerms?.marginPercent)}</strong>
+                </div>
+                <div className="flex-between compact-row" style={{ background: 'var(--surface-container-low)', padding: '10px 12px', borderRadius: 'var(--radius-md)', opacity: 1, border: '1px solid var(--border-color)' }}>
+                  <span className="body-sm text-secondary">Counter Offer Margin:</span>
+                  <strong className="data-mono text-amber">36.8% (-7.4%)</strong>
+                </div>
+                <div className="flex-between compact-row" style={{ background: 'var(--surface-container-low)', padding: '10px 12px', borderRadius: 'var(--radius-md)', opacity: 1, border: '1px solid var(--border-color)' }}>
+                  <span className="body-sm text-secondary">Deal Risk Score:</span>
+                  <strong className="data-mono text-primary-color">24 / 100 (Low Risk)</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="card card-body">
+            <div className="flex-between" style={{ marginBottom: 12 }}>
+              <h3 className="headline-sm" style={{ margin: 0 }}>Governance & Reapproval Chain</h3>
+              <span className="text-primary-color"><MS icon="verified_user" size={18} /></span>
+            </div>
+
+            <div style={{
+              padding: 12, background: counterDiscount > 20 ? '#fef3c7' : '#e0f7f6', borderRadius: 'var(--radius-md)',
+              fontSize: 12, color: counterDiscount > 20 ? '#92400e' : '#00696e', fontWeight: 600, marginBottom: 16,
+              display: 'flex', gap: 6, alignItems: 'center'
+            }}>
+              <MS icon={counterDiscount > 20 ? "warning" : "check_circle"} size={16} />
+              <span>{counterDiscount > 20 ? `Counter discount (${counterDiscount}%) exceeds Gold tier auto-approval (20%). Requires Manager Re-approval.` : 'Counter discount within auto-approval limits.'}</span>
+            </div>
+
+            <div className="flex-col gap-2">
+              <div className="body-sm flex-gap-2">
+                <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--primary)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
+                <span>Sales Rep Counter Submitted</span>
+              </div>
+              <div className="body-sm flex-gap-2">
+                <span style={{ width: 22, height: 22, borderRadius: '50%', background: counterDiscount > 20 ? 'var(--warning)' : 'var(--success)', color: '#fff', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
+                <span>Sales Manager Re-approval ({counterDiscount > 20 ? 'Pending' : 'Waived'})</span>
+              </div>
+              <div className="body-sm flex-gap-2 text-muted">
+                <span style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
+                <span>Customer Final Signature</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card card-body flex-col gap-2">
+            <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={() => alert('Export PDF API not yet implemented.')}>
+              <MS icon="download" size={16} /> <span>Export Negotiation Summary PDF</span>
+            </button>
+            <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={() => navigate('/quotations')}>
+              <MS icon="description" size={16} /> <span>Return to Quotations List</span>
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
