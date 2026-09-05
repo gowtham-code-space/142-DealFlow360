@@ -39,7 +39,7 @@ async function findTicketById(id) {
       customer: true,
       quotation: { select: { id: true, quotationNumber: true, status: true, estimatedNetTotal: true } },
       productHolds: { include: { product: true, warehouse: true } },
-      lineComments: { include: { author: { select: { id: true, name: true, role: true } } } }
+      lineComments: { include: { author: { select: { id: true, name: true, roleId: true } } } }
     }
   });
 }
@@ -100,7 +100,7 @@ async function findProductHoldsByTicketId(ticketId) {
 async function findNegotiations(quotationId) {
   return prisma.negotiation.findMany({
     where: { quotationId },
-    include: { sender: { select: { id: true, name: true, role: true } } },
+    include: { sender: { select: { id: true, name: true, roleId: true } } },
     orderBy: { createdAt: 'asc' }
   });
 }
@@ -108,7 +108,7 @@ async function findNegotiations(quotationId) {
 async function createNegotiation(data) {
   return prisma.negotiation.create({
     data,
-    include: { sender: { select: { id: true, name: true, role: true } } }
+    include: { sender: { select: { id: true, name: true, roleId: true } } }
   });
 }
 

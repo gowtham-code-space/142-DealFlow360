@@ -7,7 +7,7 @@ async function findApprovals({ where, skip, take }) {
     take,
     include: {
       quotation: { select: { id: true, quotationNumber: true, status: true } },
-      approver: { select: { id: true, name: true, role: true } }
+      approver: { select: { id: true, name: true, roleId: true } }
     },
     orderBy: { createdAt: 'desc' }
   });
@@ -22,7 +22,7 @@ async function findApprovalById(id) {
     where: { id },
     include: {
       quotation: { select: { id: true, quotationNumber: true, status: true, approvalLevel: true, repId: true } },
-      approver: { select: { id: true, name: true, role: true } }
+      approver: { select: { id: true, name: true, roleId: true } }
     }
   });
 }

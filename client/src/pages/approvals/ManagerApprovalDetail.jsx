@@ -12,10 +12,11 @@ const MS = ({ icon, size = 18 }) => (
 );
 
 export default function ManagerApprovalDetail() {
-  const { id } = useParams();
+  const { id } = useParams(); // quotation ID from URL
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
   const [quote, setQuote] = useState(null);
+  const [pendingApproval, setPendingApproval] = useState(null); // the approval record to act on
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
   
@@ -30,9 +31,14 @@ export default function ManagerApprovalDetail() {
     async function fetchQuote() {
       setLoading(true);
       setErrorMsg(null);
+      // Fetch the quotation
       const res = await api.getQuotationById(id);
       if (res.success && res.data) {
-        setQuote(res.data);
+        const q = res.data;
+        setQuote(q);
+        // Find a PENDING approval record for this quotation
+        const pendingApprovalRecord = (q.approvals || []).find(a => a.status === 'PENDING');
+        setPendingApproval(pendingApprovalRecord || null);
       } else {
         setErrorMsg(res.error || `Unable to retrieve quote details for ID: ${id}`);
       }
@@ -56,19 +62,24 @@ export default function ManagerApprovalDetail() {
       let res;
       let newStatus = quote.status;
 
-      if (modalType === 'approve') {
-        res = await api.approveQuote(quote.id, auditNote);
+      if (modalType === 'escalate') {
+        // Escalate: BACKEND-BLOCKED — no dedicated escalation endpoint exists
+        // Log an informational note only; do not fake a backend call
+        res = { success: true };
+        newStatus = 'PENDING_APPROVAL';
+      } else if (!pendingApproval) {
+        setActionErrorMsg('No pending approval record found for this quote. The quote may already be decided.');
+        setSubmitting(false);
+        return;
+      } else if (modalType === 'approve') {
+        res = await api.approveQuote(pendingApproval.id, auditNote);
         newStatus = 'APPROVED';
       } else if (modalType === 'reject') {
-        res = await api.rejectQuote(quote.id, auditNote);
+        res = await api.rejectQuote(pendingApproval.id, auditNote);
         newStatus = 'REJECTED';
       } else if (modalType === 'return') {
-        res = await api.returnQuote(quote.id, auditNote);
-        newStatus = 'CUSTOMER_NEGOTIATION';
-      } else {
-        // Escalate action (blocked or offline handled)
-        res = { success: true, data: { status: 'PENDING_APPROVAL' } };
-        newStatus = 'PENDING_APPROVAL';
+        res = await api.returnQuote(pendingApproval.id, auditNote);
+        newStatus = 'RETURNED';
       }
 
       if (res && res.success === false) {
@@ -90,26 +101,25 @@ export default function ManagerApprovalDetail() {
           : `Escalated to VP Finance: ${auditNote || 'High value deal requiring dual approval.'}`
       };
 
-      // Dispatch role-specific business event notifications
+      // Dispatch role-specific business event notifications using quotationNumber if available
+      const qRef = quote.quotationNumber || quote.id;
       if (modalType === 'approve') {
         addNotification({
           recipientRole: ROLES.SALES_REP,
           type: 'QUOTE_APPROVED',
           priority: 'SUCCESS',
           title: 'Quote approved',
-          message: `Quote ${quote.id} has been approved by the Sales Manager.`,
+          message: `Quote ${qRef} has been approved by the Sales Manager.`,
           relatedEntity: 'quote',
           relatedId: quote.id,
           targetUrl: `/quotations/${quote.id}`
         });
-
-        // Customer notification (clean customer-facing message)
         addNotification({
           recipientRole: ROLES.CUSTOMER,
           type: 'NEW_QUOTE',
           priority: 'INFO',
           title: 'Quote updated',
-          message: `Your quote ${quote.id} has been updated and is ready for your review.`,
+          message: `Your quote ${qRef} has been updated and is ready for your review.`,
           relatedEntity: 'quote',
           relatedId: quote.id,
           targetUrl: `/portal/quotes/${quote.id}`
@@ -120,7 +130,7 @@ export default function ManagerApprovalDetail() {
           type: 'QUOTE_REJECTED',
           priority: 'ACTION_REQUIRED',
           title: 'Quote requires changes',
-          message: `Quote ${quote.id} was returned for revision by the Sales Manager.`,
+          message: `Quote ${qRef} was rejected by the Sales Manager.`,
           relatedEntity: 'quote',
           relatedId: quote.id,
           targetUrl: `/quotations/${quote.id}`
@@ -130,8 +140,8 @@ export default function ManagerApprovalDetail() {
           recipientRole: ROLES.SALES_REP,
           type: 'QUOTE_REVISION',
           priority: 'ACTION_REQUIRED',
-          title: 'Quote requires changes',
-          message: `Quote ${quote.id} was returned for revision. Rationale: ${auditNote || 'Please adjust terms.'}`,
+          title: 'Quote requires revision',
+          message: `Quote ${qRef} was returned for revision. Rationale: ${auditNote || 'Please adjust terms.'}`,
           relatedEntity: 'quote',
           relatedId: quote.id,
           targetUrl: `/quotations/${quote.id}`
@@ -142,7 +152,7 @@ export default function ManagerApprovalDetail() {
           type: 'FINANCE_ESCALATION',
           priority: 'ACTION_REQUIRED',
           title: 'Finance approval required',
-          message: `Quote ${quote.id} requires Finance / Operations approval. Rationale: ${auditNote || 'High-value deal escalation.'}`,
+          message: `Quote ${qRef} requires Finance / Operations review. Rationale: ${auditNote || 'High-value deal escalation.'}`,
           relatedEntity: 'quote',
           relatedId: quote.id,
           targetUrl: '/finance/approvals'
@@ -196,11 +206,16 @@ export default function ManagerApprovalDetail() {
   }
 
   const items = quote.items || quote.lineItems || [];
-  const discountVal = Number(quote.discountPercent || 0);
-  const marginVal = Number(quote.marginPercent || 40);
-  const tier = quote.tier || 'GOLD';
+  const discountVal = Number(quote.discountTotal || quote.discountPercent || 0);
+  const marginVal = Number(quote.marginPct || quote.marginPercent || 0);
+  const tier = quote.customer?.tier || quote.tier || 'STANDARD';
   const tierMax = tier === 'PLATINUM' ? 30 : tier === 'GOLD' ? 20 : 10;
   const isExceeded = discountVal > tierMax;
+  const displayCustomerName = quote.customer?.name || quote.customerName || 'Customer Account';
+  const displayRepName = quote.rep?.name || quote.repName || 'Sales Representative';
+  const displayTotalValue = Number(quote.estimatedNetTotal || quote.confirmedNetTotal || quote.subtotal || quote.totalValue || 0);
+  const displayQuoteId = quote.quotationNumber || quote.id;
+  const creditLimit = quote.customer?.creditLimit ?? null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -236,60 +251,61 @@ export default function ManagerApprovalDetail() {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--on-surface)', margin: 0 }}>
-              Deal Approval Workspace: {quote.id}
+              Deal Approval Workspace: {displayQuoteId}
             </h1>
             <StatusBadge status={quote.status} />
-            <span style={{
-              padding: '3px 10px', borderRadius: 99,
-              background: 'rgba(239, 68, 68, 0.1)', color: '#b91c1c',
-              fontSize: '0.75rem', fontWeight: 700, border: '1px solid rgba(239, 68, 68, 0.25)'
-            }}>
-              SLA: 1h 45m Remaining
-            </span>
+            {pendingApproval && (
+              <span style={{
+                padding: '3px 10px', borderRadius: 99,
+                background: 'rgba(245, 158, 11, 0.1)', color: '#b45309',
+                fontSize: '0.75rem', fontWeight: 700, border: '1px solid rgba(245, 158, 11, 0.25)'
+              }}>
+                Pending: {pendingApproval.stage?.replace(/_/g, ' ')}
+              </span>
+            )}
           </div>
 
           <p style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', marginTop: 4 }}>
-            Submitted by <strong>{quote.repName || 'Sales Rep'}</strong> on {formatDate(quote.createdDate)} for <strong>{quote.customerName}</strong>
+            Submitted by <strong>{displayRepName}</strong> on {formatDate(quote.createdAt || quote.createdDate)} for <strong>{displayCustomerName}</strong>
           </p>
         </div>
 
         {/* Manager Quick Decision Action Bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <button
-            className="btn btn-outline"
-            style={{ color: '#b91c1c', borderColor: '#fca5a5' }}
-            onClick={() => handleOpenDecision('reject')}
-          >
-            <MS icon="close" size={18} />
-            <span>Reject Quote</span>
-          </button>
+          {pendingApproval ? (
+            <>
+              <button
+                className="btn btn-outline"
+                style={{ color: '#b91c1c', borderColor: '#fca5a5' }}
+                onClick={() => handleOpenDecision('reject')}
+              >
+                <MS icon="close" size={18} />
+                <span>Reject</span>
+              </button>
 
-          <button
-            className="btn btn-outline"
-            style={{ color: 'var(--secondary)', borderColor: 'var(--outline-variant)' }}
-            onClick={() => handleOpenDecision('return')}
-          >
-            <MS icon="reply" size={18} />
-            <span>Request Revision</span>
-          </button>
+              <button
+                className="btn btn-outline"
+                style={{ color: 'var(--secondary)', borderColor: 'var(--outline-variant)' }}
+                onClick={() => handleOpenDecision('return')}
+              >
+                <MS icon="reply" size={18} />
+                <span>Request Revision</span>
+              </button>
 
-          <button
-            className="btn btn-outline"
-            style={{ color: 'var(--primary)', borderColor: 'var(--outline-variant)' }}
-            onClick={() => handleOpenDecision('escalate')}
-          >
-            <MS icon="vertical_align_top" size={18} />
-            <span>Escalate to VP</span>
-          </button>
-
-          <button
-            className="btn btn-primary"
-            style={{ background: '#10b981', borderColor: '#10b981', gap: 6 }}
-            onClick={() => handleOpenDecision('approve')}
-          >
-            <MS icon="verified" size={18} />
-            <span>Approve Exception</span>
-          </button>
+              <button
+                className="btn btn-primary"
+                style={{ background: '#10b981', borderColor: '#10b981', gap: 6 }}
+                onClick={() => handleOpenDecision('approve')}
+              >
+                <MS icon="verified" size={18} />
+                <span>Approve Exception</span>
+              </button>
+            </>
+          ) : (
+            <span style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', fontStyle: 'italic' }}>
+              No pending approval record — decision already taken or not yet submitted.
+            </span>
+          )}
         </div>
       </div>
 
@@ -345,14 +361,14 @@ export default function ManagerApprovalDetail() {
             Contract Value (INR)
           </div>
           <div style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--on-surface)', marginTop: 4 }}>
-            {formatCurrency(quote.totalValue)}
+            {formatCurrency(displayTotalValue)}
           </div>
           <div style={{ fontSize: '0.8rem', color: 'var(--secondary-text)', marginTop: 2 }}>
-            Billing: <strong>Multi-Line Contract</strong>
+            Currency: <strong>{quote.currency || 'INR'}</strong>
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--secondary)', fontWeight: 600, marginTop: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
             <MS icon="payments" size={16} />
-            <span>Net 30 Days Terms</span>
+            <span>{quote.validUntil ? `Valid until ${formatDate(quote.validUntil)}` : 'Quote validity not set'}</span>
           </div>
         </div>
 
@@ -578,8 +594,8 @@ export default function ManagerApprovalDetail() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>Account Name</div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--primary)' }}>{quote.customerName}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>ID: {quote.customerId || 'CUST-002'}</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--primary)' }}>{displayCustomerName}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>ID: {quote.customerId || '—'}</div>
               </div>
 
               <div style={{ borderTop: '1px solid rgba(209,195,202,0.3)', paddingTop: 10 }}>
@@ -587,10 +603,16 @@ export default function ManagerApprovalDetail() {
                 <span className="badge badge-gold" style={{ marginTop: 2 }}>{tier} TIER</span>
               </div>
 
+              {creditLimit !== null && (
+                <div style={{ borderTop: '1px solid rgba(209,195,202,0.3)', paddingTop: 10 }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>Credit Limit</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{formatCurrency(creditLimit)}</div>
+                </div>
+              )}
+
               <div style={{ borderTop: '1px solid rgba(209,195,202,0.3)', paddingTop: 10 }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>Approved Credit Limit</div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{formatCurrency(12000000)}</div>
-                <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: 2 }}>Good Payment History</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--outline)' }}>Sales Rep</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{displayRepName}</div>
               </div>
             </div>
           </div>
@@ -615,10 +637,10 @@ export default function ManagerApprovalDetail() {
         isOpen={Boolean(modalType)}
         onClose={() => setModalType(null)}
         title={
-          modalType === 'approve' ? `Confirm Approval: ${quote.id}` :
-          modalType === 'reject' ? `Reject Exception: ${quote.id}` :
-          modalType === 'return' ? `Request Quote Revision: ${quote.id}` :
-          `Escalate to VP Finance: ${quote.id}`
+          modalType === 'approve' ? `Confirm Approval: ${displayQuoteId}` :
+          modalType === 'reject' ? `Reject Exception: ${displayQuoteId}` :
+          modalType === 'return' ? `Request Quote Revision: ${displayQuoteId}` :
+          `Escalate to VP Finance: ${displayQuoteId}`
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -630,13 +652,18 @@ export default function ManagerApprovalDetail() {
           )}
 
           <div style={{ background: 'var(--surface-container-low)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(209,195,202,0.3)' }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)' }}>Customer: <strong>{quote.customerName}</strong></div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)' }}>Customer: <strong>{displayCustomerName}</strong></div>
             <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', marginTop: 4 }}>
-              Requested Discount: <strong style={{ color: '#b91c1c' }}>{discountVal}%</strong> (Tier Ceiling: {tierMax}%)
+              Discount: <strong style={{ color: '#b91c1c' }}>{discountVal}%</strong> (Tier Ceiling: {tierMax}%)
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', marginTop: 4 }}>
-              Total Deal Value: <strong>{formatCurrency(quote.totalValue)}</strong>
+              Total Deal Value: <strong>{formatCurrency(displayTotalValue)}</strong>
             </div>
+            {pendingApproval && (
+              <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', marginTop: 4 }}>
+                Approval Stage: <strong>{pendingApproval.stage?.replace(/_/g, ' ')}</strong>
+              </div>
+            )}
           </div>
 
           <div className="input-group">

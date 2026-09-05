@@ -12,7 +12,10 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = verifyAccessToken(token);
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      role: decoded.role || decoded.roleId
+    };
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {

@@ -1,7 +1,7 @@
 const prisma = require('../../config/db');
 
 const USER_SELECT = {
-  id: true, email: true, name: true, role: true, roleId: true,
+  id: true, email: true, name: true, roleId: true,
   customerId: true, isActive: true, createdAt: true, updatedAt: true
 };
 
