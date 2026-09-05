@@ -1,3 +1,5 @@
+const { DiscountTypeEnum, CustomerTier } = require('../constants');
+
 const calculateLineDiscounts = ({
   product,
   variant = null,
@@ -19,7 +21,7 @@ const calculateLineDiscounts = ({
 
   // Tier 2: Bulk volume tier discount %
   let bulkDiscountPct = 0;
-  const bulkRules = discountRules.filter((r) => r.type === 'BULK' && r.is_active !== false);
+  const bulkRules = discountRules.filter((r) => r.type === DiscountTypeEnum.BULK && r.is_active !== false);
   for (const rule of bulkRules) {
     if (qty >= rule.bulk_threshold_qty && rule.bulk_discount_pct > bulkDiscountPct) {
       bulkDiscountPct = Number(rule.bulk_discount_pct);
@@ -29,7 +31,7 @@ const calculateLineDiscounts = ({
   // Tier 3: Consistency / loyalty order count discount %
   let consistencyDiscountPct = 0;
   const orderCount = customer ? Number(customer.orderCount || customer.order_count || 0) : 0;
-  const consistencyRules = discountRules.filter((r) => r.type === 'CONSISTENCY' && r.is_active !== false);
+  const consistencyRules = discountRules.filter((r) => r.type === DiscountTypeEnum.CONSISTENCY && r.is_active !== false);
   for (const rule of consistencyRules) {
     if (orderCount >= rule.consistency_order_count && rule.consistency_discount_pct > consistencyDiscountPct) {
       consistencyDiscountPct = Number(rule.consistency_discount_pct);
@@ -38,13 +40,19 @@ const calculateLineDiscounts = ({
 
   // Tier 4: Customer tier / premium discount %
   let premiumDiscountPct = 0;
-  const customerTier = (customer?.tier || 'STANDARD').toUpperCase();
-  const premiumRules = discountRules.filter((r) => r.type === 'PREMIUM' && r.is_active !== false);
+  const customerTier = (customer?.tier || CustomerTier.STANDARD).toUpperCase();
+  const premiumRules = discountRules.filter((r) => r.type === DiscountTypeEnum.PREMIUM && r.is_active !== false);
   if (premiumRules.length > 0) {
     premiumDiscountPct = Number(premiumRules[0].premium_discount_pct || 0);
   } else {
     // Default tier fallbacks
-    const tierDiscountMap = { FREE: 0, STANDARD: 2, PREMIUM: 5, GOLD: 8, PLATINUM: 12 };
+    const tierDiscountMap = {
+      [CustomerTier.FREE]: 0,
+      [CustomerTier.STANDARD]: 2,
+      [CustomerTier.PREMIUM]: 5,
+      [CustomerTier.GOLD]: 8,
+      [CustomerTier.PLATINUM]: 12
+    };
     premiumDiscountPct = tierDiscountMap[customerTier] || 0;
   }
 

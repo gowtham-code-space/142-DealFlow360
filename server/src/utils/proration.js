@@ -1,13 +1,15 @@
+const { BillingPeriod, ProrationType } = require('../constants');
+
 const calculateProration = ({
   currentPlanPrice,
   newPlanPrice = null,
-  billingPeriod = 'MONTHLY',
+  billingPeriod = BillingPeriod.MONTHLY,
   cycleStartDate,
   cycleEndDate,
   effectiveDate = new Date(),
-  prorationType = 'DAILY'
+  prorationType = ProrationType.DAILY
 }) => {
-  if (prorationType === 'NONE') {
+  if (prorationType === ProrationType.NONE) {
     return {
       unusedDays: 0,
       totalDaysInCycle: 0,

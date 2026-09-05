@@ -20,4 +20,7 @@ const connectDB = async () => {
   }
 };
 
-module.exports = { prisma, connectDB };
+prisma.connectDB = connectDB;
+prisma.prisma = prisma;
+
+module.exports = prisma;

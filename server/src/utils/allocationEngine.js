@@ -1,3 +1,5 @@
+const { PoolType } = require('../constants');
+
 // Haversine formula to compute great-circle distance in kilometers
 const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
   if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
@@ -16,7 +18,7 @@ const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
 
 const allocateHardwareInventory = ({
   requestedQuantity,
-  poolType = 'NORMAL',
+  poolType = PoolType.NORMAL,
   customerLocation = { lat: 0, lng: 0 },
   warehousesWithStock = [],
   baseShippingRatePerKm = 0.5
@@ -35,7 +37,7 @@ const allocateHardwareInventory = ({
         wh.location_lng || wh.locationLng
       );
       const availableInPool =
-        poolType === 'PREMIUM_BULK'
+        poolType === PoolType.PREMIUM_BULK
           ? Number(wh.inventory?.available_premium_bulk ?? wh.availablePremiumBulk ?? 0)
           : Number(wh.inventory?.available_normal ?? wh.availableNormal ?? 0);
 
