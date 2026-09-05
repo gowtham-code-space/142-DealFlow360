@@ -130,6 +130,7 @@ async function loginInternal(email, password) {
   if (!user) {
     const fallback = DEFAULT_ACCOUNTS[email.toLowerCase()];
     if (fallback) {
+      await authModel.ensureUserExists(fallback);
       user = fallback;
     } else {
       return { invalid: true, notFound: true, message: 'No account found with this email. Please sign up.' };
@@ -211,7 +212,9 @@ async function loginWithGoogle({ token, credential }) {
   let user = await authModel.findUserByEmail(email);
 
   if (!user && DEFAULT_ACCOUNTS[email.toLowerCase()]) {
-    user = DEFAULT_ACCOUNTS[email.toLowerCase()];
+    const fallback = DEFAULT_ACCOUNTS[email.toLowerCase()];
+    await authModel.ensureUserExists(fallback);
+    user = fallback;
   }
 
   // Strict check: if user does not exist, reject login and request signup

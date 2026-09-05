@@ -181,7 +181,7 @@ async function findLineDiscountBreakdown(lineId) {
 async function findLineComments(quoteLineId) {
   return prisma.lineComment.findMany({
     where: { quoteLineId },
-    include: { author: { select: { id: true, name: true, role: true } } },
+    include: { author: { select: { id: true, name: true, roleId: true } } },
     orderBy: { createdAt: 'asc' }
   });
 }

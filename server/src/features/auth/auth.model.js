@@ -183,6 +183,18 @@ async function updateUserPassword(userId, hashedPassword) {
   );
 }
 
+async function ensureUserExists(u) {
+  try {
+    await ensureRolesExist();
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO \`users\` (\`id\`, \`email\`, \`password\`, \`name\`, \`role_id\`) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE \`name\` = VALUES(\`name\`), \`role_id\` = VALUES(\`role_id\`);`,
+      u.id, u.email, u.password || 'password123', u.name, u.roleId || u.role
+    );
+  } catch (err) {
+    console.warn('[auth.model] ensureUserExists warning:', err.message);
+  }
+}
+
 module.exports = {
   findUserByEmail,
   findUserById,
@@ -192,6 +204,7 @@ module.exports = {
   getUserProfile,
   updateUserPassword,
   ensureRolesExist,
+  ensureUserExists,
   getAllRoles,
   getRoleById
 };

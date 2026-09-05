@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import MetricCard from '../../components/common/MetricCard';
 import Modal from '../../components/common/Modal';
 import { api } from '../../services/api';
-import { MOCK_QUOTATIONS } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { ShieldAlert, CheckCircle, XCircle, FileSpreadsheet, Eye, TrendingUp } from 'lucide-react';
 
@@ -11,9 +10,25 @@ const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
+// Normalize a Prisma quotation record to a flat display shape
+function normalizeQuote(q) {
+  return {
+    ...q,
+    displayId: q.quotationNumber || q.id,
+    customerName: q.customer?.name || q.customerName || '—',
+    repName: q.rep?.name || q.repName || '—',
+    tier: q.customer?.tier || q.tier || 'STANDARD',
+    totalValue: Number(q.estimatedNetTotal || q.confirmedNetTotal || q.subtotal || q.totalValue || 0),
+    discountPercent: Number(q.discountTotal || q.discountPercent || 0),
+    marginPercent: Number(q.marginPct || q.marginPercent || 0),
+  };
+}
+
 export default function ManagerDashboard() {
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState([]);
+  const [approvals, setApprovals] = useState([]);
+  const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -22,66 +37,102 @@ export default function ManagerDashboard() {
   const [riskFilter, setRiskFilter] = useState('ALL');
 
   // Modal Decision State
-  const [selectedQuote, setSelectedQuote] = useState(null);
+  const [selectedApproval, setSelectedApproval] = useState(null); // approval record
   const [modalType, setModalType] = useState(null); // 'approve' | 'reject' | 'return'
   const [managerNote, setManagerNote] = useState('');
+  const [actionError, setActionError] = useState(null);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      setErrorMsg(null);
-      const res = await api.getQuotations();
-      if (res.success && Array.isArray(res.data)) {
-        setQuotes(res.data);
-      } else {
-        // Handle API error or offline mode safely
-        setQuotes(MOCK_QUOTATIONS);
-        if (res.error) {
-          console.info('[Manager Dashboard] API returned status error, utilizing structured fallback dataset:', res.error);
-        }
+  const loadData = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const [quotesRes, approvalsRes, summaryRes] = await Promise.all([
+        api.getQuotations({ pageSize: 100 }),
+        api.getApprovals({ pageSize: 100 }),
+        api.getDashboardSummary()
+      ]);
+
+      if (quotesRes.success && Array.isArray(quotesRes.data)) {
+        setQuotes(quotesRes.data.map(normalizeQuote));
       }
+      if (approvalsRes.success && Array.isArray(approvalsRes.data)) {
+        setApprovals(approvalsRes.data);
+      }
+      if (summaryRes.success && summaryRes.data) {
+        setSummaryData(summaryRes.data);
+      }
+    } catch (err) {
+      setErrorMsg('Failed to load live data from backend.');
+    } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
-  const handleAction = (e, quote, type) => {
+  const handleAction = (e, approval, type) => {
     e.stopPropagation();
-    setSelectedQuote(quote);
+    setSelectedApproval(approval);
     setModalType(type);
     setManagerNote('');
+    setActionError(null);
   };
 
-  const submitDecision = () => {
-    if (!selectedQuote) return;
-    setQuotes(quotes.map(q => {
-      if (q.id === selectedQuote.id) {
-        return {
-          ...q,
-          status: modalType === 'approve' ? 'APPROVED' : modalType === 'reject' ? 'REJECTED' : 'CUSTOMER_NEGOTIATION',
-          requiresApprovalReason: `Decision by Sales Manager: ${managerNote || (modalType === 'approve' ? 'Approved discount exception' : modalType === 'reject' ? 'Discount rejected' : 'Returned for revision')}`
-        };
+  const submitDecision = async () => {
+    if (!selectedApproval) return;
+    setActionError(null);
+    try {
+      let res;
+      if (modalType === 'approve') {
+        res = await api.approveQuote(selectedApproval.id, managerNote);
+      } else if (modalType === 'reject') {
+        res = await api.rejectQuote(selectedApproval.id, managerNote);
+      } else {
+        res = await api.returnQuote(selectedApproval.id, managerNote);
       }
-      return q;
-    }));
-    setSelectedQuote(null);
-    setModalType(null);
-    setManagerNote('');
+
+      if (res && res.success === false) {
+        setActionError(res.error || `Failed to process ${modalType} action.`);
+        return;
+      }
+    } catch (e) {
+      setActionError(e.message);
+      return;
+    } finally {
+      setSelectedApproval(null);
+      setModalType(null);
+      setManagerNote('');
+      await loadData();
+    }
   };
 
-  // Filtered pending quotes
+  // Pending approvals from Approval records (status = PENDING, stage = SALES_MANAGER)
+  const pendingApprovals = approvals.filter(a => a.status === 'PENDING');
+
+  // Quotes pending approval (for search/filter display in table)
   const pendingQuotes = quotes.filter(q => {
-    const matchesStatus = q.status === 'PENDING_APPROVAL' || q.status === 'CUSTOMER_NEGOTIATION';
-    const matchesSearch = !searchTerm || 
-      q.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (q.customerName && q.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (q.repName && q.repName.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesStatus = q.status === 'PENDING_APPROVAL' || q.status === 'MANAGER_REVIEW';
+    const matchesSearch = !searchTerm ||
+      q.displayId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      q.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      q.repName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRisk = riskFilter === 'ALL' || q.riskScore === riskFilter;
     return matchesStatus && matchesSearch && matchesRisk;
   });
 
-  const totalValueUnderReview = pendingQuotes.reduce((acc, q) => acc + Number(q.totalValue || 0), 0);
-  const urgentCount = pendingQuotes.filter(q => q.discountPercent > 20 || q.riskScore === 'HIGH').length;
+  // Find the approval record for a given quotation
+  const getApprovalForQuote = (quoteId) =>
+    approvals.find(a => a.quotationId === quoteId || a.quotation?.id === quoteId);
+
+  const totalValueUnderReview = pendingQuotes.reduce((acc, q) => acc + q.totalValue, 0);
+  const urgentCount = pendingQuotes.filter(q => q.discountPercent > 20).length;
+
+  // Dashboard Summary metrics
+  const pendingCount = summaryData?.pendingApprovals ?? pendingApprovals.length;
+  const approvedCount = summaryData?.approvedQuotes ?? 0;
+  const confirmedRevenue = summaryData?.confirmedRevenue ?? 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -104,52 +155,59 @@ export default function ManagerDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button className="btn btn-primary" onClick={() => navigate('/approvals')} style={{ gap: 6 }}>
               <MS icon="fact_check" size={18} />
-              <span>Open Approval Queue ({pendingQuotes.length})</span>
+              <span>Open Approval Queue ({pendingCount})</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Operational Metric KPI Cards */}
+      {/* Error Banner */}
+      {errorMsg && (
+        <div style={{ padding: '12px 16px', borderRadius: 8, background: '#fee2e2', color: '#b91c1c', border: '1px solid #fca5a5', fontSize: '0.9rem' }}>
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Operational Metric KPI Cards — sourced from /dashboard/summary + derived */}
       <div className="grid-metrics">
         <MetricCard
           title="Pending Approvals"
-          value={pendingQuotes.length}
-          change={`${urgentCount} High Risk`}
+          value={loading ? '—' : pendingCount}
+          change={loading ? '...' : `${urgentCount} High Discount`}
           isPositive={false}
           icon={ShieldAlert}
           color="#f59e0b"
         />
         <MetricCard
-          title="Value Under Review"
-          value={formatCurrency(totalValueUnderReview)}
-          change="INR Contract Volume"
+          title="Confirmed Revenue"
+          value={loading ? '—' : formatCurrency(confirmedRevenue)}
+          change="Confirmed deals (INR)"
           isPositive={true}
           icon={TrendingUp}
           color="var(--primary)"
         />
         <MetricCard
-          title="Avg Discount Exception"
-          value="Tracking"
-          change="Policy cap audits"
+          title="Avg Discount %"
+          value={loading ? '—' : (summaryData?.avgCumulativeDiscountPct != null ? formatPercent(summaryData.avgCumulativeDiscountPct) : '—')}
+          change="Portfolio average"
           isPositive={false}
           icon={FileSpreadsheet}
           color="#ef4444"
         />
         <MetricCard
-          title="Approvals Completed"
-          value={quotes.filter(q => q.status === 'APPROVED' || q.status === 'REJECTED').length}
-          change="Processed Queue"
+          title="Approved Quotes"
+          value={loading ? '—' : approvedCount}
+          change={loading ? '...' : `${summaryData?.totalQuotes ?? 0} total in period`}
           isPositive={true}
           icon={CheckCircle}
           color="#10b981"
         />
       </div>
 
-      {/* Main Content Multi-Column Layout (Stitch Composition) */}
+      {/* Main Content Multi-Column Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2.3fr) minmax(0, 1fr)', gap: '20px' }}>
         
-        {/* Left Column: Approval / Quote Table */}
+        {/* Left Column: Pending Approval Queue Table */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
@@ -208,7 +266,7 @@ export default function ManagerDashboard() {
                       <th>Requested Discount</th>
                       <th>Contract Value</th>
                       <th>Gross Margin</th>
-                      <th>Risk / Trigger</th>
+                      <th>Status</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -216,24 +274,27 @@ export default function ManagerDashboard() {
                     {pendingQuotes.length === 0 ? (
                       <tr>
                         <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: 'var(--secondary-text)' }}>
-                          ✅ All pending approvals in queue are processed!
+                          {quotes.length === 0
+                            ? 'No quotations found in the database. Create a quote to see it here.'
+                            : '✅ All pending approvals in queue are processed!'}
                         </td>
                       </tr>
                     ) : (
                       pendingQuotes.map(q => {
-                        const isHighRisk = q.discountPercent > 20 || q.riskScore === 'HIGH';
+                        const isHighRisk = q.discountPercent > 20;
+                        const approval = getApprovalForQuote(q.id);
                         return (
                           <tr
                             key={q.id}
                             style={{ cursor: 'pointer' }}
                             onClick={() => navigate(`/manager/approvals/${q.id}`)}
                           >
-                            <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{q.id}</td>
+                            <td style={{ fontWeight: 700, color: 'var(--primary)' }}>{q.displayId}</td>
                             <td>
                               <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{q.customerName}</div>
                               <span className="badge badge-gold" style={{ fontSize: '0.7rem' }}>{q.tier}</span>
                             </td>
-                            <td style={{ fontSize: '0.85rem' }}>{q.repName || 'Sales Rep'}</td>
+                            <td style={{ fontSize: '0.85rem' }}>{q.repName}</td>
                             <td style={{ color: isHighRisk ? '#b91c1c' : 'inherit', fontWeight: 700 }}>
                               {formatPercent(q.discountPercent)}
                             </td>
@@ -244,27 +305,33 @@ export default function ManagerDashboard() {
                             <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: isHighRisk ? '#b91c1c' : '#d97706', fontWeight: 600 }}>
                                 <MS icon={isHighRisk ? "warning" : "info"} size={14} />
-                                <span>{q.requiresApprovalReason || 'Exceeds Tier Policy Cap'}</span>
+                                <span>{q.requiresApprovalReason || q.status}</span>
                               </div>
                             </td>
                             <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
-                                <button
-                                  onClick={(e) => handleAction(e, q, 'approve')}
-                                  className="btn btn-success btn-sm"
-                                  style={{ padding: '4px 8px', fontSize: '0.75rem', gap: 2 }}
-                                >
-                                  <CheckCircle size={13} />
-                                  <span>Approve</span>
-                                </button>
-                                <button
-                                  onClick={(e) => handleAction(e, q, 'reject')}
-                                  className="btn btn-danger btn-sm"
-                                  style={{ padding: '4px 8px', fontSize: '0.75rem', gap: 2 }}
-                                >
-                                  <XCircle size={13} />
-                                  <span>Reject</span>
-                                </button>
+                                {approval ? (
+                                  <>
+                                    <button
+                                      onClick={(e) => handleAction(e, approval, 'approve')}
+                                      className="btn btn-success btn-sm"
+                                      style={{ padding: '4px 8px', fontSize: '0.75rem', gap: 2 }}
+                                    >
+                                      <CheckCircle size={13} />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleAction(e, approval, 'reject')}
+                                      className="btn btn-danger btn-sm"
+                                      style={{ padding: '4px 8px', fontSize: '0.75rem', gap: 2 }}
+                                    >
+                                      <XCircle size={13} />
+                                      <span>Reject</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>No approval record</span>
+                                )}
                                 <button
                                   onClick={() => navigate(`/manager/approvals/${q.id}`)}
                                   className="btn btn-outline btn-sm"
@@ -285,99 +352,94 @@ export default function ManagerDashboard() {
           </div>
         </div>
 
-        {/* Right Column: Multi-Column Operational Panels */}
+        {/* Right Column: Summary Panels */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
-          {/* Panel 1: Urgent SLA & High Risk Alerts */}
+          {/* Panel 1: Queue Summary */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <MS icon="hourglass_top" size={20} />
-              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--on-surface)' }}>
-                Urgent SLA & High Risk Queue
-              </h3>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{
-                padding: '12px', borderRadius: '8px',
-                background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#b91c1c' }}>Q-2026-001</span>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: 4, background: '#fee2e2', color: '#b91c1c', fontWeight: 700 }}>
-                    1h 45m SLA Left
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--on-surface)', marginTop: 4, fontWeight: 600 }}>Nexus HyperScale Ltd</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)', marginTop: 2 }}>Discount: 22.0% • Value: {formatCurrency(6760000)}</div>
+            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--on-surface)' }}>
+              Queue Summary (Live)
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, borderBottom: '1px solid rgba(209,195,202,0.2)' }}>
+                <span style={{ color: 'var(--secondary-text)' }}>Pending Approval:</span>
+                <strong style={{ color: '#d97706' }}>{loading ? '—' : pendingCount} deals</strong>
               </div>
-
-              <div style={{
-                padding: '12px', borderRadius: '8px',
-                background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--primary)' }}>Q-2026-002</span>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: 4, background: 'var(--surface-container-high)', color: 'var(--secondary-text)', fontWeight: 600 }}>
-                    3h 10m SLA
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--on-surface)', marginTop: 4, fontWeight: 600 }}>Apex Global Technologies</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)', marginTop: 2 }}>Discount: 18.0% • Value: {formatCurrency(11360000)}</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, borderBottom: '1px solid rgba(209,195,202,0.2)' }}>
+                <span style={{ color: 'var(--secondary-text)' }}>Approved Quotes:</span>
+                <strong style={{ color: '#059669' }}>{loading ? '—' : approvedCount} deals</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: 6, borderBottom: '1px solid rgba(209,195,202,0.2)' }}>
+                <span style={{ color: 'var(--secondary-text)' }}>Confirmed Deals:</span>
+                <strong style={{ color: 'var(--primary)' }}>{loading ? '—' : (summaryData?.confirmedQuotes ?? '—')}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--secondary-text)' }}>Total Quotes (Period):</span>
+                <strong style={{ color: 'var(--on-surface)' }}>{loading ? '—' : (summaryData?.totalQuotes ?? '—')}</strong>
               </div>
             </div>
           </div>
 
-          {/* Panel 2: Risk & Margin Distribution Pulse */}
+          {/* Panel 2: Risk & Margin Distribution — derived from real data */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--on-surface)' }}>
               Risk & Margin Distribution
             </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.8rem' }}>
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ color: 'var(--secondary-text)' }}>Healthy Margin (&ge;35%)</span>
-                  <strong style={{ color: '#059669' }}>75% of deals</strong>
+            {!loading && quotes.length > 0 ? (() => {
+              const healthy = quotes.filter(q => q.marginPercent >= 35).length;
+              const breaches = quotes.filter(q => q.discountPercent > 20).length;
+              const healthyPct = Math.round((healthy / quotes.length) * 100);
+              const breachPct = Math.round((breaches / quotes.length) * 100);
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.8rem' }}>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: 'var(--secondary-text)' }}>Healthy Margin (≥35%)</span>
+                      <strong style={{ color: '#059669' }}>{healthyPct}% of deals</strong>
+                    </div>
+                    <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ width: `${healthyPct}%`, height: '100%', background: '#059669', borderRadius: 99 }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: 'var(--secondary-text)' }}>Tier Cap Breaches (&gt;20%)</span>
+                      <strong style={{ color: '#d97706' }}>{breachPct}% of deals</strong>
+                    </div>
+                    <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ width: `${breachPct}%`, height: '100%', background: '#d97706', borderRadius: 99 }} />
+                    </div>
+                  </div>
                 </div>
-                <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ width: '75%', height: '100%', background: '#059669', borderRadius: 99 }} />
-                </div>
+              );
+            })() : (
+              <div style={{ fontSize: '0.8rem', color: 'var(--secondary-text)', textAlign: 'center', padding: '12px 0' }}>
+                {loading ? 'Loading...' : 'No quote data available to compute distribution.'}
               </div>
-
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ color: 'var(--secondary-text)' }}>Tier Cap Breaches (&gt;20%)</span>
-                  <strong style={{ color: '#d97706' }}>25% of deals</strong>
-                </div>
-                <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, overflow: 'hidden' }}>
-                  <div style={{ width: '25%', height: '100%', background: '#d97706', borderRadius: 99 }} />
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Panel 3: Recent Workflow Audit Trail */}
+          {/* Panel 3: Discount Policy Reference (Static UI Reference) */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--on-surface)' }}>
-              Manager Decision Activity Log
+              Discount Governance Policy Caps
             </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: '0.78rem' }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <MS icon="check_circle" size={16} />
-                <div>
-                  <span style={{ fontWeight: 600 }}>Approved Q-2026-003</span>
-                  <div style={{ color: 'var(--outline)' }}>Vanguard Retail • {formatCurrency(2272000)} • 2h ago</div>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: '0.8rem' }}>
+              <div style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--surface-container-low)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Standard Tier Limit:</span>
+                <strong style={{ color: 'var(--primary)' }}>≤ 10%</strong>
               </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <MS icon="lock_clock" size={16} />
-                <div>
-                  <span style={{ fontWeight: 600 }}>Policy Lock Enforced Q-2026-004</span>
-                  <div style={{ color: 'var(--outline)' }}>Quantum Cloud • Fulfilled • Yesterday</div>
-                </div>
+              <div style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--surface-container-low)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Gold Tier Limit:</span>
+                <strong style={{ color: 'var(--primary)' }}>≤ 20%</strong>
+              </div>
+              <div style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--surface-container-low)', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Platinum Tier Limit:</span>
+                <strong style={{ color: 'var(--primary)' }}>≤ 30%</strong>
+              </div>
+              <div style={{ padding: '8px 10px', borderRadius: 6, background: 'rgba(239, 68, 68, 0.08)', color: '#b91c1c', display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                <span>Hard Policy Floor:</span>
+                <span>&gt;45% Prohibited</span>
               </div>
             </div>
           </div>
@@ -387,22 +449,27 @@ export default function ManagerDashboard() {
 
       {/* Decision Modal Dialog */}
       <Modal
-        isOpen={Boolean(selectedQuote)}
-        onClose={() => setSelectedQuote(null)}
+        isOpen={Boolean(selectedApproval)}
+        onClose={() => { setSelectedApproval(null); setActionError(null); }}
         title={
-          modalType === 'approve' ? `Approve Exception: ${selectedQuote?.id}` :
-          modalType === 'reject' ? `Reject Exception: ${selectedQuote?.id}` :
-          `Request Revision: ${selectedQuote?.id}`
+          modalType === 'approve' ? `Approve Approval: ${selectedApproval?.quotation?.quotationNumber || selectedApproval?.quotationId}` :
+          modalType === 'reject' ? `Reject Approval: ${selectedApproval?.quotation?.quotationNumber || selectedApproval?.quotationId}` :
+          `Request Revision: ${selectedApproval?.quotation?.quotationNumber || selectedApproval?.quotationId}`
         }
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {actionError && (
+            <div style={{ padding: 10, borderRadius: 6, background: '#fee2e2', color: '#b91c1c', fontSize: '0.85rem' }}>
+              {actionError}
+            </div>
+          )}
+
           <div style={{ background: 'var(--surface-container-low)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(209,195,202,0.3)' }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)' }}>Customer: <strong>{selectedQuote?.customerName}</strong></div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', marginTop: '4px' }}>
-              Requested Discount: <strong style={{ color: '#b91c1c' }}>{selectedQuote?.discountPercent}%</strong> (Tier Limit: 20%)
+            <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)' }}>
+              Approval Stage: <strong>{selectedApproval?.stage || '—'}</strong>
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--secondary-text)', marginTop: '4px' }}>
-              Deal Margin: <strong style={{ color: '#059669' }}>{selectedQuote?.marginPercent}%</strong>
+              Quote: <strong>{selectedApproval?.quotation?.quotationNumber || selectedApproval?.quotationId || '—'}</strong>
             </div>
           </div>
 
@@ -422,7 +489,7 @@ export default function ManagerDashboard() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-            <button className="btn btn-outline" onClick={() => setSelectedQuote(null)}>Cancel</button>
+            <button className="btn btn-outline" onClick={() => { setSelectedApproval(null); setActionError(null); }}>Cancel</button>
             <button
               className={`btn ${modalType === 'approve' ? 'btn-success' : 'btn-danger'}`}
               style={{
