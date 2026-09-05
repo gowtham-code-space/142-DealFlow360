@@ -317,14 +317,14 @@ export default function Sidebar() {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--outline)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {isCustomerView ? 'Account Overview' : isManagerView ? 'Governance SLA' : 'Territory Stats'}
+            {isCustomerView ? 'Account Overview' : isManagerView ? 'Governance SLA' : isAdminView ? 'System Status' : isOpsView ? 'Ops Overview' : 'Territory Stats'}
           </span>
           <span style={{
             fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 99,
-            background: isCustomerView ? 'rgba(5,150,105,0.12)' : isManagerView ? 'rgba(87,52,79,0.1)' : 'rgba(0,105,110,0.1)',
-            color: isCustomerView ? '#047857' : isManagerView ? 'var(--primary)' : 'var(--secondary)'
+            background: isCustomerView ? 'rgba(5,150,105,0.12)' : isManagerView ? 'rgba(87,52,79,0.1)' : isAdminView ? 'rgba(124,58,237,0.12)' : isOpsView ? 'rgba(2,132,199,0.12)' : 'rgba(0,105,110,0.1)',
+            color: isCustomerView ? '#047857' : isManagerView ? 'var(--primary)' : isAdminView ? '#7c3aed' : isOpsView ? '#0284c7' : 'var(--secondary)'
           }}>
-            {isCustomerView ? 'Gold Tier' : isManagerView ? 'SLA: 4.0 Hours' : 'Midwest Region'}
+            {isCustomerView ? 'Gold Tier' : isManagerView ? 'SLA: 4.0 Hours' : isAdminView ? 'All Systems OK' : isOpsView ? '3 Warehouses' : 'Midwest Region'}
           </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 11, color: 'var(--on-surface-variant)' }}>
@@ -336,7 +336,7 @@ export default function Sidebar() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--outline)' }}>Dedicated Rep:</span>
-                <span style={{ fontWeight: 600, color: 'var(--on-surface)' }}>Alex Rivera</span>
+                <span style={{ fontWeight: 600, color: '#047857' }}>Alex Rivera</span>
               </div>
               <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
                 <div style={{ width: '68%', height: '100%', background: '#047857', borderRadius: 99 }} />
@@ -354,6 +354,34 @@ export default function Sidebar() {
               </div>
               <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
                 <div style={{ width: '92%', height: '100%', background: '#10b981', borderRadius: 99 }} />
+              </div>
+            </>
+          ) : isAdminView ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--outline)' }}>Active Policies:</span>
+                <span style={{ fontWeight: 600, color: '#7c3aed', fontFeatureSettings: "'tnum'" }}>6 Rules</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--outline)' }}>Users & Roles:</span>
+                <span style={{ fontWeight: 600, color: 'var(--on-surface)', fontFeatureSettings: "'tnum'" }}>5 Roles Active</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '100%', background: '#7c3aed', borderRadius: 99 }} />
+              </div>
+            </>
+          ) : isOpsView ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--outline)' }}>Network Stock:</span>
+                <span style={{ fontWeight: 600, color: '#0284c7', fontFeatureSettings: "'tnum'" }}>1,370 Units</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--outline)' }}>MRR Pipeline:</span>
+                <span style={{ fontWeight: 600, color: 'var(--on-surface)', fontFeatureSettings: "'tnum'" }}>₹14.5L/mo</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--surface-container-highest)', borderRadius: 99, marginTop: 4, overflow: 'hidden' }}>
+                <div style={{ width: '78%', height: '100%', background: '#0284c7', borderRadius: 99 }} />
               </div>
             </>
           ) : (

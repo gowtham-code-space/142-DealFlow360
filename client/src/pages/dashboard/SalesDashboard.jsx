@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
+import { useAuth } from '../../context/AuthContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size }}>{icon}</span>
@@ -10,6 +11,7 @@ const MS = ({ icon, size = 18 }) => (
 
 export default function SalesDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [quotations, setQuotations] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export default function SalesDashboard() {
               Q3 2026 Fiscal Performance
             </span>
             <span style={{ fontSize: 12, color: 'var(--secondary-container)', fontWeight: 600 }}>
-              Sales Representative: Alex Rivera
+              Sales Representative: {user?.name || 'Alex Rivera'}
             </span>
           </div>
           <h1 className="headline-lg" style={{ color: '#fff', margin: '4px 0' }}>Sales Representative Dashboard</h1>

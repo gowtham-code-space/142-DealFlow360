@@ -15,6 +15,7 @@ export default function ManagerDashboard() {
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(null);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');

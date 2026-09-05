@@ -123,7 +123,7 @@ function RootRedirect() {
     return <Navigate to="/dashboard/operations" replace />;
   }
   if (user.role === ROLES.ADMIN) {
-    return <Navigate to="/dashboard/admin" replace />;
+    return <Navigate to="/admin/dashboard" replace />;
   }
   if (user.role === ROLES.CUSTOMER) {
     return <Navigate to="/portal" replace />;
