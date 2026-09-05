@@ -49,6 +49,7 @@ DROP TABLE IF EXISTS `price_lists`;
 DROP TABLE IF EXISTS `product_variants`;
 DROP TABLE IF EXISTS `products`;
 DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `roles`;
 DROP TABLE IF EXISTS `customers`;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -56,6 +57,20 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ============================================================================
 -- 2. CORE IDENTITY & CUSTOMER ENTITIES
 -- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- Table: roles
+-- Description: System & RBAC permission roles
+-- ----------------------------------------------------------------------------
+CREATE TABLE `roles` (
+  `id` VARCHAR(50) NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  `description` TEXT DEFAULT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ----------------------------------------------------------------------------
 -- Table: customers
@@ -93,24 +108,29 @@ CREATE TABLE `customers` (
 -- Table: users
 -- Description: Canonical role representation across Internal Staff & Customer Portal
 -- ----------------------------------------------------------------------------
+-- Table: users
+-- Description: Canonical role representation linked to roles table
+-- ----------------------------------------------------------------------------
 CREATE TABLE `users` (
   `id` VARCHAR(36) NOT NULL,
   `email` VARCHAR(255) NOT NULL,
   `password` VARCHAR(255) NOT NULL COMMENT 'Argon2 / BCrypt hashed credentials',
   `name` VARCHAR(255) NOT NULL,
-  `role` ENUM('ADMIN', 'SALES_REP', 'SALES_MANAGER', 'FINANCE_OPS', 'CUSTOMER') NOT NULL DEFAULT 'SALES_REP',
-  `role_id` VARCHAR(50) DEFAULT NULL,
+  `role_id` VARCHAR(50) NOT NULL DEFAULT 'SALES_REP',
   `customer_id` VARCHAR(36) DEFAULT NULL COMMENT 'Set for customer portal users; NULL for internal staff',
+  `refresh_token_hash` VARCHAR(255) DEFAULT NULL COMMENT 'Hashed active refresh token for rotation & revocation',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_users_email` (`email`),
-  KEY `idx_users_role` (`role`),
+  KEY `idx_users_role_id` (`role_id`),
   KEY `idx_users_customer_id` (`customer_id`),
   KEY `idx_users_is_active` (`is_active`),
+  CONSTRAINT `fk_users_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON UPDATE CASCADE,
   CONSTRAINT `fk_users_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- ============================================================================
 -- 3. PRODUCT CATALOG, PRICING & VARIANTS

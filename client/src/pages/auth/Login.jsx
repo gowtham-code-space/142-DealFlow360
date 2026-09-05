@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { ROLES } from '../../utils/constants';
 import DealFlowLogo from '../../components/common/DealFlowLogo';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '513783597794-g3e1dc4gu7i29f4093e5lulfnf7hbkcd.apps.googleusercontent.com';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -10,77 +13,205 @@ const MS = ({ icon, size = 18 }) => (
 
 export default function Login() {
   const navigate = useNavigate();
-  const { switchRole } = useAuth();
-  const [email, setEmail] = useState('sarah.jenkins@dealflow360.internal');
-  const [password, setPassword] = useState('••••••••••••');
+  const { user, loading: authLoading, loginWithEmail, signupCustomer, loginWithGoogle } = useAuth();
+  const { toast } = useToast();
+  
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const googleBtnRef = useRef(null);
 
-  const handleStandardLogin = (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    switchRole(ROLES.SALES_REP);
-    setTimeout(() => {
-      navigate('/dashboard/sales');
-    }, 300);
-  };
-
-  const handleEnterDemoRole = (role, routePath) => {
-    switchRole(role);
-    navigate(routePath);
-  };
-
-  const roleOptions = [
-    {
-      role: ROLES.SALES_REP,
-      title: 'Sales Representative',
-      desc: 'Create and manage quotations, line item discounts, and customer negotiations.',
-      icon: 'work',
-      route: '/dashboard/sales',
-      badgeColor: '#00696e',
-      badgeBg: 'rgba(0, 105, 110, 0.1)',
-      isDeveloped: true
-    },
-    {
-      role: ROLES.SALES_MANAGER,
-      title: 'Sales Manager / Approver',
-      desc: 'Review approval queues, evaluate margin risk, and approve/reject deal exceptions.',
-      icon: 'fact_check',
-      route: '/dashboard/manager',
-      badgeColor: '#57344f',
-      badgeBg: 'rgba(87, 52, 79, 0.15)',
-      isDeveloped: true
-    },
-    {
-      role: ROLES.OPERATIONS,
-      title: 'Finance / Operations',
-      desc: 'Manage multi-warehouse stock allocation, fulfillment logistics, and recurring billing.',
-      icon: 'inventory_2',
-      route: '/dashboard/operations',
-      badgeColor: '#0284c7',
-      badgeBg: 'rgba(2, 132, 199, 0.1)',
-      isDeveloped: true
-    },
-    {
-      role: ROLES.ADMIN,
-      title: 'Administrator',
-      desc: 'Configure governance policies, tier caps, user permissions, and system settings.',
-      icon: 'admin_panel_settings',
-      route: '/admin/dashboard',
-      badgeColor: '#7c3aed',
-      badgeBg: 'rgba(124, 58, 237, 0.1)',
-      isDeveloped: true
-    },
-    {
-      role: ROLES.CUSTOMER,
-      title: 'Customer Portal User',
-      desc: 'Review quotations, submit counter-offers, and track order fulfillment.',
-      icon: 'storefront',
-      route: '/portal',
-      badgeColor: '#059669',
-      badgeBg: 'rgba(5, 150, 105, 0.1)',
-      isDeveloped: true
+  // Auto-redirect if already authenticated
+  useEffect(() => {
+    if (user && !authLoading) {
+      redirectToDashboard(user.role);
     }
-  ];
+  }, [user, authLoading]);
+
+  // Initialize Google Identity Services (GIS) SDK
+  useEffect(() => {
+    const initializeGoogleSignIn = () => {
+      if (window.google?.accounts?.id) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+
+          if (googleBtnRef.current) {
+            googleBtnRef.current.innerHTML = '';
+            window.google.accounts.id.renderButton(googleBtnRef.current, {
+              theme: 'outline',
+              size: 'large',
+              type: 'standard',
+              shape: 'rectangular',
+              text: 'signin_with',
+              logo_alignment: 'center',
+              width: 380
+            });
+          }
+        } catch (err) {
+          console.warn('[Google GIS] Initialization notice:', err.message);
+        }
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initializeGoogleSignIn();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = initializeGoogleSignIn;
+      document.body.appendChild(script);
+    }
+  }, [isSignUp]);
+
+  // Route redirect based on verified user role
+  const redirectToDashboard = (userRole) => {
+    switch (userRole) {
+      case ROLES.ADMIN:
+      case 'ADMIN':
+        navigate('/admin/dashboard');
+        break;
+      case ROLES.SALES_MANAGER:
+      case 'SALES_MANAGER':
+        navigate('/dashboard/manager');
+        break;
+      case ROLES.OPERATIONS:
+      case 'FINANCE_OPS':
+        navigate('/dashboard/operations');
+        break;
+      case ROLES.CUSTOMER:
+      case 'CUSTOMER':
+        navigate('/portal');
+        break;
+      case ROLES.SALES_REP:
+      case 'SALES_REP':
+      default:
+        navigate('/dashboard/sales');
+        break;
+    }
+  };
+
+  // Google OAuth Callback handler
+  const handleGoogleCredentialResponse = async (response) => {
+    if (!response.credential) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const mode = isSignUp ? 'signup' : 'login';
+      const res = await loginWithGoogle(response.credential, mode);
+
+      if (res.success && res.user) {
+        if (mode === 'signup') {
+          toast.success(`Welcome to DealFlow360, ${res.user.name || 'User'}!`, 'Account Created');
+        } else {
+          toast.success(`Welcome back, ${res.user.name || 'User'}!`, 'Google Authentication');
+        }
+        redirectToDashboard(res.user.role);
+      } else if (res.notFound) {
+        // User not found in DB on login -> restrict and direct to signup
+        const errorMsg = res.message || 'No account found with this Google email. Please register on the Sign Up tab first.';
+        setError(errorMsg);
+        toast.warning(errorMsg, 'Account Not Found');
+        setIsSignUp(true);
+      } else if (res.isEmployee) {
+        // Employee account detected during signup attempt
+        const warnMsg = 'This email is an internal employee account created by Administrator. Please sign in instead.';
+        setError(warnMsg);
+        toast.warning(warnMsg, 'Corporate Employee Account');
+        setIsSignUp(false);
+      } else if (res.conflict) {
+        // Account already exists during signup attempt
+        const infoMsg = res.message || 'An account with this email already exists. Please sign in.';
+        setError(infoMsg);
+        toast.info(infoMsg, 'Account Exists');
+        setIsSignUp(false);
+      } else {
+        const errorMsg = res.message || 'Google authentication failed';
+        setError(errorMsg);
+        toast.error(errorMsg, 'Authentication Error');
+      }
+    } catch (err) {
+      setError(err.message || 'Google authentication failed');
+      toast.error(err.message, 'Sign-In Error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Form Submit Handler (Sign In / Sign Up)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+
+    if (isSignUp) {
+      // Sign Up flow (Customer Registration)
+      if (!name || !email || !password) {
+        setError('Please fill in all required fields.');
+        return;
+      }
+
+      setSubmitting(true);
+      const res = await signupCustomer({ name, email, password, phone });
+
+      if (res.success && res.user) {
+        toast.success(`Welcome to DealFlow360, ${res.user.name}!`, 'Account Created');
+        redirectToDashboard(ROLES.CUSTOMER);
+      } else if (res.isEmployee) {
+        // Internal employee account detected
+        toast.warning(
+          'This email is an internal employee account created by Administrator. Please sign in instead.',
+          'Corporate Employee Account'
+        );
+        setIsSignUp(false);
+      } else if (res.conflict) {
+        toast.info(res.message || 'An account with this email already exists. Please sign in.', 'Account Exists');
+        setIsSignUp(false);
+      } else {
+        setError(res.message || 'Signup failed. Please try again.');
+        toast.error(res.message || 'Registration failed', 'Error');
+      }
+      setSubmitting(false);
+    } else {
+      // Sign In flow (Unified for both Employees & Customers)
+      if (!email || !password) {
+        setError('Please enter both email and password.');
+        return;
+      }
+
+      setSubmitting(true);
+      const res = await loginWithEmail(email, password);
+
+      if (res.success && res.user) {
+        toast.success(`Authenticated as ${res.user.role}`, `Welcome, ${res.user.name}`);
+        redirectToDashboard(res.user.role);
+      } else {
+        const msg = res.message || 'Authentication failed. Please check your credentials.';
+        setError(msg);
+        toast.error(msg, 'Sign-In Failed');
+        if (res.notFound) {
+          toast.info('No account found with this email. You can sign up for a Customer Account below.', 'New User');
+        }
+      }
+      setSubmitting(false);
+    }
+  };
+
+  // Demo email selector helper
+  const fillDemoEmail = (demoEmail) => {
+    setIsSignUp(false);
+    setEmail(demoEmail);
+    setError(null);
+  };
 
   return (
     <div style={{
@@ -88,251 +219,268 @@ export default function Login() {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: 'var(--surface, #faf9f9)',
+      background: 'linear-gradient(135deg, #f8f9fa 0%, #ede9ec 100%)',
       padding: '24px 16px',
       fontFamily: 'Inter, system-ui, sans-serif'
     }}>
       <div style={{
-        maxWidth: '880px',
+        maxWidth: '460px',
         width: '100%',
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1.4fr)',
-        gap: '24px',
         background: '#ffffff',
-        borderRadius: '12px',
-        border: '1px solid #d1c3ca',
-        boxShadow: '0 4px 20px rgba(27, 28, 28, 0.05)',
-        overflow: 'hidden'
+        borderRadius: '16px',
+        border: '1px solid #e5e7eb',
+        boxShadow: '0 12px 36px rgba(87, 52, 79, 0.08)',
+        padding: '36px 32px',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         
-        {/* Left Column: Standard Authentication */}
-        <div style={{
-          padding: '32px 28px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          borderRight: '1px solid #efeded',
-          background: '#ffffff'
-        }}>
-          <div>
-            {/* Brand Header */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
-              <DealFlowLogo variant="login" />
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#80747a', textTransform: 'uppercase', letterSpacing: '0.05em', paddingLeft: '4px' }}>
-                Enterprise Q2C Platform
-              </div>
-            </div>
-
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1b1c1c', marginBottom: '4px' }}>
-              Sign In to Your Account
-            </h2>
-            <p style={{ fontSize: '0.8rem', color: '#4e444a', margin: '0 0 20px 0' }}>
-              Authenticate with your corporate credentials to access your designated workspace.
-            </p>
-
-            {/* Standard Login Form */}
-            <form onSubmit={handleStandardLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#4e444a', marginBottom: '4px' }}>
-                  Corporate Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '36px',
-                    padding: '0 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #d1c3ca',
-                    background: '#faf9f9',
-                    fontSize: '0.85rem',
-                    color: '#1b1c1c',
-                    outline: 'none',
-                    fontFamily: 'inherit'
-                  }}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#4e444a', marginBottom: '4px' }}>
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '36px',
-                    padding: '0 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #d1c3ca',
-                    background: '#faf9f9',
-                    fontSize: '0.85rem',
-                    color: '#1b1c1c',
-                    outline: 'none',
-                    fontFamily: 'inherit'
-                  }}
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={submitting}
-                style={{
-                  height: '38px',
-                  width: '100%',
-                  marginTop: '8px',
-                  borderRadius: '6px',
-                  background: '#57344f',
-                  color: '#ffffff',
-                  border: 'none',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                <span>{submitting ? 'Authenticating...' : 'Sign In'}</span>
-                <MS icon="arrow_forward" size={16} />
-              </button>
-            </form>
+        {/* Brand Header */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', marginBottom: '20px' }}>
+          <DealFlowLogo variant="login" />
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#57344f', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '6px' }}>
+            Enterprise Q2C Deal Engine
           </div>
-
-          <div style={{ fontSize: '0.75rem', color: '#80747a', marginTop: '24px', borderTop: '1px solid #efeded', paddingTop: '12px' }}>
-            DealFlow360 &copy; 2026 • Hackathon Edition v2.0
-          </div>
+          <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: '6px 0 0 0' }}>
+            {isSignUp ? 'Create a new Customer Portal account' : 'Sign in with your email or Google OAuth'}
+          </p>
         </div>
 
-        {/* Right Column: Developer / Demo Mode Controls */}
+        {/* Tab Switcher: Sign In vs Sign Up */}
         <div style={{
-          padding: '28px 24px',
-          background: '#faf9f9',
           display: 'flex',
-          flexDirection: 'column'
+          background: '#f3f4f6',
+          borderRadius: '8px',
+          padding: '3px',
+          marginBottom: '20px'
         }}>
-          {/* Developer Mode Header */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(false);
+              setError(null);
+            }}
+            style={{
+              flex: 1,
+              padding: '7px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              background: !isSignUp ? '#ffffff' : 'transparent',
+              color: !isSignUp ? '#57344f' : '#6b7280',
+              fontWeight: !isSignUp ? 700 : 500,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              boxShadow: !isSignUp ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSignUp(true);
+              setError(null);
+            }}
+            style={{
+              flex: 1,
+              padding: '7px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              background: isSignUp ? '#ffffff' : 'transparent',
+              color: isSignUp ? '#57344f' : '#6b7280',
+              fontWeight: isSignUp ? 700 : 500,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              boxShadow: isSignUp ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            Sign Up
+          </button>
+        </div>
+
+        {/* In-Card Error Alert */}
+        {error && (
           <div style={{
+            padding: '10px 14px',
+            borderRadius: '8px',
+            background: '#fee2e2',
+            border: '1px solid #f87171',
+            color: '#991b1b',
+            fontSize: '0.8rem',
+            marginBottom: '16px',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '14px',
-            paddingBottom: '12px',
-            borderBottom: '1px solid #d1c3ca'
+            gap: '8px'
           }}>
+            <MS icon="error" size={18} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Google OAuth Section */}
+        <div style={{ marginBottom: '18px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div
+            ref={googleBtnRef}
+            style={{
+              minHeight: '44px',
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center'
+            }}
+          />
+        </div>
+
+        {/* Divider */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          marginBottom: '18px',
+          color: '#9ca3af',
+          fontSize: '0.78rem'
+        }}>
+          <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+          <span>{isSignUp ? 'or register with email' : 'or sign in with email'}</span>
+          <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+        </div>
+
+        {/* Dynamic Form: Sign In vs Sign Up */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {isSignUp && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{
-                  padding: '2px 8px',
-                  borderRadius: '99px',
-                  background: 'rgba(87, 52, 79, 0.15)',
-                  color: '#57344f',
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em'
-                }}>
-                  DEVELOPER / DEMO MODE
-                </span>
-              </div>
-              <p style={{ fontSize: '0.75rem', color: '#4e444a', margin: '4px 0 0 0' }}>
-                Select any of the 5 application roles to enter the live workspace directly.
-              </p>
-            </div>
-          </div>
-
-          {/* Role Cards List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {roleOptions.map((opt) => (
-              <div
-                key={opt.role}
-                onClick={() => handleEnterDemoRole(opt.role, opt.route)}
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>
+                Full Name *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Marcus Vance"
                 style={{
-                  padding: '12px 14px',
+                  width: '100%',
+                  height: '38px',
+                  padding: '0 12px',
                   borderRadius: '8px',
-                  background: '#ffffff',
-                  border: '1px solid #d1c3ca',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease-in-out',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px'
+                  border: '1px solid #d1d5db',
+                  background: '#f9fafb',
+                  fontSize: '0.88rem',
+                  color: '#111827',
+                  outline: 'none',
+                  fontFamily: 'inherit'
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#57344f';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(87, 52, 79, 0.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#d1c3ca';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '8px',
-                    background: opt.badgeBg,
-                    color: opt.badgeColor,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    <MS icon={opt.icon} size={18} />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1b1c1c' }}>
-                        {opt.title}
-                      </div>
-                      <span style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        padding: '1px 6px',
-                        borderRadius: '99px',
-                        background: opt.isDeveloped ? 'rgba(16, 185, 129, 0.12)' : 'rgba(234, 179, 8, 0.15)',
-                        color: opt.isDeveloped ? '#047857' : '#a16207'
-                      }}>
-                        {opt.isDeveloped ? 'DEVELOPED' : 'NOT DEVELOPED YET'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#4e444a', marginTop: '2px' }}>
-                      {opt.desc}
-                    </div>
-                  </div>
-                </div>
+                required
+              />
+            </div>
+          )}
 
-                <button
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    background: 'transparent',
-                    border: '1px solid #d1c3ca',
-                    color: '#57344f',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    flexShrink: 0
-                  }}
-                >
-                  <span>Enter</span>
-                  <MS icon="chevron_right" size={14} />
-                </button>
-              </div>
-            ))}
+          <div>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>
+              Work / Account Email *
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@dealflow360.internal"
+              style={{
+                width: '100%',
+                height: '38px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                background: '#f9fafb',
+                fontSize: '0.88rem',
+                color: '#111827',
+                outline: 'none',
+                fontFamily: 'inherit'
+              }}
+              required
+            />
           </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>
+              Password *
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder={isSignUp ? 'Minimum 6 characters' : 'Enter your password'}
+              style={{
+                width: '100%',
+                height: '38px',
+                padding: '0 12px',
+                borderRadius: '8px',
+                border: '1px solid #d1d5db',
+                background: '#f9fafb',
+                fontSize: '0.88rem',
+                color: '#111827',
+                outline: 'none',
+                fontFamily: 'inherit'
+              }}
+              required
+            />
+          </div>
+
+          {isSignUp && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: '5px' }}>
+                Phone Number (Optional)
+              </label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 (555) 019-2834"
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  padding: '0 12px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  background: '#f9fafb',
+                  fontSize: '0.88rem',
+                  color: '#111827',
+                  outline: 'none',
+                  fontFamily: 'inherit'
+                }}
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              height: '42px',
+              width: '100%',
+              marginTop: '4px',
+              borderRadius: '8px',
+              background: submitting ? '#9ca3af' : '#57344f',
+              color: '#ffffff',
+              border: 'none',
+              fontSize: '0.88rem',
+              fontWeight: 600,
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 8px rgba(87, 52, 79, 0.2)',
+              transition: 'background 0.15s ease'
+            }}
+          >
+            <span>{submitting ? 'Authenticating...' : (isSignUp ? 'Create Customer Account' : 'Sign In to Workspace')}</span>
+            <MS icon="arrow_forward" size={17} />
+          </button>
+        </form>
+
+        {/* Footer */}
+        <div style={{ fontSize: '0.7rem', color: '#9ca3af', textAlign: 'center', marginTop: '24px' }}>
+          DealFlow360 &copy; 2026 • Enterprise Q2C Platform
         </div>
 
       </div>

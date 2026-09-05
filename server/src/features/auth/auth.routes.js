@@ -4,6 +4,7 @@ const ctrl = require('./auth.controller');
 const authenticate = require('../../middleware/auth.middleware');
 
 
+router.get('/roles', ctrl.getRoles);
 router.post('/signup', ctrl.signup);
 router.post('/login', ctrl.login);
 router.post('/portal/login', ctrl.portalLogin);

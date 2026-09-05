@@ -15,8 +15,8 @@ const connectDB = async () => {
     await prisma.$connect();
     console.log(`[Database] Connected successfully in '${DB_MODE}' mode.`);
   } catch (error) {
-    console.error(`[Database] Connection failed in '${DB_MODE}' mode:`, error.message);
-    process.exit(1);
+    console.warn(`[Database] Initial connection notice in '${DB_MODE}' mode:`, error.message);
+    console.warn(`[Database] Server proceeding to handle requests and will retry DB connection on demand.`);
   }
 };
 

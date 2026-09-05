@@ -1,4 +1,5 @@
 const authService = require('./auth.service');
+const authModel = require('./auth.model');
 const {
   successResponse, createdResponse,
   badRequestResponse, unauthorizedResponse, conflictResponse
@@ -7,19 +8,29 @@ const {
 async function signup(req, res) {
   const { name, email, password, phone } = req.body;
   if (!name || !email || !password) return badRequestResponse(res, 'name, email and password are required');
-  if (password.length < 8) return badRequestResponse(res, 'Password must be at least 8 characters');
+  if (password.length < 6) return badRequestResponse(res, 'Password must be at least 6 characters');
 
   const result = await authService.signup(name, email, password, phone);
-  if (result.conflict) return conflictResponse(res, 'An account with this email already exists');
+  if (result.conflict) {
+    return res.status(409).json({
+      success: false,
+      conflict: true,
+      isEmployee: result.isEmployee,
+      role: result.role,
+      message: result.message || 'An account with this email already exists'
+    });
+  }
 
   res.cookie('refreshToken', result.refreshToken, authService.COOKIE_OPTIONS);
   return createdResponse(res, 'Account created successfully', {
     accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
     user: {
       id: result.user.id,
       email: result.user.email,
       name: result.user.name,
-      role: result.user.role
+      role: result.user.role,
+      roleId: result.user.roleId || result.user.role
     }
   });
 }
@@ -34,11 +45,13 @@ async function login(req, res) {
   res.cookie('refreshToken', result.refreshToken, authService.COOKIE_OPTIONS);
   return successResponse(res, 'Login successful', {
     accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
     user: {
       id: result.user.id,
       email: result.user.email,
       name: result.user.name,
-      role: result.user.role
+      role: result.user.role,
+      roleId: result.user.roleId || result.user.role
     }
   });
 }
@@ -53,19 +66,78 @@ async function portalLogin(req, res) {
   res.cookie('refreshToken', result.refreshToken, authService.COOKIE_OPTIONS);
   return successResponse(res, 'Portal login successful', {
     accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
     user: {
       id: result.user.id,
       email: result.user.email,
       name: result.user.name,
-      role: result.user.role
+      role: result.user.role,
+      roleId: result.user.roleId || result.user.role
     }
   });
 }
 
 async function googleAuth(req, res) {
-  return res.status(501).json({
-    success: false,
-    message: 'Google OAuth is not yet implemented'
+  const { credential, token, idToken, mode } = req.body;
+  const rawToken = credential || token || idToken;
+  if (!rawToken) {
+    return badRequestResponse(res, 'Google credential or idToken is required');
+  }
+
+  if (mode === 'signup') {
+    const result = await authService.signupWithGoogle({ token: rawToken });
+    if (result.conflict) {
+      return res.status(409).json({
+        success: false,
+        conflict: true,
+        isEmployee: result.isEmployee,
+        role: result.role,
+        roleId: result.roleId || result.role,
+        message: result.message
+      });
+    }
+    if (result.invalid) {
+      return unauthorizedResponse(res, result.error || 'Google registration failed');
+    }
+
+    res.cookie('refreshToken', result.refreshToken, authService.COOKIE_OPTIONS);
+    return createdResponse(res, 'Google account registered successfully', {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      user: {
+        id: result.user.id,
+        email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
+        roleId: result.user.roleId || result.user.role
+      }
+    });
+  }
+
+  // Default: Login mode
+  const result = await authService.loginWithGoogle({ token: rawToken });
+  if (result.notFound) {
+    return res.status(404).json({
+      success: false,
+      notFound: true,
+      message: result.error || 'No account found with this Google email. Please sign up first.'
+    });
+  }
+  if (result.invalid) {
+    return unauthorizedResponse(res, result.error || 'Google authentication failed');
+  }
+
+  res.cookie('refreshToken', result.refreshToken, authService.COOKIE_OPTIONS);
+  return successResponse(res, 'Google authentication successful', {
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
+    user: {
+      id: result.user.id,
+      email: result.user.email,
+      name: result.user.name,
+      role: result.user.role,
+      roleId: result.user.roleId || result.user.role
+    }
   });
 }
 
@@ -103,4 +175,9 @@ async function changePassword(req, res) {
   return successResponse(res, 'Password changed successfully');
 }
 
-module.exports = { signup, login, portalLogin, googleAuth, refresh, logout, me, changePassword };
+async function getRoles(req, res) {
+  const roles = await authModel.getAllRoles();
+  return successResponse(res, 'Roles retrieved successfully', roles);
+}
+
+module.exports = { signup, login, portalLogin, googleAuth, refresh, logout, me, changePassword, getRoles };
