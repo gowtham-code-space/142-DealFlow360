@@ -64,10 +64,10 @@ export default function Login() {
       title: 'Administrator',
       desc: 'Configure governance policies, tier caps, user permissions, and system settings.',
       icon: 'admin_panel_settings',
-      route: '/dashboard/admin',
+      route: '/admin/dashboard',
       badgeColor: '#7c3aed',
       badgeBg: 'rgba(124, 58, 237, 0.1)',
-      isDeveloped: false
+      isDeveloped: true
     },
     {
       role: ROLES.CUSTOMER,

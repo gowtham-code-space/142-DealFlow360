@@ -9,6 +9,15 @@ import SalesDashboard from './pages/dashboard/SalesDashboard';
 import ManagerDashboard from './pages/dashboard/ManagerDashboard';
 import OperationsDashboard from './pages/dashboard/OperationsDashboard';
 import AdminDashboard from './pages/dashboard/AdminDashboard';
+import ApprovalRules from './pages/admin/ApprovalRules';
+import CustomerConfig from './pages/admin/CustomerConfig';
+import ProductCatalogGov from './pages/admin/ProductCatalogGov';
+import ResourcesWarehouses from './pages/admin/ResourcesWarehouses';
+import DiscountPolicies from './pages/admin/DiscountPolicies';
+import UsersRolesRBAC from './pages/admin/UsersRolesRBAC';
+import SubscriptionPlans from './pages/admin/SubscriptionPlans';
+import AuditLogs from './pages/admin/AuditLogs';
+import SystemSettings from './pages/admin/SystemSettings';
 import QuoteList from './pages/quotations/QuoteList';
 import QuoteCreate from './pages/quotations/QuoteCreate';
 import QuoteDetails from './pages/quotations/QuoteDetails';
@@ -94,6 +103,66 @@ export default function App() {
           <Route path="/dashboard/admin" element={
             <DashboardRouteWrapper>
               <AdminDashboard />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/dashboard" element={
+            <DashboardRouteWrapper>
+              <AdminDashboard />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/approval-rules" element={
+            <DashboardRouteWrapper>
+              <ApprovalRules />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/customers" element={
+            <DashboardRouteWrapper>
+              <CustomerConfig />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/products" element={
+            <DashboardRouteWrapper>
+              <ProductCatalogGov />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/resources-warehouses" element={
+            <DashboardRouteWrapper>
+              <ResourcesWarehouses />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/discount-policies" element={
+            <DashboardRouteWrapper>
+              <DiscountPolicies />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/users-and-roles" element={
+            <DashboardRouteWrapper>
+              <UsersRolesRBAC />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/subscription-plans" element={
+            <DashboardRouteWrapper>
+              <SubscriptionPlans />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/audit-logs" element={
+            <DashboardRouteWrapper>
+              <AuditLogs />
+            </DashboardRouteWrapper>
+          } />
+
+          <Route path="/admin/system-settings" element={
+            <DashboardRouteWrapper>
+              <SystemSettings />
             </DashboardRouteWrapper>
           } />
 

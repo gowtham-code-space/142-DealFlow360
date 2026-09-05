@@ -53,24 +53,54 @@ export default function Sidebar() {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 1, paddingBottom: 8 }}>
           {isAdminView ? (
             <>
-              <NavLink to="/dashboard/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                <MS icon="speed" size={18} />
+              <NavLink to="/admin/dashboard" className={({ isActive }) => `nav-item ${isActive || location.pathname === '/dashboard/admin' ? 'active' : ''}`}>
+                <MS icon="dashboard" size={18} />
                 <span>Admin Dashboard</span>
               </NavLink>
 
-              <NavLink to="/dashboard/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                <MS icon="policy" size={18} />
-                <span>Governance Policies</span>
-              </NavLink>
-
-              <NavLink to="/customers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+              <NavLink to="/admin/customers" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                 <MS icon="group" size={18} />
-                <span>Accounts & Users</span>
+                <span>Customers</span>
               </NavLink>
 
-              <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                <MS icon="notifications" size={18} />
-                <span>Audit & Notifications</span>
+              <NavLink to="/admin/products" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="inventory_2" size={18} />
+                <span>Products</span>
+              </NavLink>
+
+              <NavLink to="/admin/discount-policies" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="percent" size={18} />
+                <span>Discount Policies</span>
+              </NavLink>
+
+              <NavLink to="/admin/approval-rules" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="rule" size={18} />
+                <span>Approval Rules</span>
+              </NavLink>
+
+              <NavLink to="/admin/resources-warehouses" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="warehouse" size={18} />
+                <span>Resources / Warehouses</span>
+              </NavLink>
+
+              <NavLink to="/admin/subscription-plans" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="loyalty" size={18} />
+                <span>Subscription Plans</span>
+              </NavLink>
+
+              <NavLink to="/admin/users-and-roles" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="admin_panel_settings" size={18} />
+                <span>Users & Roles</span>
+              </NavLink>
+
+              <NavLink to="/admin/audit-logs" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="receipt_long" size={18} />
+                <span>Audit Logs</span>
+              </NavLink>
+
+              <NavLink to="/admin/system-settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                <MS icon="settings" size={18} />
+                <span>System Settings</span>
               </NavLink>
             </>
           ) : isManagerView ? (
