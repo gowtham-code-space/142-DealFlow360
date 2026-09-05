@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/formatters';
-import { MOCK_PRODUCTS } from '../../utils/constants';
+import { api } from '../../services/api';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
 
@@ -10,24 +10,21 @@ const MS = ({ icon, size = 18 }) => (
 
 const DEFAULT_PRODUCT_FORM = {
   id: '',
+  sku: '',
   name: '',
   category: 'Hardware',
+  productType: 'HARDWARE',
   listPrice: 500000,
   costPrice: 300000,
+  tax: 18.0,
   minMargin: 20,
-  billingType: 'ONE_TIME',
+  isRecurring: false,
   isUpsell: false,
   status: 'Active'
 };
 
 export default function ProductCatalogGov() {
-  const [products, setProducts] = useState(
-    MOCK_PRODUCTS.map(p => ({
-      ...p,
-      status: p.status || 'Active'
-    }))
-  );
-
+  const [products, setProducts] = useState([]);
   const [filterCategory, setFilterCategory] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -50,12 +47,46 @@ export default function ProductCatalogGov() {
     setToast({ message, type });
   };
 
+  const loadProducts = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getProducts();
+      if (res && res.success && Array.isArray(res.data)) {
+        const mapped = res.data.map(p => ({
+          id: p.id,
+          sku: p.sku || p.id,
+          name: p.name,
+          category: p.category || 'Hardware',
+          productType: p.productType || 'HARDWARE',
+          listPrice: Number(p.listPrice || 0),
+          costPrice: Number(p.cost || p.costPrice || 0),
+          tax: Number(p.tax || 18.0),
+          minMargin: Number(p.minMargin || 20.0),
+          billingType: p.isRecurring ? 'RECURRING' : 'ONE_TIME',
+          isRecurring: Boolean(p.isRecurring),
+          isUpsell: Boolean(p.isUpsell),
+          status: p.isActive !== false ? 'Active' : 'Inactive'
+        }));
+        setProducts(mapped);
+      }
+    } catch {
+      showToast('Could not load products from server', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
   // Open Add Product Modal
   const handleOpenAddModal = () => {
     setEditingProduct(null);
     setFormData({
       ...DEFAULT_PRODUCT_FORM,
-      id: `PRD-${String(products.length + 101).padStart(3, '0')}`
+      id: '',
+      sku: ''
     });
     setFormErrors({});
     setIsFormModalOpen(true);
@@ -96,35 +127,61 @@ export default function ProductCatalogGov() {
   };
 
   // Handle Save
-  const handleSaveProduct = (e) => {
+  const handleSaveProduct = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const updatedProduct = {
-      ...formData,
+    const payload = {
+      name: formData.name,
+      sku: formData.sku || formData.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+      category: formData.category,
+      productType: formData.category.toUpperCase().includes('SOFT') ? 'SOFTWARE' : formData.category.toUpperCase().includes('SERV') ? 'SERVICE' : 'HARDWARE',
       listPrice: Number(formData.listPrice),
-      costPrice: Number(formData.costPrice),
-      minMargin: Number(formData.minMargin)
+      cost: Number(formData.costPrice),
+      tax: Number(formData.tax || 18.0),
+      minMargin: Number(formData.minMargin),
+      isRecurring: formData.billingType === 'RECURRING' || formData.isRecurring,
+      isUpsell: Boolean(formData.isUpsell),
+      isActive: formData.status === 'Active'
     };
 
     if (editingProduct) {
-      setProducts(products.map(p => p.id === editingProduct.id ? updatedProduct : p));
-      showToast(`Product SKU "${updatedProduct.name}" updated successfully.`);
+      const res = await api.updateProduct(editingProduct.id, payload);
+      if (res && res.success) {
+        showToast(`Product SKU "${formData.name}" updated successfully.`);
+        loadProducts();
+      } else {
+        showToast(res?.message || 'Failed to update product', 'error');
+      }
     } else {
-      setProducts([updatedProduct, ...products]);
-      showToast(`New product SKU "${updatedProduct.name}" added to catalog.`);
+      const res = await api.createProduct(payload);
+      if (res && res.success) {
+        showToast(`New product SKU "${formData.name}" added to catalog.`);
+        loadProducts();
+      } else {
+        showToast(res?.message || 'Failed to create product', 'error');
+      }
     }
 
     setIsFormModalOpen(false);
   };
 
   // Handle Toggle Status
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedProduct) return;
-    const newStatus = selectedProduct.status === 'Active' ? 'Inactive' : 'Active';
+    const isActivating = selectedProduct.status !== 'Active';
 
-    setProducts(products.map(p => p.id === selectedProduct.id ? { ...p, status: newStatus } : p));
-    showToast(`SKU "${selectedProduct.name}" status set to ${newStatus}.`, 'info');
+    const res = await api.updateProduct(selectedProduct.id, {
+      name: selectedProduct.name,
+      isActive: isActivating
+    });
+
+    if (res && res.success) {
+      showToast(`SKU "${selectedProduct.name}" status updated.`, 'info');
+      loadProducts();
+    } else {
+      showToast(res?.message || 'Failed to update status', 'error');
+    }
     setIsConfirmModalOpen(false);
   };
 

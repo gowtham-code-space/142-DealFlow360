@@ -1,60 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
-import { useNotifications } from '../../context/NotificationContext';
-import { ROLES } from '../../utils/constants';
+import { api } from '../../services/api';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-const INITIAL_POLICIES = [
-  {
-    id: 'POL-001',
-    tier: 'STANDARD',
-    policyName: 'Standard Tier Default Policy',
-    category: 'ALL',
-    autoApproveCap: 5.0,
-    managerReviewRange: '5.1% - 10.0%',
-    executiveRange: '10.1% - 45.0%',
-    hardRejectionCap: 45.0,
-    marginFloor: 22.0,
-    stacking: 'Single Line Discount',
-    status: 'Active'
-  },
-  {
-    id: 'POL-002',
-    tier: 'GOLD',
-    policyName: 'Gold Enterprise Acceleration Policy',
-    category: 'ALL',
-    autoApproveCap: 12.0,
-    managerReviewRange: '12.1% - 20.0%',
-    executiveRange: '20.1% - 45.0%',
-    hardRejectionCap: 45.0,
-    marginFloor: 20.0,
-    stacking: 'Volume + Line Discount',
-    status: 'Active'
-  },
-  {
-    id: 'POL-003',
-    tier: 'PLATINUM',
-    policyName: 'Apex Platinum Strategic Policy',
-    category: 'ALL',
-    autoApproveCap: 20.0,
-    managerReviewRange: '20.1% - 30.0%',
-    executiveRange: '30.1% - 45.0%',
-    hardRejectionCap: 45.0,
-    marginFloor: 18.0,
-    stacking: 'Custom SLA + Line Discount',
-    status: 'Active'
-  }
-];
-
 const DEFAULT_POLICY_FORM = {
   id: '',
   policyName: '',
-  tier: 'GOLD',
-  category: 'ALL',
+  tier: 'STANDARD',
+  category: 'Hardware',
   autoApproveCap: 10.0,
   hardRejectionCap: 45.0,
   marginFloor: 20.0,
@@ -63,8 +20,7 @@ const DEFAULT_POLICY_FORM = {
 };
 
 export default function DiscountPolicies() {
-  const { addNotification } = useNotifications();
-  const [policies, setPolicies] = useState(INITIAL_POLICIES);
+  const [policies, setPolicies] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
@@ -86,12 +42,51 @@ export default function DiscountPolicies() {
     setToast({ message, type });
   };
 
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [polRes, typesRes] = await Promise.all([
+        api.getDiscountPolicies(),
+        api.getDiscountTypes()
+      ]);
+
+      if (polRes && polRes.success && Array.isArray(polRes.data)) {
+        const mapped = polRes.data.map(p => ({
+          id: p.id,
+          tier: p.customerTier,
+          policyName: `${p.customerTier} Tier — ${p.productCategory}`,
+          category: p.productCategory,
+          autoApproveCap: Number(p.maxDiscountPct),
+          managerReviewRange: `${(Number(p.maxDiscountPct) + 0.1).toFixed(1)}% - ${Math.min(Number(p.maxDiscountPct) + 10, 45).toFixed(1)}%`,
+          executiveRange: `${(Math.min(Number(p.maxDiscountPct) + 10, 45) + 0.1).toFixed(1)}% - 45.0%`,
+          hardRejectionCap: 45.0,
+          marginFloor: 20.0,
+          stacking: 'Tier Matrix Rule',
+          status: p.isActive !== false ? 'Active' : 'Inactive'
+        }));
+        setPolicies(mapped);
+      }
+
+      if (typesRes && typesRes.success && Array.isArray(typesRes.data)) {
+        setDiscountTypes(typesRes.data);
+      }
+    } catch {
+      showToast('Could not load discount policies from server', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   // Open Form for Add
   const handleOpenAddModal = () => {
     setEditingPolicy(null);
     setFormData({
       ...DEFAULT_POLICY_FORM,
-      id: `POL-${String(policies.length + 1).padStart(3, '0')}`
+      id: ''
     });
     setFormErrors({});
     setIsFormModalOpen(true);
@@ -120,7 +115,6 @@ export default function DiscountPolicies() {
   // Form Validation
   const validateForm = () => {
     const errors = {};
-    if (!formData.policyName.trim()) errors.policyName = 'Policy Name is required';
     if (formData.autoApproveCap < 0 || formData.autoApproveCap > 100) errors.autoApproveCap = 'Auto Approve Cap must be 0-100%';
     if (formData.hardRejectionCap <= formData.autoApproveCap) errors.hardRejectionCap = 'Hard Rejection Cap must exceed Auto Approve Cap';
     if (formData.marginFloor < 0 || formData.marginFloor > 100) errors.marginFloor = 'Margin floor must be 0-100%';
@@ -130,61 +124,66 @@ export default function DiscountPolicies() {
   };
 
   // Handle Save
-  const handleSavePolicy = (e) => {
+  const handleSavePolicy = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const autoCap = Number(formData.autoApproveCap);
-    const hardCap = Number(formData.hardRejectionCap);
-    const midRangeStart = (autoCap + 0.1).toFixed(1);
-    const midRangeEnd = Math.min(autoCap + 10, hardCap).toFixed(1);
-    const execStart = (Number(midRangeEnd) + 0.1).toFixed(1);
-
-    const updatedPolicy = {
-      ...formData,
-      autoApproveCap: autoCap,
-      hardRejectionCap: hardCap,
-      marginFloor: Number(formData.marginFloor),
-      managerReviewRange: `${midRangeStart}% - ${midRangeEnd}%`,
-      executiveRange: `${execStart}% - ${hardCap.toFixed(1)}%`
-    };
+    const maxDiscountPct = Number(formData.autoApproveCap);
 
     if (editingPolicy) {
-      setPolicies(policies.map(p => p.id === editingPolicy.id ? updatedPolicy : p));
-      showToast(`Discount policy "${updatedPolicy.policyName}" updated successfully.`);
-    } else {
-      setPolicies([...policies, updatedPolicy]);
-      showToast(`New discount policy "${updatedPolicy.policyName}" created successfully.`);
-    }
+      const res = await api.updateDiscountPolicy(editingPolicy.id, {
+        maxDiscountPct,
+        isActive: formData.status === 'Active'
+      });
 
-    addNotification({
-      recipientRole: ROLES.ADMIN,
-      type: 'POLICY_UPDATED',
-      priority: 'INFO',
-      title: editingPolicy ? 'Discount policy updated' : 'New discount policy created',
-      message: `A discount governance policy (${updatedPolicy.policyName}) has changed.`,
-      relatedEntity: 'policy',
-      relatedId: updatedPolicy.id,
-      targetUrl: '/admin/discount-policies'
-    });
+      if (res && res.success) {
+        showToast(`Discount policy updated successfully.`);
+        loadData();
+      } else {
+        showToast(res?.message || 'Failed to update policy', 'error');
+      }
+    } else {
+      const res = await api.createDiscountPolicy({
+        customerTier: formData.tier,
+        productCategory: formData.category,
+        maxDiscountPct
+      });
+
+      if (res && res.success) {
+        showToast(`New discount policy created successfully.`);
+        loadData();
+      } else {
+        showToast(res?.message || 'Failed to create policy', 'error');
+      }
+    }
 
     setIsFormModalOpen(false);
   };
 
   // Handle Toggle Status
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedPolicy) return;
-    const newStatus = selectedPolicy.status === 'Active' ? 'Inactive' : 'Active';
+    const isActivating = selectedPolicy.status !== 'Active';
 
-    setPolicies(policies.map(p => p.id === selectedPolicy.id ? { ...p, status: newStatus } : p));
-    showToast(`Policy for "${selectedPolicy.tier}" set to ${newStatus}.`, 'info');
+    const res = await api.updateDiscountPolicy(selectedPolicy.id, {
+      maxDiscountPct: selectedPolicy.autoApproveCap,
+      isActive: isActivating
+    });
+
+    if (res && res.success) {
+      showToast(`Policy status updated.`, 'info');
+      loadData();
+    } else {
+      showToast(res?.message || 'Failed to update status', 'error');
+    }
     setIsConfirmModalOpen(false);
   };
 
   // Filtered Policies
   const filteredPolicies = policies.filter(p =>
     p.policyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.tier.toLowerCase().includes(searchTerm.toLowerCase())
+    p.tier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

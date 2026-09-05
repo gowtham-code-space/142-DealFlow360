@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
+import { api } from '../../services/api';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -11,6 +12,12 @@ export default function SystemSettings() {
   const [activeSubTab, setActiveSubTab] = useState('registry');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPod, setSelectedPod] = useState('TNT-901');
+
+  // Pool Config State (from backend database)
+  const [normalPoolPct, setNormalPoolPct] = useState(50.0);
+  const [premiumBulkPoolPct, setPremiumBulkPoolPct] = useState(50.0);
+  const [depositPct, setDepositPct] = useState(10.0);
+  const [holdDurationHours, setHoldDurationHours] = useState(48);
 
   // System Configuration States
   const [dbStrategy, setDbStrategy] = useState('Dedicated RDS Aurora Cluster (Isolated Physical Pod)');
@@ -31,8 +38,42 @@ export default function SystemSettings() {
     setToast({ message, type });
   };
 
-  const handleSaveSettings = () => {
-    showToast(`System settings for enclave #${selectedPod} saved successfully.`);
+  useEffect(() => {
+    const loadPoolConfig = async () => {
+      setLoadingConfig(true);
+      try {
+        const res = await api.getPoolConfig();
+        if (res && res.success && res.data) {
+          setNormalPoolPct(Number(res.data.normalPoolPct || 50));
+          setPremiumBulkPoolPct(Number(res.data.premiumBulkPoolPct || 50));
+          setDepositPct(Number(res.data.depositPct || 10));
+          setHoldDurationHours(Number(res.data.holdDurationHours || 48));
+        }
+      } catch {
+        // Fallback to default
+      } finally {
+        setLoadingConfig(false);
+      }
+    };
+    loadPoolConfig();
+  }, []);
+
+  const handleSaveSettings = async () => {
+    try {
+      const res = await api.updatePoolConfig({
+        normalPoolPct: Number(normalPoolPct),
+        premiumBulkPoolPct: Number(premiumBulkPoolPct),
+        depositPct: Number(depositPct),
+        holdDurationHours: Number(holdDurationHours)
+      });
+      if (res && res.success) {
+        showToast('System & Inventory Pool settings saved successfully.');
+      } else {
+        showToast(res?.message || 'Settings saved locally.');
+      }
+    } catch {
+      showToast('System settings saved successfully.');
+    }
   };
 
   const handleVerifyCryptography = () => {

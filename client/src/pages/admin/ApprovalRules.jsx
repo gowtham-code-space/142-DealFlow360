@@ -1,25 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
-import { useNotifications } from '../../context/NotificationContext';
-import { ROLES } from '../../utils/constants';
+import { api } from '../../services/api';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-const INITIAL_RULES = [
-  { id: 'ARULE-101', name: 'Standard Tier Over-Discount', tier: 'STANDARD', conditions: 'Discount > 10% AND <= 20%', approver: 'Sales Manager (Single-Sig)', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE' },
-  { id: 'ARULE-102', name: 'Gold Tier Over-Discount', tier: 'GOLD', conditions: 'Discount > 20% AND <= 30%', approver: 'Sales Manager (Single-Sig)', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE' },
-  { id: 'ARULE-103', name: 'Platinum Tier Deep Discount', tier: 'PLATINUM', conditions: 'Discount > 30% AND <= 40%', approver: 'VP Sales & VP Finance (Dual-Sig)', sla: '12 Hours', onExpire: 'Escalate to CEO', status: 'ACTIVE' },
-  { id: 'ARULE-201', name: 'Low Margin Profit Lock', tier: 'ALL', conditions: 'Gross Margin 22.0% - 29.9%', approver: 'Finance Ops Manager', sla: '18 Hours', onExpire: 'Require Cost Breakdown', status: 'ACTIVE' },
-  { id: 'ARULE-301', name: 'Mega Deal Threshold Gate', tier: 'ALL', conditions: 'Total Value > ₹2,00,00,000', approver: 'VP Sales & VP Finance', sla: '8 Hours', onExpire: 'Urgent Executive Alert', status: 'ACTIVE' },
-  { id: 'ARULE-999', name: 'Hard Ceiling System Floor', tier: 'ALL', conditions: 'Discount > 45% OR Margin < 22%', approver: 'System Auto-Reject', sla: 'Instant', onExpire: 'Block Deal Submission', status: 'HARD FLOOR' }
-];
-
 export default function ApprovalRules() {
-  const { addNotification } = useNotifications();
-  const [rules, setRules] = useState(INITIAL_RULES);
+  const [rules, setRules] = useState([]);
   const [filterTier, setFilterTier] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [toastMsg, setToastMsg] = useState('');
@@ -28,7 +17,16 @@ export default function ApprovalRules() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [formData, setFormData] = useState({
-    id: '', name: '', tier: 'STANDARD', conditions: '', approver: '', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE'
+    id: '',
+    name: '',
+    tier: 'STANDARD',
+    salesRepOnlyMaxOverCeilingPct: 5.0,
+    financeThresholdOverCeilingPct: 15.0,
+    conditions: '',
+    approver: 'Sales Manager / Finance Ops',
+    sla: '24 Hours',
+    onExpire: 'Escalate to VP Sales',
+    status: 'ACTIVE'
   });
   const [formErrors, setFormErrors] = useState({});
 
@@ -40,11 +38,49 @@ export default function ApprovalRules() {
     setTimeout(() => setToastMsg(''), 3000);
   };
 
+  const loadRules = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getApprovalChains();
+      if (res && res.success && Array.isArray(res.data)) {
+        const mapped = res.data.map(r => ({
+          id: r.id,
+          name: r.description || `Approval Rule (${r.id})`,
+          tier: 'ALL',
+          salesRepOnlyMaxOverCeilingPct: Number(r.salesRepOnlyMaxOverCeilingPct || 5),
+          financeThresholdOverCeilingPct: Number(r.financeThresholdOverCeilingPct || 15),
+          conditions: `Rep Max: ${r.salesRepOnlyMaxOverCeilingPct}% over ceiling | Finance: >${r.financeThresholdOverCeilingPct}%`,
+          approver: Number(r.financeThresholdOverCeilingPct) > 15 ? 'Finance Ops Manager' : 'Sales Manager / Approver',
+          sla: '24 Hours',
+          onExpire: 'Escalate to VP Sales',
+          status: r.isActive !== false ? 'ACTIVE' : 'DISABLED'
+        }));
+        setRules(mapped);
+      }
+    } catch {
+      showToast('Could not load approval rules from server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRules();
+  }, []);
+
   const handleOpenAdd = () => {
     setEditingRule(null);
     setFormData({
-      id: `ARULE-${Math.floor(100 + Math.random() * 900)}`,
-      name: '', tier: 'STANDARD', conditions: '', approver: '', sla: '24 Hours', onExpire: 'Escalate to VP Sales', status: 'ACTIVE'
+      id: '',
+      name: '',
+      tier: 'STANDARD',
+      salesRepOnlyMaxOverCeilingPct: 5.0,
+      financeThresholdOverCeilingPct: 15.0,
+      conditions: '',
+      approver: 'Sales Manager / Approver',
+      sla: '24 Hours',
+      onExpire: 'Escalate to VP Sales',
+      status: 'ACTIVE'
     });
     setFormErrors({});
     setIsFormOpen(true);
@@ -57,45 +93,59 @@ export default function ApprovalRules() {
     setIsFormOpen(true);
   };
 
-  const handleSaveForm = (e) => {
+  const handleSaveForm = async (e) => {
     e.preventDefault();
     const errors = {};
-    if (!formData.name.trim()) errors.name = 'Rule Name is required';
-    if (!formData.conditions.trim()) errors.conditions = 'Trigger Conditions are required';
-    if (!formData.approver.trim()) errors.approver = 'Assigned Approver is required';
+    if (!formData.name.trim()) errors.name = 'Rule Description is required';
 
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
       return;
     }
 
-    if (editingRule) {
-      setRules(prev => prev.map(r => r.id === editingRule.id ? { ...formData } : r));
-      showToast(`Approval rule "${formData.name}" updated successfully.`);
-    } else {
-      setRules(prev => [formData, ...prev]);
-      showToast(`Approval rule "${formData.name}" created successfully.`);
-    }
+    const payload = {
+      description: formData.name,
+      salesRepOnlyMaxOverCeilingPct: Number(formData.salesRepOnlyMaxOverCeilingPct || 5),
+      financeThresholdOverCeilingPct: Number(formData.financeThresholdOverCeilingPct || 15),
+      isActive: formData.status === 'ACTIVE'
+    };
 
-    addNotification({
-      recipientRole: ROLES.ADMIN,
-      type: 'APPROVAL_RULE_UPDATED',
-      priority: 'INFO',
-      title: editingRule ? 'Approval rule updated' : 'New approval rule created',
-      message: `An approval governance rule (${formData.name}) has been modified.`,
-      relatedEntity: 'rule',
-      relatedId: formData.id || 'ARULE',
-      targetUrl: '/admin/approval-rules'
-    });
+    if (editingRule) {
+      const res = await api.updateApprovalChain(editingRule.id, payload);
+      if (res && res.success) {
+        showToast(`Approval rule "${formData.name}" updated successfully.`);
+        loadRules();
+      } else {
+        showToast(res?.message || 'Failed to update rule');
+      }
+    } else {
+      const res = await api.createApprovalChain(payload);
+      if (res && res.success) {
+        showToast(`Approval rule "${formData.name}" created successfully.`);
+        loadRules();
+      } else {
+        showToast(res?.message || 'Failed to create rule');
+      }
+    }
 
     setIsFormOpen(false);
   };
 
-  const handleToggleStatus = (rule) => {
-    if (rule.status === 'HARD FLOOR') return;
-    const newStatus = rule.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
-    setRules(prev => prev.map(r => r.id === rule.id ? { ...r, status: newStatus } : r));
-    showToast(`Rule ${rule.id} status changed to ${newStatus}.`);
+  const handleToggleStatus = async (rule) => {
+    const isActivating = rule.status !== 'ACTIVE';
+    const res = await api.updateApprovalChain(rule.id, {
+      description: rule.name,
+      salesRepOnlyMaxOverCeilingPct: rule.salesRepOnlyMaxOverCeilingPct,
+      financeThresholdOverCeilingPct: rule.financeThresholdOverCeilingPct,
+      isActive: isActivating
+    });
+
+    if (res && res.success) {
+      showToast(`Rule ${rule.id} status updated.`);
+      loadRules();
+    } else {
+      showToast(res?.message || 'Failed to update status');
+    }
   };
 
   const filteredRules = rules.filter(rule => {

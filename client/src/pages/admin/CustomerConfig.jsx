@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/formatters';
-import { MOCK_CUSTOMERS } from '../../utils/constants';
+import { api } from '../../services/api';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
 
@@ -11,26 +11,20 @@ const MS = ({ icon, size = 18 }) => (
 const DEFAULT_FORM_DATA = {
   id: '',
   name: '',
-  tier: 'GOLD',
+  email: '',
+  phone: '',
+  address: '',
+  tier: 'STANDARD',
   creditLimit: 10000000,
   riskScore: 25,
-  purchaseModel: 'RECURRING_PREMIUM',
+  paymentTerms: 'Net-30',
+  purchaseModel: 'ONE_TIME',
   slaLevel: 'High-Priority (24h)',
-  contactEmail: '',
   status: 'Active'
 };
 
 export default function CustomerConfig() {
-  const [customers, setCustomers] = useState(
-    MOCK_CUSTOMERS.map(c => ({
-      ...c,
-      status: c.status || 'Active',
-      purchaseModel: c.tier === 'PLATINUM' ? 'RECURRING_PREMIUM' : c.tier === 'GOLD' ? 'BULK_ONE_TIME' : 'ONE_TIME',
-      slaLevel: c.tier === 'PLATINUM' ? 'Mission Critical (4h)' : c.tier === 'GOLD' ? 'High-Priority (24h)' : 'Standard (48h)',
-      contactEmail: `contact@${c.name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`
-    }))
-  );
-
+  const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [tierFilter, setTierFilter] = useState('ALL');
 
@@ -52,12 +46,45 @@ export default function CustomerConfig() {
     setToast({ message, type });
   };
 
+  const loadCustomers = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getCustomers();
+      if (res && res.success && Array.isArray(res.data)) {
+        const mapped = res.data.map(c => ({
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          contactEmail: c.email,
+          phone: c.phone || '',
+          address: c.address || '',
+          tier: c.tier || 'STANDARD',
+          creditLimit: Number(c.creditLimit || 10000000),
+          riskScore: Number(c.riskScore || 20),
+          paymentTerms: c.paymentTerms || 'Net-30',
+          purchaseModel: c.tier === 'PLATINUM' ? 'RECURRING_PREMIUM' : c.tier === 'GOLD' ? 'BULK_ONE_TIME' : 'ONE_TIME',
+          slaLevel: c.tier === 'PLATINUM' ? 'Mission Critical (4h)' : c.tier === 'GOLD' ? 'High-Priority (24h)' : 'Standard (48h)',
+          status: c.isActive !== false ? 'Active' : 'Inactive'
+        }));
+        setCustomers(mapped);
+      }
+    } catch {
+      showToast('Could not load customer accounts from server', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
   // Open Form for Add
   const handleOpenAddModal = () => {
     setEditingCustomer(null);
     setFormData({
       ...DEFAULT_FORM_DATA,
-      id: `CUST-${String(customers.length + 1).padStart(3, '0')}`
+      id: ''
     });
     setFormErrors({});
     setIsFormModalOpen(true);
@@ -87,8 +114,8 @@ export default function CustomerConfig() {
   const validateForm = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Customer Name is required';
+    if (!formData.email?.trim() || !formData.email.includes('@')) errors.email = 'Valid Email is required';
     if (!formData.tier) errors.tier = 'Customer Tier is required';
-    if (!formData.purchaseModel) errors.purchaseModel = 'Purchase Model is required';
     if (formData.creditLimit < 0) errors.creditLimit = 'Credit limit cannot be negative';
     if (formData.riskScore < 0 || formData.riskScore > 100) errors.riskScore = 'Risk score must be between 0 and 100';
 
@@ -97,36 +124,58 @@ export default function CustomerConfig() {
   };
 
   // Handle Save (Add / Edit)
-  const handleSaveCustomer = (e) => {
+  const handleSaveCustomer = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const maxDisc = formData.tier === 'PLATINUM' ? 30 : formData.tier === 'GOLD' ? 20 : 10;
-    const updatedCustomer = {
-      ...formData,
+    const payload = {
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone || null,
+      address: formData.address || null,
+      tier: formData.tier,
       creditLimit: Number(formData.creditLimit),
       riskScore: Number(formData.riskScore),
-      maxDiscount: maxDisc
+      paymentTerms: formData.paymentTerms || 'Net-30',
+      isActive: formData.status === 'Active'
     };
 
     if (editingCustomer) {
-      setCustomers(customers.map(c => c.id === editingCustomer.id ? updatedCustomer : c));
-      showToast(`Customer account "${updatedCustomer.name}" updated successfully.`);
+      const res = await api.updateCustomer(editingCustomer.id, payload);
+      if (res && res.success) {
+        showToast(`Customer account "${formData.name}" updated successfully.`);
+        loadCustomers();
+      } else {
+        showToast(res?.message || 'Failed to update customer', 'error');
+      }
     } else {
-      setCustomers([updatedCustomer, ...customers]);
-      showToast(`New customer account "${updatedCustomer.name}" onboarded successfully.`);
+      const res = await api.createCustomer(payload);
+      if (res && res.success) {
+        showToast(`New customer account "${formData.name}" onboarded successfully.`);
+        loadCustomers();
+      } else {
+        showToast(res?.message || 'Failed to onboard customer', 'error');
+      }
     }
 
     setIsFormModalOpen(false);
   };
 
   // Handle Deactivate / Toggle Status
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedCustomer) return;
-    const newStatus = selectedCustomer.status === 'Active' ? 'Inactive' : 'Active';
+    const isDeactivating = selectedCustomer.status === 'Active';
 
-    setCustomers(customers.map(c => c.id === selectedCustomer.id ? { ...c, status: newStatus } : c));
-    showToast(`Account "${selectedCustomer.name}" status updated to ${newStatus}.`, 'info');
+    const res = isDeactivating
+      ? await api.deleteCustomer(selectedCustomer.id)
+      : await api.reactivateCustomer(selectedCustomer.id);
+
+    if (res && res.success) {
+      showToast(`Account status updated.`, 'info');
+      loadCustomers();
+    } else {
+      showToast(res?.message || 'Failed to update status', 'error');
+    }
     setIsConfirmModalOpen(false);
   };
 

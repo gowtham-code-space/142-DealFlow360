@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { formatCurrency } from '../../utils/formatters';
-import { MOCK_WAREHOUSES } from '../../utils/constants';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../services/api';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
 
@@ -11,21 +10,19 @@ const MS = ({ icon, size = 18 }) => (
 const DEFAULT_WAREHOUSE_FORM = {
   id: '',
   name: '',
+  code: '',
   region: 'East Coast',
+  location: '',
+  locationLat: 13.0827,
+  locationLng: 80.2707,
+  shippingCostFactor: 1.0,
   stock: 500,
   shippingCostRate: 100,
   status: 'Active'
 };
 
 export default function ResourcesWarehouses() {
-  const [warehouses, setWarehouses] = useState(
-    MOCK_WAREHOUSES.map(w => ({
-      ...w,
-      status: w.status || 'Active',
-      region: w.name.includes('East') ? 'East Coast' : w.name.includes('West') ? 'West Coast' : 'Midwest'
-    }))
-  );
-
+  const [warehouses, setWarehouses] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
@@ -47,12 +44,43 @@ export default function ResourcesWarehouses() {
     setToast({ message, type });
   };
 
+  const loadWarehouses = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getWarehouses();
+      if (res && res.success && Array.isArray(res.data)) {
+        const mapped = res.data.map(w => ({
+          id: w.id,
+          name: w.name,
+          code: w.code || w.id,
+          region: w.region || 'Regional Hub',
+          location: w.location || '',
+          locationLat: Number(w.locationLat || 0),
+          locationLng: Number(w.locationLng || 0),
+          shippingCostFactor: Number(w.shippingCostFactor || 1.0),
+          shippingCostRate: Math.round(Number(w.shippingCostFactor || 1.0) * 100),
+          stock: w.inventories ? w.inventories.reduce((acc, inv) => acc + (inv.normalPoolQty || 0) + (inv.premiumBulkPoolQty || 0), 0) : 500,
+          status: w.isActive !== false ? 'Active' : 'Inactive'
+        }));
+        setWarehouses(mapped);
+      }
+    } catch {
+      showToast('Could not load warehouses from server', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadWarehouses();
+  }, []);
+
   // Open Form for Add
   const handleOpenAddModal = () => {
     setEditingWarehouse(null);
     setFormData({
       ...DEFAULT_WAREHOUSE_FORM,
-      id: `WH-HUB-${String(warehouses.length + 1).padStart(2, '0')}`
+      id: ''
     });
     setFormErrors({});
     setIsFormModalOpen(true);
@@ -82,7 +110,6 @@ export default function ResourcesWarehouses() {
   const validateForm = () => {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'Warehouse Facility Name is required';
-    if (formData.stock < 0) errors.stock = 'Stock balance cannot be negative';
     if (formData.shippingCostRate < 0) errors.shippingCostRate = 'Shipping rate cannot be negative';
 
     setFormErrors(errors);
@@ -90,34 +117,58 @@ export default function ResourcesWarehouses() {
   };
 
   // Handle Save (Add / Edit)
-  const handleSaveWarehouse = (e) => {
+  const handleSaveWarehouse = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const updatedWarehouse = {
-      ...formData,
-      stock: Number(formData.stock),
-      shippingCostRate: Number(formData.shippingCostRate)
+    const payload = {
+      name: formData.name,
+      code: formData.code || formData.name.toLowerCase().replace(/\s+/g, '-'),
+      region: formData.region || 'Regional Hub',
+      location: formData.location || '',
+      locationLat: Number(formData.locationLat || 13.0827),
+      locationLng: Number(formData.locationLng || 80.2707),
+      shippingCostFactor: Number(formData.shippingCostRate) / 100 || 1.0,
+      isActive: formData.status === 'Active'
     };
 
     if (editingWarehouse) {
-      setWarehouses(warehouses.map(w => w.id === editingWarehouse.id ? updatedWarehouse : w));
-      showToast(`Warehouse facility "${updatedWarehouse.name}" updated successfully.`);
+      const res = await api.updateWarehouse(editingWarehouse.id, payload);
+      if (res && res.success) {
+        showToast(`Warehouse facility "${formData.name}" updated successfully.`);
+        loadWarehouses();
+      } else {
+        showToast(res?.message || 'Failed to update warehouse', 'error');
+      }
     } else {
-      setWarehouses([...warehouses, updatedWarehouse]);
-      showToast(`New regional warehouse "${updatedWarehouse.name}" provisioned successfully.`);
+      const res = await api.createWarehouse(payload);
+      if (res && res.success) {
+        showToast(`New regional warehouse "${formData.name}" provisioned successfully.`);
+        loadWarehouses();
+      } else {
+        showToast(res?.message || 'Failed to provision warehouse', 'error');
+      }
     }
 
     setIsFormModalOpen(false);
   };
 
   // Handle Deactivate / Toggle Status
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedWarehouse) return;
-    const newStatus = selectedWarehouse.status === 'Active' ? 'Inactive' : 'Active';
+    const isActivating = selectedWarehouse.status !== 'Active';
 
-    setWarehouses(warehouses.map(w => w.id === selectedWarehouse.id ? { ...w, status: newStatus } : w));
-    showToast(`Warehouse facility "${selectedWarehouse.name}" status changed to ${newStatus}.`, 'info');
+    const res = await api.updateWarehouse(selectedWarehouse.id, {
+      name: selectedWarehouse.name,
+      isActive: isActivating
+    });
+
+    if (res && res.success) {
+      showToast(`Warehouse facility status changed.`, 'info');
+      loadWarehouses();
+    } else {
+      showToast(res?.message || 'Failed to change status', 'error');
+    }
     setIsConfirmModalOpen(false);
   };
 

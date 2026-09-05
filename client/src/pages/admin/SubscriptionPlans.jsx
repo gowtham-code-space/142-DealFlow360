@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/formatters';
+import { api } from '../../services/api';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
 
@@ -7,46 +8,11 @@ const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-const INITIAL_PLANS = [
-  {
-    id: 'PLAN-SAAS-STR',
-    name: 'DealFlow SaaS Starter',
-    billingCycle: 'RECURRING_MONTHLY',
-    price: 15000,
-    seats: '10 User Seats',
-    sla: 'Standard SLA (48h)',
-    indexation: 3.0,
-    features: 'Basic Quote Engine, Standard SLA, 10 Rep Seats',
-    status: 'Active'
-  },
-  {
-    id: 'PLAN-SAAS-GRW',
-    name: 'DealFlow SaaS Growth',
-    billingCycle: 'RECURRING_MONTHLY',
-    price: 35000,
-    seats: '50 User Seats',
-    sla: 'High-Priority SLA (24h)',
-    indexation: 4.0,
-    features: 'Advanced Governance Rules, 24/7 Support, 50 Rep Seats',
-    status: 'Active'
-  },
-  {
-    id: 'PLAN-SAAS-ENT',
-    name: 'DealFlow SaaS Enterprise',
-    billingCycle: 'RECURRING_ANNUAL',
-    price: 100000,
-    seats: 'Unlimited Seats',
-    sla: 'Mission Critical SLA (4h)',
-    indexation: 5.0,
-    features: 'Full Governance Suite, Executive Escalation, Unlimited Seats',
-    status: 'Active'
-  }
-];
-
 const DEFAULT_PLAN_FORM = {
   id: '',
   name: '',
-  billingCycle: 'RECURRING_MONTHLY',
+  billingPeriod: 'MONTHLY',
+  prorationType: 'DAILY',
   price: 25000,
   seats: '25 User Seats',
   sla: 'High-Priority SLA (24h)',
@@ -56,7 +22,7 @@ const DEFAULT_PLAN_FORM = {
 };
 
 export default function SubscriptionPlans() {
-  const [plans, setPlans] = useState(INITIAL_PLANS);
+  const [plans, setPlans] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
@@ -78,12 +44,43 @@ export default function SubscriptionPlans() {
     setToast({ message, type });
   };
 
+  const loadPlans = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getSubscriptionPlans();
+      if (res && res.success && Array.isArray(res.data)) {
+        const mapped = res.data.map(p => ({
+          id: p.id,
+          name: p.name,
+          billingPeriod: p.billingPeriod || 'MONTHLY',
+          billingCycle: p.billingPeriod === 'YEARLY' ? 'RECURRING_ANNUAL' : 'RECURRING_MONTHLY',
+          prorationType: p.prorationType || 'DAILY',
+          price: Number(p.price || 0),
+          seats: p.name.includes('Enterprise') ? 'Unlimited Seats' : p.name.includes('Growth') ? '50 User Seats' : '10 User Seats',
+          sla: p.name.includes('Enterprise') ? 'Mission Critical SLA (4h)' : 'High-Priority SLA (24h)',
+          indexation: 3.5,
+          features: `Billing: ${p.billingPeriod}, Proration: ${p.prorationType}`,
+          status: p.isActive !== false ? 'Active' : 'Inactive'
+        }));
+        setPlans(mapped);
+      }
+    } catch {
+      showToast('Could not load subscription plans from server', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPlans();
+  }, []);
+
   // Open Form for Add
   const handleOpenAddModal = () => {
     setEditingPlan(null);
     setFormData({
       ...DEFAULT_PLAN_FORM,
-      id: `PLAN-SAAS-${String(plans.length + 1).padStart(3, '0')}`
+      id: ''
     });
     setFormErrors({});
     setIsFormModalOpen(true);
@@ -120,34 +117,56 @@ export default function SubscriptionPlans() {
   };
 
   // Handle Save
-  const handleSavePlan = (e) => {
+  const handleSavePlan = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const updatedPlan = {
-      ...formData,
+    const payload = {
+      name: formData.name,
+      billingPeriod: formData.billingPeriod || (formData.billingCycle === 'RECURRING_ANNUAL' ? 'YEARLY' : 'MONTHLY'),
+      prorationType: formData.prorationType || 'DAILY',
       price: Number(formData.price),
-      indexation: Number(formData.indexation)
+      isActive: formData.status === 'Active'
     };
 
     if (editingPlan) {
-      setPlans(plans.map(p => p.id === editingPlan.id ? updatedPlan : p));
-      showToast(`Subscription plan "${updatedPlan.name}" updated successfully.`);
+      const res = await api.updateSubscriptionPlan(editingPlan.id, payload);
+      if (res && res.success) {
+        showToast(`Subscription plan "${formData.name}" updated successfully.`);
+        loadPlans();
+      } else {
+        showToast(res?.message || 'Failed to update plan', 'error');
+      }
     } else {
-      setPlans([...plans, updatedPlan]);
-      showToast(`New subscription plan "${updatedPlan.name}" created successfully.`);
+      const res = await api.createSubscriptionPlan(payload);
+      if (res && res.success) {
+        showToast(`New subscription plan "${formData.name}" created successfully.`);
+        loadPlans();
+      } else {
+        showToast(res?.message || 'Failed to create plan', 'error');
+      }
     }
 
     setIsFormModalOpen(false);
   };
 
   // Handle Toggle Status
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedPlan) return;
-    const newStatus = selectedPlan.status === 'Active' ? 'Inactive' : 'Active';
+    const isActivating = selectedPlan.status !== 'Active';
 
-    setPlans(plans.map(p => p.id === selectedPlan.id ? { ...p, status: newStatus } : p));
-    showToast(`Plan "${selectedPlan.name}" status updated to ${newStatus}.`, 'info');
+    const res = await api.updateSubscriptionPlan(selectedPlan.id, {
+      name: selectedPlan.name,
+      price: selectedPlan.price,
+      isActive: isActivating
+    });
+
+    if (res && res.success) {
+      showToast(`Plan status updated.`, 'info');
+      loadPlans();
+    } else {
+      showToast(res?.message || 'Failed to update status', 'error');
+    }
     setIsConfirmModalOpen(false);
   };
 

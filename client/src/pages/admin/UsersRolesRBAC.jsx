@@ -1,34 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
-import { useNotifications } from '../../context/NotificationContext';
-import { ROLES } from '../../utils/constants';
+import { api } from '../../services/api';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-const INITIAL_USERS = [
-  { id: 'USR-401', name: 'Victoria Stone', email: 'victoria.stone@dealflow360.internal', role: 'Administrator', region: 'Global', status: 'ACTIVE SESSION' },
-  { id: 'USR-101', name: 'Sarah Jenkins', email: 'sarah.jenkins@dealflow360.internal', role: 'Sales Representative', region: 'North America', status: 'Active' },
-  { id: 'USR-102', name: 'Alex Rivera', email: 'alex.rivera@dealflow360.internal', role: 'Sales Representative', region: 'LATAM', status: 'Active' },
-  { id: 'USR-201', name: 'David Keller', email: 'david.keller@dealflow360.internal', role: 'Sales Manager / Approver', region: 'EMEA', status: 'Active' },
-  { id: 'USR-301', name: 'Elena Rostova', email: 'elena.rostova@dealflow360.internal', role: 'Finance / Operations', region: 'APAC', status: 'Active' },
-  { id: 'CUST-002-USR', name: 'Marcus Vance', email: 'procurement@nexushyperscale.com', role: 'Customer Portal User', region: 'North America', status: 'Active' }
-];
+const ROLE_MAP = {
+  ADMIN: 'Administrator',
+  SALES_REP: 'Sales Representative',
+  SALES_MANAGER: 'Sales Manager / Approver',
+  FINANCE_OPS: 'Finance / Operations',
+  CUSTOMER: 'Customer Portal User'
+};
+
+const REVERSE_ROLE_MAP = {
+  'Administrator': 'ADMIN',
+  'Sales Representative': 'SALES_REP',
+  'Sales Manager / Approver': 'SALES_MANAGER',
+  'Finance / Operations': 'FINANCE_OPS',
+  'Customer Portal User': 'CUSTOMER'
+};
 
 const DEFAULT_USER_FORM = {
   id: '',
   name: '',
   email: '',
+  password: '',
   role: 'Sales Representative',
   region: 'North America',
   status: 'Active'
 };
 
 export default function UsersRolesRBAC() {
-  const { addNotification } = useNotifications();
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
@@ -50,12 +56,39 @@ export default function UsersRolesRBAC() {
     setToast({ message, type });
   };
 
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getUsers();
+      if (res && res.success && Array.isArray(res.data)) {
+        const formatted = res.data.map(u => ({
+          id: u.id,
+          name: u.name || 'User',
+          email: u.email,
+          role: ROLE_MAP[u.roleId || u.role] || u.roleId || u.role || 'Sales Representative',
+          roleId: u.roleId || u.role || 'SALES_REP',
+          region: u.region || 'Global',
+          status: u.isActive === false ? 'Deactivated' : 'Active'
+        }));
+        setUsers(formatted);
+      }
+    } catch {
+      showToast('Could not fetch user list from server', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
   // Open Add Modal
   const handleOpenAddModal = () => {
     setEditingUser(null);
     setFormData({
       ...DEFAULT_USER_FORM,
-      id: `USR-${String(users.length + 101).padStart(3, '0')}`
+      id: ''
     });
     setFormErrors({});
     setIsFormModalOpen(true);
@@ -64,7 +97,7 @@ export default function UsersRolesRBAC() {
   // Open Edit Modal
   const handleOpenEditModal = (usr) => {
     setEditingUser(usr);
-    setFormData({ ...usr });
+    setFormData({ ...usr, password: '' });
     setFormErrors({});
     setIsFormModalOpen(true);
   };
@@ -86,6 +119,9 @@ export default function UsersRolesRBAC() {
     const errors = {};
     if (!formData.name.trim()) errors.name = 'User name is required';
     if (!formData.email.trim() || !formData.email.includes('@')) errors.email = 'Valid email is required';
+    if (!editingUser && (!formData.password || formData.password.length < 6)) {
+      errors.password = 'Initial password (min 6 chars) is required';
+    }
     if (!formData.role) errors.role = 'Role assignment is required';
 
     setFormErrors(errors);
@@ -93,48 +129,63 @@ export default function UsersRolesRBAC() {
   };
 
   // Handle Save
-  const handleSaveUser = (e) => {
+  const handleSaveUser = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
+    const backendRole = REVERSE_ROLE_MAP[formData.role] || 'SALES_REP';
+
     if (editingUser) {
-      setUsers(users.map(u => u.id === editingUser.id ? formData : u));
-      showToast(`User account "${formData.name}" updated successfully.`);
-      addNotification({
-        recipientRole: ROLES.ADMIN,
-        type: 'ROLE_UPDATED',
-        priority: 'INFO',
-        title: 'Role updated',
-        message: `User ${formData.name}'s access role has been changed to ${formData.role}.`,
-        relatedEntity: 'user',
-        relatedId: formData.id,
-        targetUrl: '/admin/users-and-roles'
-      });
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        roleId: backendRole,
+        isActive: formData.status !== 'Deactivated'
+      };
+      if (formData.password && formData.password.length >= 6) {
+        payload.password = formData.password;
+      }
+      const res = await api.updateUser(editingUser.id, payload);
+      if (res && res.success) {
+        showToast(`User account "${formData.name}" updated successfully.`);
+        loadUsers();
+      } else {
+        showToast(res?.message || 'Failed to update user', 'error');
+      }
     } else {
-      setUsers([formData, ...users]);
-      showToast(`New user "${formData.name}" provisioned successfully.`);
-      addNotification({
-        recipientRole: ROLES.ADMIN,
-        type: 'USER_ADDED',
-        priority: 'INFO',
-        title: 'New user added',
-        message: `A new user (${formData.name}) has been added to DealFlow360.`,
-        relatedEntity: 'user',
-        relatedId: formData.id || 'USR-NEW',
-        targetUrl: '/admin/users-and-roles'
-      });
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password || 'DealFlow@2026',
+        roleId: backendRole
+      };
+      const res = await api.createUser(payload);
+      if (res && res.success) {
+        showToast(`New user "${formData.name}" provisioned successfully.`);
+        loadUsers();
+      } else {
+        showToast(res?.message || 'Failed to provision user', 'error');
+      }
     }
 
     setIsFormModalOpen(false);
   };
 
   // Handle Toggle Status
-  const handleToggleStatus = () => {
+  const handleToggleStatus = async () => {
     if (!selectedUser) return;
-    const newStatus = selectedUser.status === 'Deactivated' ? 'Active' : 'Deactivated';
+    const isDeactivating = selectedUser.status !== 'Deactivated';
 
-    setUsers(users.map(u => u.id === selectedUser.id ? { ...u, status: newStatus } : u));
-    showToast(`User account "${selectedUser.name}" status updated to ${newStatus}.`, 'info');
+    const res = isDeactivating
+      ? await api.deleteUser(selectedUser.id)
+      : await api.reactivateUser(selectedUser.id);
+
+    if (res && res.success) {
+      showToast(`User account status updated.`, 'info');
+      loadUsers();
+    } else {
+      showToast(res?.message || 'Failed to toggle status', 'error');
+    }
     setIsConfirmModalOpen(false);
   };
 
@@ -415,6 +466,21 @@ export default function UsersRolesRBAC() {
               style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
             />
             {formErrors.email && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.email}</span>}
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+              {editingUser ? 'New Password (leave blank to keep existing)' : 'Password *'}
+            </label>
+            <input
+              type="password"
+              className="form-control"
+              value={formData.password || ''}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder={editingUser ? '••••••••' : 'Min 6 characters'}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+            {formErrors.password && <span style={{ color: '#dc2626', fontSize: 11 }}>{formErrors.password}</span>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

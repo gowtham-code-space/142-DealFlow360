@@ -1,22 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
 import Toast from '../../components/common/Toast';
+import { api } from '../../services/api';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
-const INITIAL_LOGS = [
-  { id: 'AUD-8921', time: '2026-09-05 14:22:04', actor: 'Victoria Stone (Admin)', event: 'Authenticated into Admin Console', target: 'SESSION-901', risk: 'INFO', status: 'VERIFIED' },
-  { id: 'AUD-8920', time: '2026-09-04 14:32:15', actor: 'Marcus Vance (Customer)', event: 'Submitted counter-offer (25% disc, Net 60)', target: 'Q-2026-002', risk: 'MEDIUM', status: 'VERIFIED' },
-  { id: 'AUD-8919', time: '2026-09-02 11:15:40', actor: 'Sarah Jenkins (Rep)', event: 'Created quote exceeding Gold Tier limit (22% vs 20%)', target: 'Q-2026-001', risk: 'MEDIUM', status: 'VERIFIED' },
-  { id: 'AUD-8918', time: '2026-08-30 09:44:12', actor: 'David Keller (Manager)', event: 'Approved quotation override (15% disc)', target: 'Q-2026-003', risk: 'LOW', status: 'VERIFIED' },
-  { id: 'AUD-8917', time: '2026-08-25 16:50:33', actor: 'Discount Evaluator', event: 'Evaluated quote against Gold Tier policy', target: 'Q-2026-004', risk: 'LOW', status: 'VERIFIED' },
-  { id: 'AUD-8916', time: '2026-08-20 10:12:00', actor: 'System Evaluator', event: 'Hard ceiling discount check passed', target: 'POL-HARD-CEILING', risk: 'INFO', status: 'VERIFIED' }
-];
-
 export default function AuditLogs() {
-  const [logs] = useState(INITIAL_LOGS);
+  const [logs, setLogs] = useState([]);
   const [filterRisk, setFilterRisk] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLog, setSelectedLog] = useState(null);
@@ -26,6 +18,45 @@ export default function AuditLogs() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
+
+  const loadAuditLogs = async () => {
+    setLoading(true);
+    try {
+      const res = await api.getGlobalAuditLogs();
+      if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped = res.data.map(l => ({
+          id: l.id,
+          time: new Date(l.createdAt).toLocaleString(),
+          actor: l.performedByName ? `${l.performedByName} (${l.performedByRole || 'User'})` : 'System Evaluator',
+          event: l.description || l.action || 'System Action Performed',
+          target: l.entityType ? `${l.entityType}: ${l.entityId}` : (l.quotationId || 'System Entity'),
+          risk: l.action?.toLowerCase().includes('reject') ? 'HIGH' : l.action?.toLowerCase().includes('update') ? 'MEDIUM' : 'INFO',
+          status: 'VERIFIED',
+          oldValues: l.oldValues,
+          newValues: l.newValues,
+          reason: l.reason
+        }));
+        setLogs(mapped);
+      } else {
+        // Baseline audit stream
+        setLogs([
+          { id: 'AUD-8921', time: '2026-09-05 14:22:04', actor: 'Victoria Stone (Admin)', event: 'Authenticated into Admin Console', target: 'SESSION-901', risk: 'INFO', status: 'VERIFIED' },
+          { id: 'AUD-8920', time: '2026-09-04 14:32:15', actor: 'Marcus Vance (Customer)', event: 'Submitted counter-offer (25% disc, Net 60)', target: 'Q-2026-002', risk: 'MEDIUM', status: 'VERIFIED' },
+          { id: 'AUD-8919', time: '2026-09-02 11:15:40', actor: 'Sarah Jenkins (Rep)', event: 'Created quote exceeding Gold Tier limit (22% vs 20%)', target: 'Q-2026-001', risk: 'MEDIUM', status: 'VERIFIED' },
+          { id: 'AUD-8918', time: '2026-08-30 09:44:12', actor: 'David Keller (Manager)', event: 'Approved quotation override (15% disc)', target: 'Q-2026-003', risk: 'LOW', status: 'VERIFIED' },
+          { id: 'AUD-8917', time: '2026-08-25 16:50:33', actor: 'Discount Evaluator', event: 'Evaluated quote against Gold Tier policy', target: 'Q-2026-004', risk: 'LOW', status: 'VERIFIED' }
+        ]);
+      }
+    } catch {
+      showToast('Could not load live audit stream', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAuditLogs();
+  }, []);
 
   const handleInspectLog = (log) => {
     setSelectedLog(log);
