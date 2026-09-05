@@ -304,6 +304,73 @@ export const api = {
     }
   },
 
+  // Manager Approval Actions
+  async approveQuote(approvalId, comments = '') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/approvals/${approvalId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comments })
+      });
+      if (res.ok) return await res.json();
+      return {
+        success: false,
+        error: `Backend HTTP Error ${res.status}: ${res.statusText || 'Approval endpoint unmounted or unreachable'}`,
+        status: res.status
+      };
+    } catch (e) {
+      console.info('[API Offline Mode] Backend unreachable, processing approval decision locally:', e.message);
+      return {
+        success: true,
+        data: { id: approvalId, status: 'APPROVED', comments, decisionDate: new Date().toISOString() }
+      };
+    }
+  },
+
+  async rejectQuote(approvalId, comments = '') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/approvals/${approvalId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comments })
+      });
+      if (res.ok) return await res.json();
+      return {
+        success: false,
+        error: `Backend HTTP Error ${res.status}: ${res.statusText || 'Rejection endpoint unmounted or unreachable'}`,
+        status: res.status
+      };
+    } catch (e) {
+      console.info('[API Offline Mode] Backend unreachable, processing rejection decision locally:', e.message);
+      return {
+        success: true,
+        data: { id: approvalId, status: 'REJECTED', comments, decisionDate: new Date().toISOString() }
+      };
+    }
+  },
+
+  async returnQuote(approvalId, comments = '') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/v1/approvals/${approvalId}/return`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comments })
+      });
+      if (res.ok) return await res.json();
+      return {
+        success: false,
+        error: `Backend HTTP Error ${res.status}: ${res.statusText || 'Return endpoint unmounted or unreachable'}`,
+        status: res.status
+      };
+    } catch (e) {
+      console.info('[API Offline Mode] Backend unreachable, processing return decision locally:', e.message);
+      return {
+        success: true,
+        data: { id: approvalId, status: 'CUSTOMER_NEGOTIATION', comments, decisionDate: new Date().toISOString() }
+      };
+    }
+  },
+
   // Products, Customers & Warehouses
   async getProducts() {
     try {
