@@ -17,6 +17,11 @@ import Billing from './pages/billing/Billing';
 import Negotiation from './pages/negotiation/Negotiation';
 import CustomerPortal from './pages/portal/CustomerPortal';
 
+import Customers from './pages/customers/Customers';
+import Conversations from './pages/conversations/Conversations';
+import MyDeals from './pages/deals/MyDeals';
+import Notifications from './pages/notifications/Notifications';
+
 function DashboardRouteWrapper({ children }) {
   return <DashboardLayout>{children}</DashboardLayout>;
 }
@@ -96,9 +101,36 @@ export default function App() {
               <Negotiation />
             </DashboardRouteWrapper>
           } />
+          <Route path="/negotiation/:id" element={
+            <DashboardRouteWrapper>
+              <Negotiation />
+            </DashboardRouteWrapper>
+          } />
 
           {/* Customer Portal */}
           <Route path="/portal" element={<CustomerPortal />} />
+
+          {/* Sidebar Supporting Routes */}
+          <Route path="/customers" element={
+            <DashboardRouteWrapper>
+              <Customers />
+            </DashboardRouteWrapper>
+          } />
+          <Route path="/conversations" element={
+            <DashboardRouteWrapper>
+              <Conversations />
+            </DashboardRouteWrapper>
+          } />
+          <Route path="/deals" element={
+            <DashboardRouteWrapper>
+              <MyDeals />
+            </DashboardRouteWrapper>
+          } />
+          <Route path="/notifications" element={
+            <DashboardRouteWrapper>
+              <Notifications />
+            </DashboardRouteWrapper>
+          } />
 
           {/* Catch-all */}
           <Route path="*" element={<Navigate to="/dashboard/sales" replace />} />

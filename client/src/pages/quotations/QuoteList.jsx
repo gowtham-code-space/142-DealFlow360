@@ -1,113 +1,164 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import StatusBadge from '../../components/common/StatusBadge';
-import { MOCK_QUOTATIONS } from '../../utils/constants';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../../services/api';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
-import { Plus, Search, Filter, ArrowUpDown } from 'lucide-react';
+import StatusBadge from '../../components/common/StatusBadge';
+
+const MS = ({ icon, size = 18 }) => (
+  <span className="material-symbols-outlined" style={{ fontSize: size }}>{icon}</span>
+);
 
 export default function QuoteList() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const navigate = useNavigate();
+  const [quotations, setQuotations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredQuotes = MOCK_QUOTATIONS.filter(q => {
-    const matchesSearch = q.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          q.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          q.repName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || q.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  useEffect(() => {
+    async function loadQuotes() {
+      setLoading(true);
+      const res = await api.getQuotations();
+      if (res.success) setQuotations(res.data);
+      setLoading(false);
+    }
+    loadQuotes();
+  }, []);
+
+  const filteredQuotations = quotations.filter(q => {
+    const matchesTab =
+      activeTab === 'ALL' ||
+      (activeTab === 'DRAFT' && q.status === 'DRAFT') ||
+      (activeTab === 'PENDING' && q.status === 'PENDING_APPROVAL') ||
+      (activeTab === 'APPROVED' && q.status === 'APPROVED') ||
+      (activeTab === 'NEGOTIATION' && q.status === 'CUSTOMER_NEGOTIATION');
+
+    const matchesSearch =
+      q.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      q.customerName.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesTab && matchesSearch;
   });
 
   return (
-    <div>
-      <div className="flex-between" style={{ marginBottom: '24px' }}>
+    <div className="flex-col gap-4">
+      {/* Header Bar */}
+      <div className="flex-between">
         <div>
-          <h1 className="page-title">Quotation Lifecycle Management</h1>
-          <p className="page-subtitle">Search, filter, and track all corporate quotations from creation to invoice.</p>
+          <h1 className="headline-lg" style={{ margin: 0 }}>Active Pipeline / My Quotes</h1>
+          <p className="body-md text-secondary" style={{ margin: 0 }}>Manage customer quotes, monitor backend verdicts, and track negotiation states</p>
         </div>
-        <Link to="/quotations/new" className="btn btn-primary">
-          <Plus size={16} />
-          <span>New Quote (CPQ)</span>
-        </Link>
+        <button className="btn btn-primary" onClick={() => navigate('/quotations/new')}>
+          <MS icon="add_circle" size={16} />
+          <span>Create New Quote</span>
+        </button>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
-        <div className="flex-between" style={{ gap: '16px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
-            <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
-              placeholder="Search by Quote ID, Customer Name, or Sales Rep..."
-              className="input-field"
-              style={{ paddingLeft: '36px' }}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex-gap-2">
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Status:</span>
-            <select
-              className="select-field"
-              style={{ width: 'auto', padding: '8px 12px' }}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+      {/* Filter Tabs & Search Bar */}
+      <div className="card card-body flex-between">
+        <div className="tab-bar">
+          {[
+            { id: 'ALL', label: 'All Quotes' },
+            { id: 'PENDING', label: 'Pending Approval' },
+            { id: 'NEGOTIATION', label: 'In Negotiation' },
+            { id: 'APPROVED', label: 'Approved' },
+            { id: 'DRAFT', label: 'Drafts' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.id)}
             >
-              <option value="ALL">All Statuses</option>
-              <option value="DRAFT">Draft</option>
-              <option value="PENDING_APPROVAL">Pending Approval</option>
-              <option value="APPROVED">Approved</option>
-              <option value="CUSTOMER_NEGOTIATION">Customer Negotiation</option>
-              <option value="FULFILLED">Fulfilled</option>
-            </select>
-          </div>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ position: 'relative', width: '280px' }}>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+            <MS icon="search" size={16} />
+          </span>
+          <input
+            type="text"
+            placeholder="Filter by Quote ID or customer..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="input-field"
+            style={{ paddingLeft: '32px', height: '36px' }}
+          />
         </div>
       </div>
 
-      {/* Quotation Table */}
+      {/* Table Card */}
       <div className="card">
-        <div className="table-container">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Quote ID</th>
-                <th>Created</th>
-                <th>Customer</th>
-                <th>Tier</th>
-                <th>Sales Rep</th>
-                <th>Total Value</th>
-                <th>Discount</th>
-                <th>Margin</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredQuotes.map(q => (
-                <tr key={q.id}>
-                  <td style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                    <Link to={`/quotations/${q.id}`} style={{ textDecoration: 'underline' }}>{q.id}</Link>
-                  </td>
-                  <td>{formatDate(q.createdDate)}</td>
-                  <td style={{ fontWeight: 600 }}>{q.customerName}</td>
-                  <td><span className={`badge badge-${q.tier.toLowerCase()}`}>{q.tier}</span></td>
-                  <td>{q.repName}</td>
-                  <td style={{ fontWeight: 700 }}>{formatCurrency(q.totalValue)}</td>
-                  <td style={{ color: q.discountPercent > 20 ? '#ef4444' : 'var(--text-primary)', fontWeight: 600 }}>
-                    {formatPercent(q.discountPercent)}
-                  </td>
-                  <td style={{ color: '#10b981', fontWeight: 600 }}>{formatPercent(q.marginPercent)}</td>
-                  <td><StatusBadge status={q.status} /></td>
-                  <td>
-                    <Link to={`/quotations/${q.id}`} className="btn btn-secondary btn-sm" style={{ padding: '4px 10px' }}>
-                      View
-                    </Link>
-                  </td>
+        {loading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div className="spin flex-center"><MS icon="sync" size={24} /></div>
+            <p style={{ marginTop: 8 }}>Loading sales quotes from backend...</p>
+          </div>
+        ) : filteredQuotations.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <span style={{ opacity: 0.5, marginBottom: 8, display: 'inline-block' }}><MS icon="description" size={32} /></span>
+            <p className="body-md font-semibold text-primary">No quotes match your filter criteria.</p>
+            <p className="body-sm">Try clearing your search query or switching tabs.</p>
+          </div>
+        ) : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Quote ID</th>
+                  <th>Customer Name</th>
+                  <th>Tier</th>
+                  <th>Total Value</th>
+                  <th>Discount %</th>
+                  <th>Margin %</th>
+                  <th>Status</th>
+                  <th>Created Date</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredQuotations.map(q => (
+                  <tr key={q.id}>
+                    <td className="data-mono font-semibold text-primary-color">{q.id}</td>
+                    <td>
+                      <div className="font-semibold">{q.customerName}</div>
+                      <div className="label-sm text-muted">Rep: {q.repName || 'Alex Rivera'}</div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: q.tier === 'PLATINUM' ? '#6b21a8' : q.tier === 'GOLD' ? '#854d0e' : '#475569' }}>
+                        {q.tier}
+                      </span>
+                    </td>
+                    <td className="data-mono font-bold">{formatCurrency(q.totalValue)}</td>
+                    <td className="data-mono">{formatPercent(q.discountPercent)}</td>
+                    <td className={`data-mono font-semibold ${q.marginPercent >= 35 ? 'text-emerald' : 'text-amber'}`}>
+                      {formatPercent(q.marginPercent)}
+                    </td>
+                    <td>
+                      <StatusBadge status={q.status} />
+                    </td>
+                    <td className="body-sm text-secondary">{formatDate(q.createdDate)}</td>
+                    <td>
+                      <div className="action-group">
+                        <button className="btn-icon" title="View Details" onClick={() => navigate(`/quotations/${q.id}`)}>
+                          <MS icon="open_in_new" size={16} />
+                        </button>
+                        {q.status === 'CUSTOMER_NEGOTIATION' && (
+                          <button className="btn btn-secondary-teal btn-sm" style={{ padding: '4px 8px' }} title="Open Negotiation" onClick={() => navigate(`/negotiation/${q.id}`)}>
+                            <MS icon="forum" size={14} />
+                            <span>Negotiate</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
