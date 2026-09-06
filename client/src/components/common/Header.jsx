@@ -78,23 +78,7 @@ export default function Header() {
               </span>
             </div>
           </>
-        ) : isAdminView ? (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{
-                padding: '4px 12px', borderRadius: 99,
-                background: 'rgba(124, 58, 237, 0.15)', color: '#7c3aed',
-                fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em',
-                border: '1px solid rgba(124, 58, 237, 0.3)'
-              }}>ADMINISTRATOR</span>
-              <span style={{
-                padding: '4px 12px', borderRadius: 99,
-                background: 'var(--surface-container-high)', color: 'var(--on-surface-variant)',
-                fontSize: 11, fontWeight: 500
-              }}>System Governance</span>
-            </div>
-          </>
-        ) : isManagerView ? (
+        ) : isAdminView ? null : isManagerView ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{

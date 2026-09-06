@@ -226,44 +226,6 @@ export default function ApprovalRules() {
         </div>
       </div>
 
-      {/* Approval Flow Visualizer */}
-      <div className="card card-body" style={{ background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>
-        <h3 className="headline-sm" style={{ color: 'var(--primary)', marginBottom: 12 }}>Multi-Tier Approval Hierarchy Visualization</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--secondary)' }}>
-            <span className="badge badge-secondary" style={{ fontSize: 10 }}>LEVEL 1</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Fast-Path Auto-Approve</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount within Customer Tier Limit & Margin &ge; 35%. Instant execution without queue delay.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid #f59e0b' }}>
-            <span className="badge badge-amber" style={{ fontSize: 10 }}>LEVEL 2</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Sales Manager Single-Sig</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount exceeds Tier Limit (up to 30%) or Margin between 22%-34.9%. Assigned to Regional Manager.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--primary)' }}>
-            <span className="badge badge-primary" style={{ fontSize: 10 }}>LEVEL 3</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Dual Executive Multi-Sig</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount &gt; 30% OR Contract Value &gt; ₹2.0 Cr. Requires signatures from VP Sales & VP Finance.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--error)' }}>
-            <span className="badge badge-error" style={{ fontSize: 10 }}>LEVEL 4</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Hard Policy Floor Block</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount &gt; 45% OR Margin &lt; 22%. System automatically rejects quote. No manual bypass permitted.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Approval Rule Matrix Table */}
       <div className="card">
         <div className="card-header flex-between">
@@ -271,20 +233,21 @@ export default function ApprovalRules() {
             <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Configured Approval Chains & Escalation Triggers</h3>
             <p className="body-sm" style={{ color: 'var(--outline)' }}>Rule priority, conditional logic, assigned approver roles, and enforcement status</p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Search approval rules..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="input-field"
-              style={{ width: 200, height: 32 }}
-            />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div className="search-bar" style={{ minWidth: 220 }}>
+              <MS icon="search" size={18} />
+              <input
+                type="text"
+                placeholder="Search approval rules..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
             <select
               value={filterTier}
               onChange={e => setFilterTier(e.target.value)}
-              className="select-field"
-              style={{ width: 140, height: 32 }}
+              className="select-input"
+              style={{ minWidth: 140 }}
             >
               <option value="ALL">All Tiers</option>
               <option value="STANDARD">Standard Tier</option>

@@ -401,8 +401,8 @@ Marcus Vance,procurement@nexushyperscale.com,Password123!,CUSTOMER`;
           </div>
 
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="search-bar" style={{ minWidth: 240 }}>
-              <MS icon="search" size={16} />
+            <div className="search-bar" style={{ minWidth: 260 }}>
+              <MS icon="search" size={18} />
               <input
                 type="text"
                 placeholder="Search user name, email, or ID..."
@@ -415,7 +415,7 @@ Marcus Vance,procurement@nexushyperscale.com,Password123!,CUSTOMER`;
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
               className="select-input"
-              style={{ fontSize: 12, padding: '6px 12px', height: 36, minWidth: 150 }}
+              style={{ minWidth: 160 }}
             >
               <option value="ALL">All Roles</option>
               <option value="ADMIN">Administrator</option>
@@ -429,7 +429,7 @@ Marcus Vance,procurement@nexushyperscale.com,Password123!,CUSTOMER`;
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="select-input"
-              style={{ fontSize: 12, padding: '6px 12px', height: 36, minWidth: 120 }}
+              style={{ minWidth: 130 }}
             >
               <option value="ALL">All Status</option>
               <option value="Active">Active</option>

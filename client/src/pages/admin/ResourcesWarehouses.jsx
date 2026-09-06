@@ -27,6 +27,21 @@ export default function ResourcesWarehouses() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Pool Configuration State
+  const [poolConfig, setPoolConfig] = useState({
+    normalPoolPct: 50,
+    premiumBulkPoolPct: 50,
+    depositPct: 10,
+    holdDurationHours: 48
+  });
+  const [isPoolModalOpen, setIsPoolModalOpen] = useState(false);
+  const [poolFormData, setPoolFormData] = useState({
+    normalPoolPct: 50,
+    premiumBulkPoolPct: 50,
+    depositPct: 10,
+    holdDurationHours: 48
+  });
+
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -42,24 +57,59 @@ export default function ResourcesWarehouses() {
   const [formData, setFormData] = useState(DEFAULT_WAREHOUSE_FORM);
   const [formErrors, setFormErrors] = useState({});
 
+  const loadPoolConfig = async () => {
+    try {
+      const res = await api.getPoolConfig();
+      if (res && res.success && res.data) {
+        const p = res.data;
+        const norm = Number(p.normalPoolPct || 50);
+        const bulk = Number(p.premiumBulkPoolPct || 50);
+        const dep = Number(p.depositPct || 10);
+        const hold = Number(p.holdDurationHours || 48);
+        setPoolConfig({
+          normalPoolPct: norm,
+          premiumBulkPoolPct: bulk,
+          depositPct: dep,
+          holdDurationHours: hold
+        });
+        setPoolFormData({
+          normalPoolPct: norm,
+          premiumBulkPoolPct: bulk,
+          depositPct: dep,
+          holdDurationHours: hold
+        });
+      }
+    } catch {
+      // Keep default
+    }
+  };
+
   const loadWarehouses = async () => {
     setLoading(true);
     try {
       const res = await api.getWarehouses();
       if (res && res.success && Array.isArray(res.data)) {
-        const mapped = res.data.map(w => ({
-          id: w.id,
-          name: w.name,
-          code: w.code || w.id,
-          region: w.region || 'Regional Hub',
-          location: w.location || '',
-          locationLat: Number(w.locationLat || 0),
-          locationLng: Number(w.locationLng || 0),
-          shippingCostFactor: Number(w.shippingCostFactor || 1.0),
-          shippingCostRate: Math.round(Number(w.shippingCostFactor || 1.0) * 100),
-          stock: w.inventories ? w.inventories.reduce((acc, inv) => acc + (inv.normalPoolQty || 0) + (inv.premiumBulkPoolQty || 0), 0) : 500,
-          status: w.isActive !== false ? 'Active' : 'Inactive'
-        }));
+        const mapped = res.data.map(w => {
+          const normalQty = w.inventories ? w.inventories.reduce((acc, inv) => acc + (inv.normalPoolQty || 0), 0) : 0;
+          const bulkQty = w.inventories ? w.inventories.reduce((acc, inv) => acc + (inv.premiumBulkPoolQty || 0), 0) : 0;
+          const stockVal = normalQty + bulkQty > 0 ? normalQty + bulkQty : 500;
+          return {
+            id: w.id,
+            name: w.name,
+            code: w.code || w.id,
+            region: w.region || 'Regional Hub',
+            location: w.location || '',
+            locationLat: Number(w.locationLat || 0),
+            locationLng: Number(w.locationLng || 0),
+            shippingCostFactor: Number(w.shippingCostFactor || 1.0),
+            shippingCostRate: Math.round(Number(w.shippingCostFactor || 1.0) * 100),
+            hasExplicitInventory: normalQty + bulkQty > 0,
+            normalQty,
+            bulkQty,
+            stock: stockVal,
+            status: w.isActive !== false ? 'Active' : 'Inactive'
+          };
+        });
         setWarehouses(mapped);
       }
     } catch {
@@ -71,7 +121,33 @@ export default function ResourcesWarehouses() {
 
   useEffect(() => {
     loadWarehouses();
+    loadPoolConfig();
   }, []);
+
+  const handleSavePoolConfig = async (e) => {
+    e.preventDefault();
+    const norm = Number(poolFormData.normalPoolPct);
+    const bulk = Number(poolFormData.premiumBulkPoolPct);
+    if (norm + bulk !== 100) {
+      showToast('Pool percentages must sum to 100%', 'error');
+      return;
+    }
+    const payload = {
+      normalPoolPct: norm,
+      premiumBulkPoolPct: bulk,
+      depositPct: Number(poolFormData.depositPct || 10),
+      holdDurationHours: Number(poolFormData.holdDurationHours || 48)
+    };
+    const res = await api.updatePoolConfig(payload);
+    if (res && res.success) {
+      showToast('Pool cluster configuration saved to database successfully.');
+      setPoolConfig(payload);
+      setIsPoolModalOpen(false);
+      loadWarehouses();
+    } else {
+      showToast(res?.message || 'Failed to update pool configuration', 'error');
+    }
+  };
 
   const handleOpenInventoryModal = async (wh) => {
     setSelectedInventoryWh(wh);
@@ -239,13 +315,16 @@ export default function ResourcesWarehouses() {
                 Resource & Regional Warehouse Allocation
               </h1>
               <p className="body-sm" style={{ color: 'var(--on-surface-variant)' }}>
-                Multi-Warehouse Stock Splitting, 50/50 Pool Allocation, 48h Inventory Hold Locks & Shipping Optimization
+                Dynamic Fleet Clustering, Tier Weightage Pooling ({poolConfig.normalPoolPct}% Standard / {poolConfig.premiumBulkPoolPct}% Enterprise), 48h Holds & Logistics Routing
               </p>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <button onClick={() => setIsPoolModalOpen(true)} className="btn btn-outline btn-sm">
+            <MS icon="tune" size={16} /> Configure Pool Cluster & Weightages
+          </button>
           <button onClick={handleOpenAddModal} className="btn btn-primary btn-sm">
             <MS icon="add_location" size={16} /> + Provision Warehouse Hub
           </button>
@@ -253,35 +332,138 @@ export default function ResourcesWarehouses() {
       </div>
 
       {/* Telemetry Ribbon */}
-      <div className="grid-metrics">
+      <div className="grid-metrics" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
         <div className="card card-body">
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Active Warehouses</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Active Facilities</span>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{activeHubs.length} Hubs</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Regional Facilities</span>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Dynamic Fleet Distribution</span>
         </div>
 
         <div className="card card-body">
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Total Stock Pool</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>{totalStockPool.toLocaleString()} Units</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Hardware Inventory</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Total Network Stock</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{totalStockPool.toLocaleString()} Units</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Live Hardware Inventory</span>
         </div>
 
         <div className="card card-body">
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>50/50 Pool Split</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>ENFORCED</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Normal vs Bulk Pool</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Allocation Strategy</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>DYNAMIC N-HUB</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Weighted Stock Routing</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Active 48h Holds</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#f59e0b' }}>4 Holds</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Customer Negotiation Holds</span>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>4 Holds Active</div>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Atomic Hold Locks</span>
         </div>
 
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Optimization Engine</span>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>Cost & Distance</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Nearest Warehouse Route</span>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Nearest Warehouse Routing</span>
+        </div>
+      </div>
+
+      {/* Dynamic Multi-Warehouse Fleet Share & Capacity Distribution Engine */}
+      <div className="card card-body" style={{ background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>
+              Dynamic Multi-Warehouse Fleet Allocation ({activeHubs.length} Facilities)
+            </h3>
+            <p className="body-sm" style={{ color: 'var(--outline)' }}>
+              Real-time capacity share percentage distribution and inventory segmentation across regional nodes
+            </p>
+          </div>
+          <span className="badge badge-primary" style={{ fontSize: 11, fontWeight: 600 }}>
+            Dynamic % Share Engine Active
+          </span>
+        </div>
+
+        {/* Multi-Warehouse Segmented Share Bar (Monochromatic Theme) */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{
+            display: 'flex', height: 16, borderRadius: 8, overflow: 'hidden',
+            background: 'var(--surface-container-highest)', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.08)'
+          }}>
+            {activeHubs.map((wh, idx) => {
+              const share = totalStockPool > 0 ? (wh.stock / totalStockPool) * 100 : (100 / (activeHubs.length || 1));
+              const monoTones = ['#57344f', '#6e4364', '#86537a', '#9f6491', '#b877a8', '#42243b', '#2f172a'];
+              const color = monoTones[idx % monoTones.length];
+              return (
+                <div
+                  key={wh.id}
+                  style={{
+                    width: `${Math.max(share, 2)}%`,
+                    backgroundColor: color,
+                    borderRight: '1px solid rgba(255,255,255,0.4)',
+                    transition: 'width 0.4s ease',
+                    position: 'relative'
+                  }}
+                  title={`${wh.name}: ${share.toFixed(1)}% (${wh.stock.toLocaleString()} units)`}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Dynamic N-Warehouse Cards Grid (Monochromatic Theme) */}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(220px, 1fr))`, gap: 12 }}>
+          {activeHubs.map((wh, idx) => {
+            const share = totalStockPool > 0 ? (wh.stock / totalStockPool) * 100 : (100 / (activeHubs.length || 1));
+            const monoTones = ['#57344f', '#6e4364', '#86537a', '#9f6491', '#b877a8', '#42243b', '#2f172a'];
+            const accentColor = monoTones[idx % monoTones.length];
+            const normalPct = wh.hasExplicitInventory && wh.stock > 0
+              ? Math.round((wh.normalQty / wh.stock) * 100)
+              : Number(poolConfig.normalPoolPct || 50);
+            const bulkPct = 100 - normalPct;
+            const normUnits = wh.hasExplicitInventory ? wh.normalQty : Math.round(wh.stock * (normalPct / 100));
+            const bulkUnits = wh.hasExplicitInventory ? wh.bulkQty : Math.round(wh.stock * (bulkPct / 100));
+
+            return (
+              <div key={wh.id} style={{
+                background: '#ffffff', padding: 14, borderRadius: 10,
+                borderLeft: `4px solid ${accentColor}`,
+                border: `1px solid rgba(87, 52, 79, 0.15)`,
+                borderLeftWidth: 4,
+                borderLeftColor: accentColor,
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex', flexDirection: 'column', gap: 8
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', margin: 0 }}>{wh.name}</h4>
+                    <span style={{ fontSize: 11, color: 'var(--outline)' }}>{wh.region}</span>
+                  </div>
+                  <span className="badge badge-primary font-mono" style={{ fontSize: 11 }}>
+                    {share.toFixed(1)}% Fleet
+                  </span>
+                </div>
+
+                <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                  <span style={{ color: 'var(--outline)' }}>Total Stock:</span>
+                  <strong className="font-mono" style={{ color: 'var(--on-surface)' }}>{wh.stock.toLocaleString()} units</strong>
+                </div>
+
+                {/* Pool Allocation Breakdown */}
+                <div style={{ background: 'var(--surface-container-low)', padding: 6, borderRadius: 6, fontSize: 11 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                    <span style={{ color: 'var(--on-surface-variant)' }}>Standard / Free ({normalPct}%):</span>
+                    <strong className="font-mono" style={{ color: 'var(--primary)' }}>{normUnits.toLocaleString()}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--on-surface-variant)' }}>Enterprise / Premium ({bulkPct}%):</span>
+                    <strong className="font-mono" style={{ color: 'var(--primary)' }}>{bulkUnits.toLocaleString()}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--outline)' }}>
+                  <span>Shipping Factor: {wh.shippingCostFactor || '1.0'}x</span>
+                  <span>Rate: ₹{wh.shippingCostRate}/u</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -289,82 +471,93 @@ export default function ResourcesWarehouses() {
       <div className="card">
         <div className="card-header flex-between" style={{ flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Regional Warehouse Roster & Pool Split Status</h3>
-            <p className="body-sm" style={{ color: 'var(--outline)' }}>Stock balances, pool splits (Normal vs Bulk), and shipping rates per regional hub</p>
+            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Regional Warehouse Fleet & Dynamic Share Roster</h3>
+            <p className="body-sm" style={{ color: 'var(--outline)' }}>Live stock units, fleet allocation %, dynamic pool breakdown, and logistics cost rate</p>
           </div>
-          <div style={{ position: 'relative' }}>
+          <div className="search-bar" style={{ minWidth: 260 }}>
+            <MS icon="search" size={18} />
             <input
               type="text"
-              placeholder="Search warehouse facility..."
+              placeholder="Search warehouse facility or ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                padding: '6px 12px 6px 32px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--outline-variant)',
-                fontSize: 13,
-                width: 220
-              }}
             />
-            <span className="material-symbols-outlined" style={{ position: 'absolute', left: 8, top: 7, fontSize: 18, color: 'var(--outline)' }}>
-              search
-            </span>
           </div>
         </div>
 
         <div className="table-container">
-          <table className="data-table">
+          <table className="data-table" style={{ width: '100%' }}>
             <thead>
               <tr>
-                <th>Warehouse ID</th>
-                <th>Regional Facility Name</th>
-                <th>Total Stock Units</th>
-                <th>Normal Pool (50%)</th>
-                <th>Premium Bulk Pool (50%)</th>
-                <th>Shipping Cost Rate</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th style={{ width: '11%' }}>Warehouse ID</th>
+                <th style={{ width: '21%' }}>Regional Facility Name</th>
+                <th style={{ width: '12%' }}>Total Stock</th>
+                <th style={{ width: '11%' }}>Fleet Share %</th>
+                <th style={{ width: '13%' }}>Standard Pool ({poolConfig.normalPoolPct}%)</th>
+                <th style={{ width: '13%' }}>Bulk Pool ({poolConfig.premiumBulkPoolPct}%)</th>
+                <th style={{ width: '9%' }}>Shipping Rate</th>
+                <th style={{ width: '6%' }}>Status</th>
+                <th style={{ width: '4%', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredWarehouses.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: 30, color: 'var(--outline)' }}>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: 30, color: 'var(--outline)' }}>
                     No warehouse facilities found matching your search.
                   </td>
                 </tr>
               ) : (
                 filteredWarehouses.map((wh) => {
-                  const halfStock = Math.floor(wh.stock / 2);
+                  const share = totalStockPool > 0 ? (wh.stock / totalStockPool) * 100 : (100 / (activeHubs.length || 1));
+                  const normalPct = wh.hasExplicitInventory && wh.stock > 0
+                    ? Math.round((wh.normalQty / wh.stock) * 100)
+                    : Number(poolConfig.normalPoolPct || 50);
+                  const bulkPct = 100 - normalPct;
+                  const normUnits = wh.hasExplicitInventory ? wh.normalQty : Math.round(wh.stock * (normalPct / 100));
+                  const bulkUnits = wh.hasExplicitInventory ? wh.bulkQty : Math.round(wh.stock * (bulkPct / 100));
+                  const displayId = wh.code || (wh.id.startsWith('wh-') ? wh.id : `WH-${wh.id.slice(0, 6).toUpperCase()}`);
+
                   return (
                     <tr key={wh.id} style={{ opacity: wh.status === 'Inactive' ? 0.6 : 1 }}>
-                      <td className="font-mono font-semibold">{wh.id}</td>
+                      <td className="font-mono font-semibold" title={wh.id} style={{ fontSize: 12 }}>
+                        {displayId}
+                      </td>
                       <td>
                         <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{wh.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--outline)' }}>{wh.region}</div>
                       </td>
-                      <td className="font-mono font-semibold">{wh.stock} Units</td>
-                      <td className="font-mono text-secondary-color">{halfStock} Units</td>
-                      <td className="font-mono text-primary-color">{halfStock} Units</td>
+                      <td className="font-mono font-semibold">{wh.stock.toLocaleString()} Units</td>
+                      <td>
+                        <span className="badge badge-primary font-mono" style={{ fontSize: 11 }}>
+                          {share.toFixed(1)}% Share
+                        </span>
+                      </td>
+                      <td className="font-mono" style={{ color: 'var(--primary)' }}>
+                        {normUnits.toLocaleString()} ({normalPct}%)
+                      </td>
+                      <td className="font-mono" style={{ color: 'var(--primary)' }}>
+                        {bulkUnits.toLocaleString()} ({bulkPct}%)
+                      </td>
                       <td className="font-mono">₹{wh.shippingCostRate} / unit</td>
                       <td>
                         <span className={`badge ${wh.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
-                          {wh.status === 'Active' ? 'ACTIVE & OPTIMIZED' : 'INACTIVE'}
+                          {wh.status === 'Active' ? 'ACTIVE' : 'INACTIVE'}
                         </span>
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={() => handleOpenInventoryModal(wh)} className="btn btn-primary btn-sm" title="Manage SKU Inventory & 50/50 Pools">
-                            Stock Pools
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 4, justifyContent: 'flex-end' }}>
+                          <button onClick={() => handleOpenInventoryModal(wh)} className="btn btn-primary btn-sm" title="Manage SKU Inventory & Pools" style={{ padding: '2px 6px', fontSize: 11 }}>
+                            Stock
                           </button>
-                          <button onClick={() => handleOpenDetailModal(wh)} className="btn btn-outline btn-sm" title="View Hub Specs">
+                          <button onClick={() => handleOpenDetailModal(wh)} className="btn btn-outline btn-sm" title="View Hub Specs" style={{ padding: '2px 6px', fontSize: 11 }}>
                             View
                           </button>
-                          <button onClick={() => handleOpenEditModal(wh)} className="btn btn-outline btn-sm" title="Configure Hub">
+                          <button onClick={() => handleOpenEditModal(wh)} className="btn btn-outline btn-sm" title="Configure Hub" style={{ padding: '2px 6px', fontSize: 11 }}>
                             Edit
                           </button>
-                          <button onClick={() => handleOpenConfirmModal(wh)} className="btn btn-outline btn-sm" style={{ color: wh.status === 'Active' ? '#dc2626' : '#16a34a' }}>
-                            {wh.status === 'Active' ? 'Deactivate' : 'Activate'}
+                          <button onClick={() => handleOpenConfirmModal(wh)} className="btn btn-outline btn-sm" style={{ color: wh.status === 'Active' ? '#dc2626' : '#16a34a', padding: '2px 6px', fontSize: 11 }}>
+                            {wh.status === 'Active' ? 'Deact' : 'Act'}
                           </button>
                         </div>
                       </td>
@@ -374,36 +567,6 @@ export default function ResourcesWarehouses() {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      {/* 50/50 Inventory Pool Allocation Policy Diagram */}
-      <div className="card card-body" style={{ background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>
-        <h3 className="headline-sm" style={{ color: 'var(--primary)', marginBottom: 8 }}>50/50 Inventory Reservation Governance Architecture</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--secondary)' }}>
-            <span className="badge badge-secondary" style={{ fontSize: 10 }}>POOL A (50%)</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Normal Pool (Standard Orders)</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Allocated for single-item or standard quotation orders from Sales Reps. Immediate fulfillment dispatch.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--primary)' }}>
-            <span className="badge badge-primary" style={{ fontSize: 10 }}>POOL B (50%)</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Premium Bulk Pool (Enterprise)</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Reserved for Gold and Platinum bulk deployments. Prevents inventory exhaustion by standard orders.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid #f59e0b' }}>
-            <span className="badge badge-amber" style={{ fontSize: 10 }}>HOLD GOVERNANCE</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>48-Hour Atomic Lock</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              When a buyer submits a negotiation counter-offer, stock is locked atomically for 48 hours to prevent race conditions.
-            </p>
-          </div>
         </div>
       </div>
 
@@ -503,12 +666,16 @@ export default function ResourcesWarehouses() {
                 <span className="font-mono" style={{ fontSize: 14, fontWeight: 700 }}>{selectedWarehouse.stock} Units</span>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Normal Pool (50%)</span>
-                <span className="font-mono text-secondary-color" style={{ fontSize: 14 }}>{Math.floor(selectedWarehouse.stock / 2)} Units</span>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Normal / Standard Pool</span>
+                <span className="font-mono text-secondary-color" style={{ fontSize: 14 }}>
+                  {selectedWarehouse.normalQty || Math.floor(selectedWarehouse.stock / 2)} Units ({selectedWarehouse.normalPercent || 50}%)
+                </span>
               </div>
               <div>
-                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Premium Bulk Pool (50%)</span>
-                <span className="font-mono text-primary-color" style={{ fontSize: 14 }}>{Math.floor(selectedWarehouse.stock / 2)} Units</span>
+                <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Premium Bulk Pool</span>
+                <span className="font-mono text-primary-color" style={{ fontSize: 14 }}>
+                  {selectedWarehouse.bulkQty || Math.floor(selectedWarehouse.stock / 2)} Units ({selectedWarehouse.bulkPercent || 50}%)
+                </span>
               </div>
               <div>
                 <span style={{ fontSize: 11, color: 'var(--outline)', display: 'block' }}>Shipping Cost Rate</span>
@@ -538,11 +705,11 @@ export default function ResourcesWarehouses() {
       <Modal
         isOpen={isInventoryModalOpen}
         onClose={() => setIsInventoryModalOpen(false)}
-        title={`Inventory & 50/50 Pool Allocation — ${selectedInventoryWh?.name || ''}`}
+        title={`Dynamic Inventory & Stock Pool Allocation — ${selectedInventoryWh?.name || ''}`}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8, fontSize: 12, color: 'var(--on-surface-variant)' }}>
-            Adjust physical inventory and reserve allocation between <strong>Normal Pool (Standard Orders)</strong> and <strong>Premium Bulk Pool (Enterprise Deals)</strong>.
+            Adjust physical inventory and dynamic pool share between <strong>Normal Standard Orders Pool</strong> and <strong>Premium Bulk Deals Pool</strong>.
           </div>
 
           <div className="table-container" style={{ maxHeight: 320, overflowY: 'auto' }}>
@@ -646,6 +813,124 @@ export default function ResourcesWarehouses() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      {/* Dynamic Pool Configuration & Clustering Modal */}
+      <Modal
+        isOpen={isPoolModalOpen}
+        onClose={() => setIsPoolModalOpen(false)}
+        title="Configure Dynamic Pool Cluster & Tier Weightages"
+      >
+        <form onSubmit={handleSavePoolConfig} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8, fontSize: 12, color: 'var(--on-surface-variant)' }}>
+            Configure cluster weightages and inventory reserves across all <strong>{activeHubs.length} regional warehouse hubs</strong>. Changes are saved directly to MySQL database (single source of truth) and govern quotation routing.
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 600 }}>Standard Orders / Free Tier Weightage (%) *</label>
+              <strong className="font-mono" style={{ color: 'var(--primary)', fontSize: 13 }}>{poolFormData.normalPoolPct}%</strong>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="90"
+              step="5"
+              value={poolFormData.normalPoolPct}
+              onChange={(e) => {
+                const norm = Number(e.target.value);
+                setPoolFormData({
+                  ...poolFormData,
+                  normalPoolPct: norm,
+                  premiumBulkPoolPct: 100 - norm
+                });
+              }}
+              style={{ width: '100%', accentColor: 'var(--primary)' }}
+            />
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 600 }}>Enterprise / Premium Bulk Weightage (%) *</label>
+              <strong className="font-mono" style={{ color: 'var(--primary)', fontSize: 13 }}>{poolFormData.premiumBulkPoolPct}%</strong>
+            </div>
+            <input
+              type="range"
+              min="10"
+              max="90"
+              step="5"
+              value={poolFormData.premiumBulkPoolPct}
+              onChange={(e) => {
+                const bulk = Number(e.target.value);
+                setPoolFormData({
+                  ...poolFormData,
+                  premiumBulkPoolPct: bulk,
+                  normalPoolPct: 100 - bulk
+                });
+              }}
+              style={{ width: '100%', accentColor: 'var(--primary)' }}
+            />
+          </div>
+
+          {/* Visual Split Preview */}
+          <div style={{ background: 'var(--surface-container-high)', borderRadius: 8, padding: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', display: 'block', marginBottom: 6 }}>
+              Cluster Allocation Distribution Preview:
+            </span>
+            <div style={{ display: 'flex', height: 20, borderRadius: 6, overflow: 'hidden', fontSize: 10, fontWeight: 700, color: '#fff', textAlign: 'center', lineHeight: '20px' }}>
+              <div style={{ width: `${poolFormData.normalPoolPct}%`, background: '#57344f' }}>
+                Standard {poolFormData.normalPoolPct}%
+              </div>
+              <div style={{ width: `${poolFormData.premiumBulkPoolPct}%`, background: '#86537a' }}>
+                Bulk {poolFormData.premiumBulkPoolPct}%
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                Atomic Hold Duration (Hours)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="168"
+                className="form-control"
+                value={poolFormData.holdDurationHours}
+                onChange={(e) => setPoolFormData({ ...poolFormData, holdDurationHours: Number(e.target.value) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+              <span style={{ fontSize: 10, color: 'var(--outline)' }}>48h recommended</span>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                Required Hold Deposit (%)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                step="0.5"
+                className="form-control"
+                value={poolFormData.depositPct}
+                onChange={(e) => setPoolFormData({ ...poolFormData, depositPct: Number(e.target.value) })}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+              />
+              <span style={{ fontSize: 10, color: 'var(--outline)' }}>10.0% standard</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <button type="button" onClick={() => setIsPoolModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Save Pool Architecture to Database
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

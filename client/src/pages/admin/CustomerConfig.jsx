@@ -225,7 +225,7 @@ export default function CustomerConfig() {
       </div>
 
       {/* Telemetry Ribbon */}
-      <div className="grid-metrics">
+      <div className="grid-metrics" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Managed Accounts</span>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{customers.length} Enterprises</div>
@@ -259,7 +259,7 @@ export default function CustomerConfig() {
         <div className="card card-body">
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Risk Governance</span>
           <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>Active</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Blended Score Matrix Active</span>
+          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Blended Score Matrix</span>
         </div>
       </div>
 
@@ -271,38 +271,24 @@ export default function CustomerConfig() {
             <p className="body-sm" style={{ color: 'var(--outline)' }}>Tier classification, credit limits, risk scores, and SLA governance commitments</p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             {/* Search */}
-            <div style={{ position: 'relative' }}>
+            <div className="search-bar" style={{ minWidth: 250 }}>
+              <MS icon="search" size={18} />
               <input
                 type="text"
                 placeholder="Search account name or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{
-                  padding: '6px 12px 6px 32px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--outline-variant)',
-                  fontSize: 13,
-                  width: 220
-                }}
               />
-              <span className="material-symbols-outlined" style={{ position: 'absolute', left: 8, top: 7, fontSize: 18, color: 'var(--outline)' }}>
-                search
-              </span>
             </div>
 
             {/* Filter */}
             <select
               value={tierFilter}
               onChange={(e) => setTierFilter(e.target.value)}
-              style={{
-                padding: '6px 12px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--outline-variant)',
-                fontSize: 13,
-                background: '#fff'
-              }}
+              className="select-input"
+              style={{ minWidth: 140 }}
             >
               <option value="ALL">All Tiers</option>
               <option value="PLATINUM">Platinum Tier</option>
@@ -313,18 +299,18 @@ export default function CustomerConfig() {
         </div>
 
         <div className="table-container">
-          <table className="data-table">
+          <table className="data-table" style={{ width: '100%' }}>
             <thead>
               <tr>
-                <th>Account ID</th>
-                <th>Customer Enterprise Name</th>
-                <th>Customer Tier</th>
-                <th>Max Discount %</th>
-                <th>Credit Limit Floor</th>
-                <th>Risk Score</th>
-                <th>Purchase Model</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th style={{ width: '12%' }}>Account ID</th>
+                <th style={{ width: '22%' }}>Enterprise Name</th>
+                <th style={{ width: '10%' }}>Tier</th>
+                <th style={{ width: '9%' }}>Max Disc.</th>
+                <th style={{ width: '12%' }}>Credit Limit</th>
+                <th style={{ width: '11%' }}>Risk Rating</th>
+                <th style={{ width: '10%' }}>Billing Model</th>
+                <th style={{ width: '6%' }}>Status</th>
+                <th style={{ width: '8%', textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -335,50 +321,57 @@ export default function CustomerConfig() {
                   </td>
                 </tr>
               ) : (
-                filteredCustomers.map((cust) => (
-                  <tr key={cust.id} style={{ opacity: cust.status === 'Inactive' ? 0.6 : 1 }}>
-                    <td className="font-mono font-semibold">{cust.id}</td>
-                    <td>
-                      <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{cust.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--outline)' }}>{cust.contactEmail}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${cust.tier === 'PLATINUM' ? 'badge-secondary' : cust.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
-                        {cust.tier}
-                      </span>
-                    </td>
-                    <td className="font-mono font-semibold">
-                      {cust.tier === 'PLATINUM' ? '30.0%' : cust.tier === 'GOLD' ? '20.0%' : '10.0%'}
-                    </td>
-                    <td className="font-mono">{formatCurrency(cust.creditLimit)}</td>
-                    <td>
-                      <span className={`badge ${cust.riskScore < 25 ? 'badge-success' : cust.riskScore < 50 ? 'badge-amber' : 'badge-error'}`}>
-                        Score {cust.riskScore} / 100 ({cust.riskScore < 25 ? 'LOW' : cust.riskScore < 50 ? 'MEDIUM' : 'HIGH'})
-                      </span>
-                    </td>
-                    <td className="font-mono text-sm">
-                      {cust.purchaseModel}
-                    </td>
-                    <td>
-                      <span className={`badge ${cust.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
-                        {cust.status}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => handleOpenDetailModal(cust)} className="btn btn-outline btn-sm" title="View Details">
-                          View
-                        </button>
-                        <button onClick={() => handleOpenEditModal(cust)} className="btn btn-outline btn-sm" title="Edit Customer">
-                          Edit
-                        </button>
-                        <button onClick={() => handleOpenConfirmModal(cust)} className="btn btn-outline btn-sm" style={{ color: cust.status === 'Active' ? '#dc2626' : '#16a34a' }}>
-                          {cust.status === 'Active' ? 'Deactivate' : 'Activate'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                filteredCustomers.map((cust) => {
+                  const displayId = cust.id.startsWith('CUST-') ? cust.id : `CUST-${cust.id.slice(0, 8).toUpperCase()}`;
+                  return (
+                    <tr key={cust.id} style={{ opacity: cust.status === 'Inactive' ? 0.6 : 1 }}>
+                      <td className="font-mono font-semibold" title={cust.id} style={{ fontSize: 12 }}>
+                        {displayId}
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{cust.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--outline)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                          {cust.contactEmail}
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${cust.tier === 'PLATINUM' ? 'badge-secondary' : cust.tier === 'GOLD' ? 'badge-amber' : 'badge-surface'}`}>
+                          {cust.tier}
+                        </span>
+                      </td>
+                      <td className="font-mono font-semibold">
+                        {cust.tier === 'PLATINUM' ? '30.0%' : cust.tier === 'GOLD' ? '20.0%' : '10.0%'}
+                      </td>
+                      <td className="font-mono font-semibold">{formatCurrency(cust.creditLimit)}</td>
+                      <td>
+                        <span className={`badge ${cust.riskScore < 25 ? 'badge-success' : cust.riskScore < 50 ? 'badge-amber' : 'badge-error'}`} style={{ fontSize: 10 }}>
+                          {cust.riskScore}/100 • {cust.riskScore < 25 ? 'LOW' : cust.riskScore < 50 ? 'MED' : 'HIGH'}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>
+                        {cust.purchaseModel ? cust.purchaseModel.replace(/_/g, ' ') : 'ONE TIME'}
+                      </td>
+                      <td>
+                        <span className={`badge ${cust.status === 'Active' ? 'badge-success' : 'badge-error'}`}>
+                          {cust.status}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: 4, justifyContent: 'flex-end' }}>
+                          <button onClick={() => handleOpenDetailModal(cust)} className="btn btn-outline btn-sm" title="View Details" style={{ padding: '2px 6px', fontSize: 11 }}>
+                            View
+                          </button>
+                          <button onClick={() => handleOpenEditModal(cust)} className="btn btn-outline btn-sm" title="Edit Customer" style={{ padding: '2px 6px', fontSize: 11 }}>
+                            Edit
+                          </button>
+                          <button onClick={() => handleOpenConfirmModal(cust)} className="btn btn-outline btn-sm" style={{ color: cust.status === 'Active' ? '#dc2626' : '#16a34a', padding: '2px 6px', fontSize: 11 }}>
+                            {cust.status === 'Active' ? 'Deact' : 'Act'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

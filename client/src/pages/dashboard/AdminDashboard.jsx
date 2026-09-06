@@ -335,63 +335,6 @@ export default function AdminDashboard() {
               </table>
             </div>
           </div>
-
-          {/* System Canonical Roles Matrix */}
-          <div>
-            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>System Role Architecture (RBAC)</h3>
-                <p className="body-sm" style={{ color: 'var(--outline)' }}>The 5 canonical system roles and their scope of authority</p>
-              </div>
-            </div>
-
-            <div className="grid-metrics" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-              <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '4px solid var(--secondary)' }}>
-                <span className="badge badge-secondary" style={{ width: 'fit-content' }}>ROLE 1</span>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--on-surface)' }}>Sales Representative</h4>
-                <p style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>
-                  CPQ Quote Creation, Customer Negotiation, Fast-Path Discount Requests within Tier Limits.
-                </p>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', marginTop: 'auto' }}>SCOPE: Territory Accounts</div>
-              </div>
-
-              <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '4px solid var(--primary)' }}>
-                <span className="badge badge-primary" style={{ width: 'fit-content' }}>ROLE 2</span>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--on-surface)' }}>Sales Manager / Approver</h4>
-                <p style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>
-                  Approval Queue Management, Discount Overrides, Margin Waiver, Re-approval Triggers.
-                </p>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', marginTop: 'auto' }}>SCOPE: Sales Team / Queue</div>
-              </div>
-
-              <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '4px solid #075985' }}>
-                <span className="badge badge-surface" style={{ width: 'fit-content' }}>ROLE 3</span>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--on-surface)' }}>Finance / Operations</h4>
-                <p style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>
-                  Warehouse Stock Allocation, Fulfillment Locking, Hybrid Invoicing & Billing Engine.
-                </p>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', marginTop: 'auto' }}>SCOPE: Operations / ERP</div>
-              </div>
-
-              <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '4px solid var(--error)' }}>
-                <span className="badge badge-error" style={{ width: 'fit-content' }}>ROLE 4</span>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--on-surface)' }}>Administrator</h4>
-                <p style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>
-                  System Governance, Policy Matrix Visibility, RBAC User Access, Audit Log Inspection.
-                </p>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', marginTop: 'auto' }}>SCOPE: Global System Console</div>
-              </div>
-
-              <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '4px solid #78350f' }}>
-                <span className="badge badge-amber" style={{ width: 'fit-content' }}>ROLE 5</span>
-                <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--on-surface)' }}>Customer Portal User</h4>
-                <p style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>
-                  Self-service Proposal Review, Counter-Offer Submission, 48h Stock Hold, Digital Invoice Payment.
-                </p>
-                <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--outline)', marginTop: 'auto' }}>SCOPE: External Buyer Portal</div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

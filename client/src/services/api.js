@@ -492,6 +492,18 @@ export const api = {
     });
   },
 
+  // Pool Configuration & Clustering
+  async getPoolConfig() {
+    return this.request('/config/pool-config');
+  },
+
+  async updatePoolConfig(data) {
+    return this.request('/config/pool-config', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
   // Users & RBAC
   async getUsers() {
     return this.request('/users');
