@@ -69,7 +69,12 @@ async function createQuote({ customerId, repId, currency, validUntil, notes }) {
 }
 
 async function getQuoteById(id) {
-  return quoteModel.findQuotationById(id);
+  console.log(`[Quote] API identifier=${id}`);
+  const quote = await quoteModel.findQuotationById(id);
+  const lookupField = quote ? (quote.id === id ? 'id' : 'quotationNumber') : 'none';
+  console.log(`[Quote] database lookup field=${lookupField}`);
+  console.log(`[Quote] resolved quotation id=${quote ? quote.id : 'null'}`);
+  return quote;
 }
 
 async function updateQuoteDraft(id, { currency, validUntil, notes }) {

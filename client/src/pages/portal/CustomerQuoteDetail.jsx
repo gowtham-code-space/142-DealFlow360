@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+<<<<<<< Updated upstream
 import { api } from '../../services/api';
+=======
+import { useAuth } from '../../context/AuthContext';
+import { api, API_BASE_URL } from '../../services/api';
+>>>>>>> Stashed changes
 import { MOCK_QUOTATIONS, ROLES } from '../../utils/constants';
 import { formatCurrency, formatPercent, formatDate } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
 import Modal from '../../components/common/Modal';
 import { useNotifications } from '../../context/NotificationContext';
 import { ShieldCheck, CheckCircle, Send, ArrowLeft } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -16,7 +22,12 @@ export default function CustomerQuoteDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addNotification } = useNotifications();
+<<<<<<< Updated upstream
   const quoteId = id || 'Q-2026-002';
+=======
+  const { user } = useAuth();
+  const quoteId = id;
+>>>>>>> Stashed changes
 
   const [quote, setQuote] = useState(null);
   const [negotiation, setNegotiation] = useState(null);
@@ -31,6 +42,7 @@ export default function CustomerQuoteDetail() {
   // Live Chat State
   const [chatInput, setChatInput] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [socket, setSocket] = useState(null);
 
   // Order Placement Modal State
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -46,18 +58,72 @@ export default function CustomerQuoteDetail() {
       if (res.success && res.data) {
         setQuote(res.data);
       } else {
-        const found = MOCK_QUOTATIONS.find(q => q.id === quoteId) || MOCK_QUOTATIONS[1];
-        setQuote(found);
+        // Don't fallback to mock data — show the real error
+        console.error('Failed to load quotation:', res.error, 'quoteId:', quoteId);
+        setQuote(null);
       }
 
       // Load negotiation / chat thread
       const negRes = await api.getNegotiation(quoteId);
       if (negRes.success && negRes.data) {
-        setNegotiation(negRes.data);
+        setNegotiation({
+          messages: negRes.data.map(m => ({
+            id: m.id,
+            sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+            author: m.senderRole === 'CUSTOMER' ? 'You' : (res.data?.repName || 'Account Executive'),
+            timestamp: new Date(m.createdAt).toLocaleString(),
+            text: m.message
+          }))
+        });
       }
       setLoading(false);
     }
     loadQuoteData();
+  }, [quoteId]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('dealflow_token');
+    const socketUrl = API_BASE_URL.replace('/api/v1', '');
+    const newSocket = io(socketUrl, {
+      auth: { token }
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Customer portal connected to socket', newSocket.id);
+      newSocket.emit('negotiation:join', { quoteId });
+    });
+
+    newSocket.on('negotiation:message:new', (newMsg) => {
+      setNegotiation(prev => {
+        if (!prev) return prev;
+        
+        // Prevent duplicate messages if already in state
+        if (prev.messages?.find(m => m.id === newMsg.id)) return prev;
+
+        const formattedMsg = {
+          id: newMsg.id,
+          sender: newMsg.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+          author: newMsg.senderRole === 'CUSTOMER' ? 'You' : (prev.repName || 'Account Executive'),
+          timestamp: new Date(newMsg.createdAt).toLocaleString(),
+          text: newMsg.message
+        };
+
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), formattedMsg]
+        };
+      });
+    });
+
+    newSocket.on('negotiation:error', (err) => {
+      console.error('Socket error:', err);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
   }, [quoteId]);
 
   const handleSendChat = async (e) => {
@@ -65,6 +131,7 @@ export default function CustomerQuoteDetail() {
     if (!chatInput.trim()) return;
     setSendingMsg(true);
 
+<<<<<<< Updated upstream
     const msgPayload = {
       sender: 'customer',
       author: 'Marcus Vance (Nexus HyperScale)',
@@ -75,37 +142,87 @@ export default function CustomerQuoteDetail() {
     if (res.success) {
       const updatedNeg = await api.getNegotiation(quoteId);
       if (updatedNeg.success) setNegotiation(updatedNeg.data);
+=======
+    if (socket && socket.connected) {
+      socket.emit('negotiation:message', {
+        quoteId: quoteId,
+        message: chatInput.trim()
+      });
+>>>>>>> Stashed changes
       setChatInput('');
+    } else {
+      // Fallback to REST
+      const msgPayload = {
+        senderRole: 'CUSTOMER',
+        message: chatInput.trim()
+      };
+      
+      const res = await api.sendNegotiationMessage(quoteId, msgPayload);
+      if (res.success) {
+        // Refresh chat
+        const negRes = await api.getNegotiation(quoteId);
+        if (negRes.success) {
+          setNegotiation({
+            messages: negRes.data.map(m => ({
+              id: m.id,
+              sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+              author: m.senderRole === 'CUSTOMER' ? 'You' : (quote?.repName || 'Account Executive'),
+              timestamp: new Date(m.createdAt).toLocaleString(),
+              text: m.message
+            }))
+          });
+        }
+        setChatInput('');
+      }
     }
     setSendingMsg(false);
   };
 
+  // Mandatory Negotiation Declaration State
+  const [declarationAccepted, setDeclarationAccepted] = useState(false);
+  const [baseDepositAmount, setBaseDepositAmount] = useState('');
+
   const handleSubmitCounter = async (e) => {
     e.preventDefault();
+    if (!declarationAccepted) {
+      alert('You must review and accept the official negotiation declaration before submitting.');
+      return;
+    }
     setSubmittingCounter(true);
     const counterData = {
-      proposedDiscount: Number(counterDiscount),
-      paymentTerms: counterTerms,
-      customerNote: counterNote
+      requestedDiscountPct: Number(counterDiscount),
+      comments: `${counterTerms ? `Terms: ${counterTerms}. ` : ''}${counterNote}`,
+      declarationAccepted: true,
+      basePaymentAmount: baseDepositAmount ? Number(baseDepositAmount) : null
     };
 
-    const res = await api.submitCounterOffer(quoteId, counterData);
+    const res = await api.negotiateQuote(quoteId, counterData);
     if (res.success) {
       setQuote(prev => ({
         ...prev,
-        status: res.data.status || 'CUSTOMER_NEGOTIATION',
-        discountPercent: res.data.newDiscountPercent || Number(counterDiscount)
+        status: res.data?.status || 'CUSTOMER_NEGOTIATION',
+        discountPercent: res.data?.newDiscountPercent || Number(counterDiscount)
       }));
       const updatedNeg = await api.getNegotiation(quoteId);
-      if (updatedNeg.success) setNegotiation(updatedNeg.data);
+      if (updatedNeg.success) {
+        setNegotiation({
+          messages: updatedNeg.data.map(m => ({
+            id: m.id,
+            sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+            author: m.senderRole === 'CUSTOMER' ? 'You' : (quote?.repName || 'Account Executive'),
+            timestamp: new Date(m.createdAt).toLocaleString(),
+            text: m.message
+          }))
+        });
+      }
 
       // Notify Sales Rep & Manager
       addNotification({
         recipientRole: ROLES.SALES_REP,
         type: 'NEGOTIATION_REQUEST',
         priority: 'ACTION_REQUIRED',
-        title: 'Customer requested changes',
-        message: `Nexus HyperScale submitted a counter-offer for Quote ${quoteId}.`,
+        title: 'Customer requested changes with declaration',
+        message: `Customer submitted a counter-offer for Quote ${quoteId}.`,
         relatedEntity: 'quote',
         relatedId: quoteId,
         targetUrl: `/negotiation/${quoteId}`
@@ -116,18 +233,27 @@ export default function CustomerQuoteDetail() {
         type: 'NEGOTIATION_REVIEW',
         priority: 'ACTION_REQUIRED',
         title: 'Negotiation requires review',
-        message: `Nexus HyperScale submitted a counter-offer for Quote ${quoteId}.`,
+        message: `Customer submitted a counter-offer for Quote ${quoteId}.`,
         relatedEntity: 'quote',
         relatedId: quoteId,
         targetUrl: `/negotiation/${quoteId}`
       });
+    } else {
+      alert(res.error || 'Failed to submit counter-offer');
     }
     setSubmittingCounter(false);
   };
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     setPlacingOrder(true);
-    setTimeout(() => {
+    
+    // Call real internal payment confirmation API
+    const payRes = await api.payQuoteDeposit(quoteId, {
+      paymentMethod: paymentMethod || 'ACH',
+      paymentReference: poNumber
+    });
+
+    if (payRes.success) {
       setQuote(prev => ({
         ...prev,
         status: 'CUSTOMER_ACCEPTED'
@@ -135,13 +261,12 @@ export default function CustomerQuoteDetail() {
       setPlacingOrder(false);
       setOrderSuccess(true);
 
-      // Notify Sales Rep & Operations
       addNotification({
         recipientRole: ROLES.SALES_REP,
         type: 'QUOTE_ACCEPTED',
         priority: 'SUCCESS',
-        title: 'Quote accepted',
-        message: `Nexus HyperScale accepted Quote ${quoteId}.`,
+        title: 'Quote accepted & deposit confirmed',
+        message: `Customer authorized Quote ${quoteId} under PO ${poNumber}.`,
         relatedEntity: 'quote',
         relatedId: quoteId,
         targetUrl: `/quotations/${quoteId}`
@@ -152,12 +277,22 @@ export default function CustomerQuoteDetail() {
         type: 'ORDER_CREATED',
         priority: 'SUCCESS',
         title: 'Order created',
-        message: `Order ORD-2026-0041 was created from Quote ${quoteId}.`,
+        message: `Order was created from Quote ${quoteId}.`,
         relatedEntity: 'order',
-        relatedId: 'ORD-2026-0041',
+        relatedId: quoteId,
         targetUrl: '/inventory'
       });
-    }, 600);
+    } else {
+      // Fall back to confirm quote if deposit API handled via confirmation
+      const confirmRes = await api.confirmQuote(quoteId);
+      if (confirmRes.success) {
+        setQuote(prev => ({ ...prev, status: 'CUSTOMER_ACCEPTED' }));
+        setOrderSuccess(true);
+      } else {
+        alert(payRes.error || confirmRes.error || 'Failed to confirm order authorization');
+      }
+      setPlacingOrder(false);
+    }
   };
 
   if (loading) {
@@ -165,6 +300,19 @@ export default function CustomerQuoteDetail() {
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--secondary-text)' }}>
         <span className="material-symbols-outlined spin" style={{ fontSize: 28, color: '#059669' }}>sync</span>
         <p style={{ marginTop: 8 }}>Loading customer quote detail...</p>
+      </div>
+    );
+  }
+
+  if (!quote) {
+    return (
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <span className="material-symbols-outlined" style={{ fontSize: 36, color: 'var(--error)' }}>error</span>
+        <p style={{ marginTop: 12, fontWeight: 600 }}>Quote not found</p>
+        <p style={{ fontSize: 13 }}>The requested quotation could not be loaded from the database.</p>
+        <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => navigate('/portal/quotes')}>
+          Back to My Quotes
+        </button>
       </div>
     );
   }
@@ -381,7 +529,7 @@ export default function CustomerQuoteDetail() {
                     Procurement Rationale / Note to Sales Representative
                   </label>
                   <textarea
-                    rows="3"
+                    rows="2"
                     className="textarea-field"
                     placeholder="E.g., We are ready to sign this fiscal quarter if discount is adjusted to 25% and terms extended to Net 60."
                     value={counterNote}
@@ -389,12 +537,42 @@ export default function CustomerQuoteDetail() {
                   />
                 </div>
 
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label className="input-label" style={{ fontWeight: 600, fontSize: '0.78rem' }}>
+                    Optional Priority Deposit Payment (Base Amount)
+                  </label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    placeholder="Enter deposit amount to hold resource priority during negotiation (Optional)"
+                    value={baseDepositAmount}
+                    onChange={e => setBaseDepositAmount(e.target.value)}
+                  />
+                </div>
+
+                <div style={{
+                  gridColumn: '1 / -1', padding: '12px', borderRadius: 8,
+                  background: 'rgba(5, 150, 105, 0.06)', border: '1px solid rgba(5, 150, 105, 0.25)',
+                  display: 'flex', alignItems: 'flex-start', gap: 10
+                }}>
+                  <input
+                    type="checkbox"
+                    id="negotiationDeclaration"
+                    checked={declarationAccepted}
+                    onChange={e => setDeclarationAccepted(e.target.checked)}
+                    style={{ marginTop: 3, width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <label htmlFor="negotiationDeclaration" style={{ fontSize: '0.78rem', color: 'var(--on-surface)', lineHeight: 1.4, cursor: 'pointer' }}>
+                    <strong>Mandatory Negotiation Declaration:</strong> I hereby declare that this counter-offer request is submitted for official team review. I understand that final quote approval and resource allocation are subject to inventory re-verification upon review.
+                  </label>
+                </div>
+
                 <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
                   <button
                     type="submit"
                     className="btn btn-outline"
-                    disabled={submittingCounter}
-                    style={{ borderColor: 'var(--primary)', color: 'var(--primary)', gap: 6 }}
+                    disabled={submittingCounter || !declarationAccepted}
+                    style={{ borderColor: declarationAccepted ? 'var(--primary)' : 'var(--outline)', color: declarationAccepted ? 'var(--primary)' : 'var(--outline)', gap: 6 }}
                   >
                     <MS icon="send" size={16} />
                     <span>{submittingCounter ? 'Submitting Counter-Offer...' : 'Submit Counter-Offer to Rep'}</span>

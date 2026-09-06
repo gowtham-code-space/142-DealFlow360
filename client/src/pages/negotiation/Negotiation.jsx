@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { api, API_BASE_URL } from '../../services/api';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
+import { io } from 'socket.io-client';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size }}>{icon}</span>
 );
 
 export default function Negotiation() {
-  const { id = 'Q-2026-002' } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [negotiation, setNegotiation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [messageText, setMessageText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [resolvedQuoteId, setResolvedQuoteId] = useState(null);
 
   // Counter proposal inputs
   const [counterDiscount, setCounterDiscount] = useState(22);
@@ -28,19 +30,141 @@ export default function Negotiation() {
   // Customer-facing preview toggle
   const [customerPreview, setCustomerPreview] = useState(false);
 
+  // Socket state
+  const [socket, setSocket] = useState(null);
+
   useEffect(() => {
+    console.log(`[Quote] frontend identifier=${id || 'none'}`);
     async function loadNegotiation() {
       setLoading(true);
+<<<<<<< Updated upstream
       const res = await api.getNegotiation(id);
       if (res.success) setNegotiation(res.data);
+=======
+
+      let targetId = id;
+      if (!targetId) {
+        // Automatically find active negotiation quote if navigated to bare /negotiation
+        const qListRes = await api.getQuotations();
+        if (qListRes.success && qListRes.data?.items?.length > 0) {
+          const activeNeg = qListRes.data.items.find(q => q.status === 'CUSTOMER_NEGOTIATION' || q.status === 'RETURNED') || qListRes.data.items[0];
+          if (activeNeg) {
+            targetId = activeNeg.id;
+            navigate(`/negotiation/${targetId}`, { replace: true });
+            return;
+          }
+        }
+      }
+
+      if (!targetId) {
+        setLoading(false);
+        return;
+      }
+
+      const [quoteRes, ticketsRes, msgsRes] = await Promise.all([
+        api.getQuotationById(targetId),
+        api.getNegotiationTickets(targetId),
+        api.getNegotiation(targetId)
+      ]);
+
+      if (quoteRes.success && quoteRes.data) {
+        const q = quoteRes.data;
+        const realId = q.id;
+        setResolvedQuoteId(realId);
+
+        const activeTicket = ticketsRes.success && ticketsRes.data?.length > 0 ? ticketsRes.data[0] : null;
+        const msgs = msgsRes.success ? msgsRes.data : [];
+
+        // Build composite negotiation object
+        setNegotiation({
+          quoteId: q.quotationNumber || q.id,
+          realId: q.id,
+          status: q.status,
+          customerName: q.customer?.name || q.customerName,
+          tier: q.customer?.tier || q.tier,
+          originalTerms: {
+            totalValue: q.estimatedNetTotal || q.totalValue,
+            discountPercent: q.discountTotal ? (q.discountTotal / (q.subtotal || 1) * 100).toFixed(1) : q.discountPercent,
+            paymentTerms: 'Net 30',
+            marginPercent: q.marginPct || q.marginPercent
+          },
+          counterOffer: activeTicket ? {
+            id: activeTicket.id,
+            timestamp: new Date(activeTicket.createdAt).toLocaleString(),
+            customerNote: activeTicket.comments || 'No comments provided',
+            requestedDiscountPercent: activeTicket.requestedDiscountPct,
+            requestedTerms: 'Net 60'
+          } : null,
+          messages: msgs.map(m => ({
+            id: m.id,
+            sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+            author: m.senderRole === 'CUSTOMER' ? (q.customer?.name || 'Customer') : 'Sales Representative',
+            timestamp: new Date(m.createdAt).toLocaleString(),
+            text: m.message
+          })),
+          parameterDiffs: activeTicket ? [
+            { field: 'Discount', original: `${q.discountTotal ? (q.discountTotal / (q.subtotal || 1) * 100).toFixed(1) : q.discountPercent}%`, counter: `${activeTicket.requestedDiscountPct}%`, delta: `+${(activeTicket.requestedDiscountPct - (q.discountPercent || 0)).toFixed(1)}%` },
+            { field: 'Payment Terms', original: 'Net 30', counter: 'Net 60', delta: '+30 Days' }
+          ] : []
+        });
+      }
+>>>>>>> Stashed changes
       setLoading(false);
     }
     loadNegotiation();
-  }, [id]);
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (!resolvedQuoteId) return;
+
+    const token = localStorage.getItem('dealflow_token');
+    const socketUrl = API_BASE_URL.replace('/api/v1', '');
+    const newSocket = io(socketUrl, {
+      auth: { token }
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Connected to socket', newSocket.id);
+      newSocket.emit('negotiation:join', { quoteId: resolvedQuoteId });
+    });
+
+    newSocket.on('negotiation:message:new', (newMsg) => {
+      setNegotiation(prev => {
+        if (!prev) return prev;
+        
+        // Prevent duplicate messages if already in state
+        if (prev.messages.find(m => m.id === newMsg.id)) return prev;
+
+        const formattedMsg = {
+          id: newMsg.id,
+          sender: newMsg.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+          author: newMsg.senderRole === 'CUSTOMER' ? (prev.customerName || 'Customer') : 'Sales Representative',
+          timestamp: new Date(newMsg.createdAt).toLocaleString(),
+          text: newMsg.message
+        };
+
+        return {
+          ...prev,
+          messages: [...prev.messages, formattedMsg]
+        };
+      });
+    });
+
+    newSocket.on('negotiation:error', (err) => {
+      console.error('Socket error:', err);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [resolvedQuoteId]);
 
   const handleSendMessage = async () => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() || !resolvedQuoteId) return;
     setSendingMsg(true);
+<<<<<<< Updated upstream
     const res = await api.sendNegotiationMessage(id, {
       sender: 'rep',
       author: 'Alex Rivera (Sales Rep)',
@@ -50,6 +174,37 @@ export default function Negotiation() {
       setMessageText('');
       const fresh = await api.getNegotiation(id);
       if (fresh.success) setNegotiation(fresh.data);
+=======
+
+    if (socket && socket.connected) {
+      socket.emit('negotiation:message', {
+        quoteId: resolvedQuoteId,
+        message: messageText
+      });
+      setMessageText('');
+    } else {
+      // Fallback to REST
+      const res = await api.sendNegotiationMessage(resolvedQuoteId, {
+        senderRole: 'REP',
+        message: messageText
+      });
+      if (res.success) {
+        setMessageText('');
+        const msgsRes = await api.getNegotiation(resolvedQuoteId);
+        if (msgsRes.success) {
+          setNegotiation(prev => ({
+            ...prev,
+            messages: msgsRes.data.map(m => ({
+              id: m.id,
+              sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+              author: m.senderRole === 'CUSTOMER' ? (prev.customerName || 'Customer') : 'Sales Representative',
+              timestamp: new Date(m.createdAt).toLocaleString(),
+              text: m.message
+            }))
+          }));
+        }
+      }
+>>>>>>> Stashed changes
     }
     setSendingMsg(false);
   };
@@ -85,6 +240,20 @@ export default function Negotiation() {
       </div>
     );
   }
+
+  if (!negotiation) {
+    return (
+      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <MS icon="error" size={36} />
+        <p style={{ marginTop: 12, fontWeight: 600 }}>Quotation not found</p>
+        <p style={{ fontSize: 13 }}>The requested quote could not be loaded. Please use a valid quotation link.</p>
+        <button className="btn btn-outline btn-sm" style={{ marginTop: 16 }} onClick={() => navigate('/quotations')}>
+          Back to Quotations
+        </button>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex-col gap-4">

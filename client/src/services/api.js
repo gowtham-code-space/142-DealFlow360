@@ -403,6 +403,7 @@ export const api = {
   },
 
   async getWarehouses() {
+<<<<<<< Updated upstream
     try {
       const res = await fetch(`${API_BASE_URL}/inventory/warehouses`);
       if (res.ok) return await res.json();
@@ -415,5 +416,69 @@ export const api = {
       console.info('[API Offline Mode] Backend unreachable, using mock warehouses:', e.message);
       return { success: true, data: MOCK_WAREHOUSES };
     }
+=======
+    const res = await fetch(`${API_BASE_URL}/warehouses`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to fetch warehouses', status: res.status };
+  },
+
+  async getInventory(productId) {
+    const query = productId ? `?productId=${productId}` : '';
+    const res = await fetch(`${API_BASE_URL}/inventory${query}`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to fetch inventory', status: res.status };
+  },
+
+  // ─── Customer Portal Resource Catalog & Hold Endpoints ─────────────────────
+
+  async getPortalResources() {
+    const res = await fetch(`${API_BASE_URL}/portal/resources`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to fetch portal resources', status: res.status };
+  },
+
+  async createProductHolds(items) {
+    const res = await fetch(`${API_BASE_URL}/portal/holds`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ items })
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to reserve resources', status: res.status };
+  },
+
+  async createProductHold(productId, holdData = {}) {
+    const res = await fetch(`${API_BASE_URL}/portal/resources/${productId}/hold`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(holdData)
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to reserve resource hold', status: res.status };
+  },
+
+  async getHoldStatus(holdId) {
+    const res = await fetch(`${API_BASE_URL}/portal/holds/${holdId}`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to fetch hold status', status: res.status };
+  },
+
+  async generateQuote(quotePayload) {
+    const res = await fetch(`${API_BASE_URL}/portal/quotes/generate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(quotePayload)
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to generate quotation', status: res.status };
+>>>>>>> Stashed changes
   }
 };

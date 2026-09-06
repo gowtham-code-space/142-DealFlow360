@@ -3,6 +3,45 @@ import { ROLES } from '../utils/constants';
 
 const AuthContext = createContext(null);
 
+<<<<<<< Updated upstream
+=======
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+
+// Role mapping helper between Backend Enum and Frontend UI constants
+export function mapBackendRoleToFrontend(backendRole) {
+  switch (backendRole) {
+    case 'ADMIN':
+      return ROLES.ADMIN;
+    case 'SALES_MANAGER':
+      return ROLES.SALES_MANAGER;
+    case 'FINANCE_OPS':
+    case 'OPERATIONS':
+      return ROLES.OPERATIONS;
+    case 'CUSTOMER':
+      return ROLES.CUSTOMER;
+    case 'SALES_REP':
+    default:
+      return ROLES.SALES_REP;
+  }
+}
+
+export function mapFrontendRoleToBackend(frontendRole) {
+  switch (frontendRole) {
+    case ROLES.ADMIN:
+      return 'ADMIN';
+    case ROLES.SALES_MANAGER:
+      return 'SALES_MANAGER';
+    case ROLES.OPERATIONS:
+      return 'FINANCE_OPS';
+    case ROLES.CUSTOMER:
+      return 'CUSTOMER';
+    case ROLES.SALES_REP:
+    default:
+      return 'SALES_REP';
+  }
+}
+
+>>>>>>> Stashed changes
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('dealflow_user');

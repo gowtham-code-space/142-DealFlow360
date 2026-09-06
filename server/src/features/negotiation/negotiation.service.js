@@ -125,10 +125,12 @@ async function getTicketHoldStatus(ticketId) {
 // ─── Negotiation Messages ────────────────────────────────────────────────────
 
 async function listNegotiations(quotationId) {
+  console.log(`[Negotiation] quotation id=${quotationId}`);
   return negModel.findNegotiations(quotationId);
 }
 
 async function createNegotiationMessage(quotationId, { senderId, senderRole, message, proposedDiscount }) {
+  console.log(`[Negotiation] quotation id=${quotationId}`);
   return negModel.createNegotiation({
     id: uuidv4(),
     quotationId,

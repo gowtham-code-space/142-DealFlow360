@@ -34,8 +34,14 @@ async function createQuotation(data) {
 }
 
 async function findQuotationById(id) {
-  return prisma.quotation.findUnique({
-    where: { id },
+  if (!id) return null;
+  return prisma.quotation.findFirst({
+    where: {
+      OR: [
+        { id: id },
+        { quotationNumber: id }
+      ]
+    },
     include: {
       customer: { select: { id: true, name: true, tier: true, riskScore: true, orderCount: true, creditLimit: true } },
       rep: { select: { id: true, name: true } },

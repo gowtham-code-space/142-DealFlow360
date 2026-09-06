@@ -42,7 +42,26 @@ async function loginInternal(email, password) {
   const match = await bcrypt.compare(password, user.password);
   if (!match) return { invalid: true };
 
+<<<<<<< Updated upstream
   const accessToken = generateAccessToken({ userId: user.id, roleId: user.role });
+=======
+  if (user.isActive === false) return { invalid: true, message: 'Account has been deactivated' };
+
+  if (user.password) {
+    const isMatch = await bcrypt.compare(password, user.password).catch(() => false);
+    const isPlainMatch = user.password === password;
+    if (!isMatch && !isPlainMatch) {
+      return { invalid: true, message: 'Invalid email or password' };
+    }
+  }
+
+  const roleIdentifier = user.roleId || user.role;
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    roleId: roleIdentifier,
+    customerId: user.customerId || 'CUST-002'
+  });
+>>>>>>> Stashed changes
   const refreshToken = generateRefreshToken({ userId: user.id });
 
   return { user, accessToken, refreshToken };
