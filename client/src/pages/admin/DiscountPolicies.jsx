@@ -223,6 +223,23 @@ export default function DiscountPolicies() {
     setIsConfirmModalOpen(false);
   };
 
+  // Handle Delete Policy
+  const handleDeletePolicy = async (pol) => {
+    if (!pol.id) return;
+    if (!window.confirm(`Are you sure you want to permanently delete policy "${pol.policyName}"?`)) return;
+    try {
+      const res = await api.deleteDiscountPolicy(pol.id);
+      if (res && res.success) {
+        showToast('Discount policy deleted.');
+        loadData();
+      } else {
+        showToast(res?.message || 'Failed to delete policy', 'error');
+      }
+    } catch {
+      showToast('Failed to delete policy from server', 'error');
+    }
+  };
+
   // Filtered Policies
   const filteredPolicies = policies.filter(p =>
     p.policyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -383,6 +400,14 @@ export default function DiscountPolicies() {
                         </button>
                         <button onClick={() => handleOpenConfirmModal(pol)} className="btn btn-outline btn-sm" style={{ color: pol.status === 'Active' ? '#dc2626' : '#16a34a' }}>
                           {pol.status === 'Active' ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleDeletePolicy(pol)}
+                          className="btn btn-outline btn-sm"
+                          style={{ color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)', padding: '3px 8px' }}
+                          title="Delete policy"
+                        >
+                          <MS icon="delete" size={14} />
                         </button>
                       </div>
                     </td>

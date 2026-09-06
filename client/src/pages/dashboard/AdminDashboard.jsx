@@ -87,9 +87,12 @@ export default function AdminDashboard() {
   const [formData, setFormData] = useState({
     id: '',
     domain: 'Discount Ceiling',
-    scope: 'STANDARD',
-    threshold: 15.0,
-    action: 'Requires Manager Approval',
+    tier: 'STANDARD',
+    productCategory: 'All',
+    maxDiscountPct: 15.0,
+    salesRepMaxOverCeilingPct: 5.0,
+    financeThresholdOverCeilingPct: 15.0,
+    description: 'Requires Manager Approval if discount exceeds tier ceiling',
     risk: 'MEDIUM RISK',
     status: 'ACTIVE'
   });
@@ -103,9 +106,12 @@ export default function AdminDashboard() {
     setFormData({
       id: '',
       domain: 'Discount Ceiling',
-      scope: 'STANDARD',
-      threshold: 15.0,
-      action: 'Requires Manager Approval',
+      tier: 'STANDARD',
+      productCategory: 'All',
+      maxDiscountPct: 15.0,
+      salesRepMaxOverCeilingPct: 5.0,
+      financeThresholdOverCeilingPct: 15.0,
+      description: 'Requires Manager Approval if discount exceeds tier limit',
       risk: 'MEDIUM RISK',
       status: 'ACTIVE'
     });
@@ -114,10 +120,18 @@ export default function AdminDashboard() {
 
   const handleOpenEditModal = (rule) => {
     setEditingRule(rule);
+    const isDiscount = rule.domain.includes('Discount') || rule.raw?.customerTier;
     setFormData({
-      ...rule,
-      threshold: rule.raw?.maxDiscountPct || rule.raw?.salesRepOnlyMaxOverCeilingPct || 15.0,
-      scope: rule.raw?.customerTier || 'STANDARD'
+      id: rule.id,
+      domain: isDiscount ? 'Discount Ceiling' : 'Approval Escalation',
+      tier: rule.raw?.customerTier || 'STANDARD',
+      productCategory: rule.raw?.productCategory || 'All',
+      maxDiscountPct: Number(rule.raw?.maxDiscountPct || 15),
+      salesRepMaxOverCeilingPct: Number(rule.raw?.salesRepOnlyMaxOverCeilingPct || 5),
+      financeThresholdOverCeilingPct: Number(rule.raw?.financeThresholdOverCeilingPct || 15),
+      description: rule.raw?.description || rule.action || 'Policy enforcement trigger',
+      risk: rule.risk || 'MEDIUM RISK',
+      status: rule.status || 'ACTIVE'
     });
     setIsFormModalOpen(true);
   };
@@ -131,59 +145,91 @@ export default function AdminDashboard() {
     e.preventDefault();
     try {
       if (formData.domain === 'Discount Ceiling') {
+        const payload = {
+          customerTier: formData.tier || 'STANDARD',
+          productCategory: formData.productCategory || 'All',
+          maxDiscountPct: Number(formData.maxDiscountPct) || 15.0,
+          isActive: formData.status === 'ACTIVE'
+        };
         if (editingRule && editingRule.raw?.id) {
-          const res = await api.updateDiscountPolicy(editingRule.raw.id, {
-            maxDiscountPct: Number(formData.threshold),
-            isActive: formData.status === 'ACTIVE'
-          });
+          const res = await api.updateDiscountPolicy(editingRule.raw.id, payload);
           if (res && res.success) {
-            showToast('Discount governance policy updated.');
+            showToast('Discount governance policy updated successfully.');
           } else {
             showToast(res?.message || 'Failed to update policy', 'error');
           }
         } else {
-          const res = await api.createDiscountPolicy({
-            customerTier: formData.scope || 'STANDARD',
-            productCategory: 'Hardware',
-            maxDiscountPct: Number(formData.threshold)
-          });
+          const res = await api.createDiscountPolicy(payload);
           if (res && res.success) {
-            showToast('Discount governance policy created.');
+            showToast('Discount governance policy created successfully.');
           } else {
             showToast(res?.message || 'Failed to create policy', 'error');
           }
         }
       } else {
+        const payload = {
+          description: formData.description || 'Approval Gate Rule',
+          salesRepOnlyMaxOverCeilingPct: Number(formData.salesRepMaxOverCeilingPct) || 5.0,
+          financeThresholdOverCeilingPct: Number(formData.financeThresholdOverCeilingPct) || 15.0,
+          isActive: formData.status === 'ACTIVE'
+        };
         if (editingRule && editingRule.raw?.id) {
-          const res = await api.updateApprovalChain(editingRule.raw.id, {
-            description: formData.action || 'Approval Rule',
-            salesRepOnlyMaxOverCeilingPct: Number(formData.threshold),
-            isActive: formData.status === 'ACTIVE'
-          });
+          const res = await api.updateApprovalChain(editingRule.raw.id, payload);
           if (res && res.success) {
-            showToast('Approval governance rule updated.');
+            showToast('Approval governance rule updated successfully.');
           } else {
             showToast(res?.message || 'Failed to update approval rule', 'error');
           }
         } else {
-          const res = await api.createApprovalChain({
-            description: formData.action || 'Approval Gate Rule',
-            salesRepOnlyMaxOverCeilingPct: Number(formData.threshold),
-            financeThresholdOverCeilingPct: 15.0,
-            isActive: formData.status === 'ACTIVE'
-          });
+          const res = await api.createApprovalChain(payload);
           if (res && res.success) {
-            showToast('Approval governance rule created.');
+            showToast('Approval governance rule created successfully.');
           } else {
             showToast(res?.message || 'Failed to create approval rule', 'error');
           }
         }
       }
       fetchLiveGovernance();
+      setIsFormModalOpen(false);
     } catch {
       showToast('Failed to save governance rule to server', 'error');
     }
-    setIsFormModalOpen(false);
+  };
+
+  const handleToggleStatus = async (rule) => {
+    if (!rule.raw?.id) return;
+    const isActivating = rule.status !== 'ACTIVE';
+    try {
+      if (rule.domain.includes('Discount') || rule.raw?.customerTier) {
+        await api.updateDiscountPolicy(rule.raw.id, { isActive: isActivating });
+      } else {
+        await api.updateApprovalChain(rule.raw.id, { isActive: isActivating });
+      }
+      showToast(`Rule status updated to ${isActivating ? 'ACTIVE' : 'DISABLED'}.`);
+      fetchLiveGovernance();
+    } catch {
+      showToast('Failed to toggle rule status', 'error');
+    }
+  };
+
+  const handleDeleteRule = async (rule) => {
+    if (!rule.raw?.id) {
+      setRules(prev => prev.filter(r => r.id !== rule.id));
+      showToast('Rule removed.');
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to permanently delete rule "${rule.id}"?`)) return;
+    try {
+      if (rule.domain.includes('Discount') || rule.raw?.customerTier) {
+        await api.deleteDiscountPolicy(rule.raw.id);
+      } else {
+        await api.deleteApprovalChain(rule.raw.id);
+      }
+      showToast('Governance rule deleted successfully.');
+      fetchLiveGovernance();
+    } catch {
+      showToast('Failed to delete rule from server', 'error');
+    }
   };
 
   const handleExportReport = () => {
@@ -289,7 +335,7 @@ export default function AdminDashboard() {
             <div className="card-header flex-between">
               <div>
                 <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Active Governance Policy Matrix</h3>
-                <p className="body-sm" style={{ color: 'var(--outline)' }}>Core discount ceilings, margin locks, and automated routing rules</p>
+                <p className="body-sm" style={{ color: 'var(--outline)' }}>Core discount ceilings, margin locks, and automated routing rules connected to database</p>
               </div>
               <button onClick={handleOpenAddModal} className="btn btn-primary btn-sm">
                 <MS icon="add" size={16} /> Add Governance Rule
@@ -322,11 +368,35 @@ export default function AdminDashboard() {
                           {rule.risk}
                         </span>
                       </td>
-                      <td><span className="badge badge-success">{rule.status}</span></td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={() => handleOpenDetailModal(rule)} className="btn btn-outline btn-sm">View</button>
-                          <button onClick={() => handleOpenEditModal(rule)} className="btn btn-outline btn-sm">Edit</button>
+                        <span className={`badge ${rule.status === 'ACTIVE' ? 'badge-success' : 'badge-error'}`}>
+                          {rule.status}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <button onClick={() => handleOpenDetailModal(rule)} className="btn btn-outline btn-sm" title="View rule details">
+                            View
+                          </button>
+                          <button onClick={() => handleOpenEditModal(rule)} className="btn btn-outline btn-sm" title="Edit rule configuration">
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(rule)}
+                            className={`btn btn-sm ${rule.status === 'ACTIVE' ? 'btn-outline' : 'btn-primary'}`}
+                            style={{ fontSize: 11, padding: '3px 8px' }}
+                            title="Toggle active status"
+                          >
+                            {rule.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRule(rule)}
+                            className="btn btn-outline btn-sm"
+                            style={{ color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)', padding: '3px 8px' }}
+                            title="Delete rule"
+                          >
+                            <MS icon="delete" size={14} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -398,68 +468,144 @@ export default function AdminDashboard() {
       <Modal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
-        title={editingRule ? `Edit Governance Rule: ${editingRule.id}` : 'Add Governance Rule'}
+        title={editingRule ? `Edit Governance Rule: ${editingRule.id}` : 'Add New Governance Rule'}
       >
         <form onSubmit={handleSaveRule} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Rule Identifier *</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.id}
-              onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-              placeholder="e.g. POL-CUSTOM-01"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
-            />
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Governance Domain *</label>
+            <select
+              className="select-input"
+              value={formData.domain}
+              onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
+              style={{ width: '100%', padding: '8px 12px' }}
+            >
+              <option value="Discount Ceiling">Discount Ceiling & Limit Policy</option>
+              <option value="Approval Escalation">Multi-Tier Approval Routing Rule</option>
+            </select>
           </div>
+
+          {formData.domain === 'Discount Ceiling' ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Customer Tier *</label>
+                  <select
+                    className="select-input"
+                    value={formData.tier}
+                    onChange={(e) => setFormData({ ...formData, tier: e.target.value })}
+                    style={{ width: '100%', padding: '8px 12px' }}
+                  >
+                    <option value="STANDARD">STANDARD</option>
+                    <option value="GOLD">GOLD</option>
+                    <option value="PLATINUM">PLATINUM</option>
+                    <option value="ENTERPRISE">ENTERPRISE</option>
+                    <option value="ALL">ALL TIERS</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Product Category</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={formData.productCategory}
+                    onChange={(e) => setFormData({ ...formData, productCategory: e.target.value })}
+                    placeholder="e.g. Hardware, Software, All"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Maximum Allowed Discount (%) *</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="100"
+                  className="form-control"
+                  value={formData.maxDiscountPct}
+                  onChange={(e) => setFormData({ ...formData, maxDiscountPct: e.target.value })}
+                  placeholder="e.g. 15.0"
+                  required
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Approval Trigger / Rule Description *</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="e.g. Requires Manager Approval if Discount exceeds Tier Cap"
+                  required
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Rep Max Over Ceiling (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    className="form-control"
+                    value={formData.salesRepMaxOverCeilingPct}
+                    onChange={(e) => setFormData({ ...formData, salesRepMaxOverCeilingPct: e.target.value })}
+                    placeholder="5.0"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Finance Escalation (%)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    className="form-control"
+                    value={formData.financeThresholdOverCeilingPct}
+                    onChange={(e) => setFormData({ ...formData, financeThresholdOverCeilingPct: e.target.value })}
+                    placeholder="15.0"
+                    style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Governance Domain</label>
-              <input
-                type="text"
-                className="form-control"
-                value={formData.domain}
-                onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
-                placeholder="Discount Limit"
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
-              />
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Status</label>
+              <select
+                className="select-input"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px' }}
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="DISABLED">DISABLED</option>
+              </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Target Tier / Scope</label>
-              <input
-                type="text"
-                className="form-control"
-                value={formData.scope}
-                onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
-                placeholder="Gold Tier"
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
-              />
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Risk Level</label>
+              <select
+                className="select-input"
+                value={formData.risk}
+                onChange={(e) => setFormData({ ...formData, risk: e.target.value })}
+                style={{ width: '100%', padding: '8px 12px' }}
+              >
+                <option value="LOW RISK">LOW RISK</option>
+                <option value="MEDIUM RISK">MEDIUM RISK</option>
+                <option value="HIGH RISK">HIGH RISK</option>
+                <option value="CRITICAL">CRITICAL</option>
+              </select>
             </div>
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Enforcement Threshold</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.threshold}
-              onChange={(e) => setFormData({ ...formData, threshold: e.target.value })}
-              placeholder="Max 25.0% Discount"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>System Action</label>
-            <input
-              type="text"
-              className="form-control"
-              value={formData.action}
-              onChange={(e) => setFormData({ ...formData, action: e.target.value })}
-              placeholder="Requires Manager Approval"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
-            />
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
@@ -467,7 +613,7 @@ export default function AdminDashboard() {
               Cancel
             </button>
             <button type="submit" className="btn btn-primary">
-              {editingRule ? 'Save Changes' : 'Create Rule'}
+              {editingRule ? 'Save Changes' : 'Create Governance Rule'}
             </button>
           </div>
         </form>

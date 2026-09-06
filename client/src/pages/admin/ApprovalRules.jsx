@@ -144,6 +144,22 @@ export default function ApprovalRules() {
     }
   };
 
+  const handleDeleteRule = async (rule) => {
+    if (!rule.id) return;
+    if (!window.confirm(`Are you sure you want to permanently delete rule "${rule.name || rule.id}"?`)) return;
+    try {
+      const res = await api.deleteApprovalChain(rule.id);
+      if (res && res.success) {
+        showToast('Approval rule deleted successfully.');
+        loadRules();
+      } else {
+        showToast(res?.message || 'Failed to delete rule', 'error');
+      }
+    } catch {
+      showToast('Failed to delete rule from server', 'error');
+    }
+  };
+
   const filteredRules = rules.filter(rule => {
     const matchesTier = filterTier === 'ALL' || rule.tier === filterTier || rule.tier === 'ALL';
     const matchesQuery = rule.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -300,13 +316,23 @@ export default function ApprovalRules() {
                         Edit
                       </button>
                       {rule.status !== 'HARD FLOOR' && (
-                        <button
-                          onClick={() => handleToggleStatus(rule)}
-                          className={`btn btn-sm ${rule.status === 'ACTIVE' ? 'btn-outline' : 'btn-primary'}`}
-                          style={{ fontSize: 10, padding: '2px 6px' }}
-                        >
-                          {rule.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleToggleStatus(rule)}
+                            className={`btn btn-sm ${rule.status === 'ACTIVE' ? 'btn-outline' : 'btn-primary'}`}
+                            style={{ fontSize: 10, padding: '2px 6px' }}
+                          >
+                            {rule.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRule(rule)}
+                            className="btn btn-outline btn-sm"
+                            style={{ color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)', padding: '2px 6px' }}
+                            title="Delete rule"
+                          >
+                            <MS icon="delete" size={14} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

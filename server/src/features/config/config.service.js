@@ -7,15 +7,26 @@ async function listDiscountPolicies() {
   return configModel.findDiscountPolicies();
 }
 
-async function createDiscountPolicy({ customerTier, productCategory, maxDiscountPct }) {
-  const existing = await configModel.findDiscountPolicyByTierAndCategory(customerTier, productCategory);
-  if (existing) return { conflict: true };
+async function createDiscountPolicy({ customerTier, productCategory, maxDiscountPct, isActive }) {
+  const tier = (customerTier || 'STANDARD').toUpperCase();
+  const cat = productCategory || 'All';
+  const pct = Number(maxDiscountPct) || 0;
+
+  const existing = await configModel.findDiscountPolicyByTierAndCategory(tier, cat);
+  if (existing) {
+    const updated = await configModel.updateDiscountPolicy(existing.id, {
+      maxDiscountPct: pct,
+      isActive: isActive !== undefined ? isActive : true
+    });
+    return { policy: updated };
+  }
 
   const policy = await configModel.createDiscountPolicy({
     id: uuidv4(),
-    customerTier: customerTier.toUpperCase(),
-    productCategory,
-    maxDiscountPct
+    customerTier: tier,
+    productCategory: cat,
+    maxDiscountPct: pct,
+    isActive: isActive !== undefined ? isActive : true
   });
   return { policy };
 }
@@ -24,8 +35,13 @@ async function getDiscountPolicyById(id) {
   return configModel.findDiscountPolicyById(id);
 }
 
-async function updateDiscountPolicy(id, { maxDiscountPct }) {
-  return configModel.updateDiscountPolicy(id, { maxDiscountPct });
+async function updateDiscountPolicy(id, data) {
+  const updateData = {};
+  if (data.maxDiscountPct !== undefined) updateData.maxDiscountPct = Number(data.maxDiscountPct);
+  if (data.customerTier !== undefined) updateData.customerTier = data.customerTier.toUpperCase();
+  if (data.productCategory !== undefined) updateData.productCategory = data.productCategory;
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  return configModel.updateDiscountPolicy(id, updateData);
 }
 
 async function deleteDiscountPolicy(id) {
@@ -39,19 +55,39 @@ async function listDiscountTypeRules() {
 }
 
 async function createDiscountTypeRule(data) {
-  const existing = await configModel.findDiscountTypeRuleByType(data.type);
-  if (existing) return { conflict: true };
+  const type = (data.type || data.code || 'BULK').toUpperCase();
+  const existing = await configModel.findDiscountTypeRuleByType(type);
+  if (existing) {
+    const updated = await configModel.updateDiscountTypeRule(existing.id, {
+      ...data,
+      type
+    });
+    return { rule: updated };
+  }
 
   const rule = await configModel.createDiscountTypeRule({
     id: uuidv4(),
-    ...data,
-    type: data.type.toUpperCase()
+    type,
+    bulkThresholdQty: data.bulkThresholdQty != null ? Number(data.bulkThresholdQty) : null,
+    bulkDiscountPct: data.bulkDiscountPct != null ? Number(data.bulkDiscountPct) : null,
+    consistencyOrderCount: data.consistencyOrderCount != null ? Number(data.consistencyOrderCount) : null,
+    consistencyDiscountPct: data.consistencyDiscountPct != null ? Number(data.consistencyDiscountPct) : null,
+    premiumDiscountPct: data.premiumDiscountPct != null ? Number(data.premiumDiscountPct) : null,
+    isActive: data.isActive !== undefined ? data.isActive : true
   });
   return { rule };
 }
 
 async function updateDiscountTypeRule(ruleId, data) {
-  return configModel.updateDiscountTypeRule(ruleId, data);
+  const updateData = {};
+  if (data.type !== undefined) updateData.type = data.type.toUpperCase();
+  if (data.bulkThresholdQty !== undefined) updateData.bulkThresholdQty = Number(data.bulkThresholdQty);
+  if (data.bulkDiscountPct !== undefined) updateData.bulkDiscountPct = Number(data.bulkDiscountPct);
+  if (data.consistencyOrderCount !== undefined) updateData.consistencyOrderCount = Number(data.consistencyOrderCount);
+  if (data.consistencyDiscountPct !== undefined) updateData.consistencyDiscountPct = Number(data.consistencyDiscountPct);
+  if (data.premiumDiscountPct !== undefined) updateData.premiumDiscountPct = Number(data.premiumDiscountPct);
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  return configModel.updateDiscountTypeRule(ruleId, updateData);
 }
 
 async function deleteDiscountTypeRule(ruleId) {
@@ -64,15 +100,13 @@ async function listApprovalChains() {
   return configModel.findApprovalChains();
 }
 
-async function createApprovalChain({ description, salesRepOnlyMaxOverCeilingPct, financeThresholdOverCeilingPct }) {
-  const existing = await configModel.findFirstActiveApprovalChain();
-  if (existing) return { conflict: true };
-
+async function createApprovalChain({ description, salesRepOnlyMaxOverCeilingPct, financeThresholdOverCeilingPct, isActive }) {
   const chain = await configModel.createApprovalChain({
     id: uuidv4(),
-    description,
-    salesRepOnlyMaxOverCeilingPct,
-    financeThresholdOverCeilingPct
+    description: description || 'Standard Approval Chain Rule',
+    salesRepOnlyMaxOverCeilingPct: Number(salesRepOnlyMaxOverCeilingPct !== undefined ? salesRepOnlyMaxOverCeilingPct : 5),
+    financeThresholdOverCeilingPct: Number(financeThresholdOverCeilingPct !== undefined ? financeThresholdOverCeilingPct : 15),
+    isActive: isActive !== undefined ? isActive : true
   });
   return { chain };
 }
@@ -82,7 +116,12 @@ async function getApprovalChainById(chainId) {
 }
 
 async function updateApprovalChain(chainId, data) {
-  return configModel.updateApprovalChain(chainId, data);
+  const updateData = {};
+  if (data.description !== undefined) updateData.description = data.description;
+  if (data.salesRepOnlyMaxOverCeilingPct !== undefined) updateData.salesRepOnlyMaxOverCeilingPct = Number(data.salesRepOnlyMaxOverCeilingPct);
+  if (data.financeThresholdOverCeilingPct !== undefined) updateData.financeThresholdOverCeilingPct = Number(data.financeThresholdOverCeilingPct);
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  return configModel.updateApprovalChain(chainId, updateData);
 }
 
 async function deleteApprovalChain(chainId) {
