@@ -1,29 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
 import { api } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
 export default function AuditLogs() {
+  const { showToast, toast } = useToast();
   const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filterRisk, setFilterRisk] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedLog, setSelectedLog] = useState(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
 
   const loadAuditLogs = async () => {
     setLoading(true);
     try {
       const res = await api.getGlobalAuditLogs();
-      if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
+      if (res && res.success && Array.isArray(res.data)) {
         const mapped = res.data.map(l => ({
           id: l.id,
           time: new Date(l.createdAt).toLocaleString(),
@@ -38,14 +35,7 @@ export default function AuditLogs() {
         }));
         setLogs(mapped);
       } else {
-        // Baseline audit stream
-        setLogs([
-          { id: 'AUD-8921', time: '2026-09-05 14:22:04', actor: 'Victoria Stone (Admin)', event: 'Authenticated into Admin Console', target: 'SESSION-901', risk: 'INFO', status: 'VERIFIED' },
-          { id: 'AUD-8920', time: '2026-09-04 14:32:15', actor: 'Marcus Vance (Customer)', event: 'Submitted counter-offer (25% disc, Net 60)', target: 'Q-2026-002', risk: 'MEDIUM', status: 'VERIFIED' },
-          { id: 'AUD-8919', time: '2026-09-02 11:15:40', actor: 'Sarah Jenkins (Rep)', event: 'Created quote exceeding Gold Tier limit (22% vs 20%)', target: 'Q-2026-001', risk: 'MEDIUM', status: 'VERIFIED' },
-          { id: 'AUD-8918', time: '2026-08-30 09:44:12', actor: 'David Keller (Manager)', event: 'Approved quotation override (15% disc)', target: 'Q-2026-003', risk: 'LOW', status: 'VERIFIED' },
-          { id: 'AUD-8917', time: '2026-08-25 16:50:33', actor: 'Discount Evaluator', event: 'Evaluated quote against Gold Tier policy', target: 'Q-2026-004', risk: 'LOW', status: 'VERIFIED' }
-        ]);
+        setLogs([]);
       }
     } catch {
       showToast('Could not load live audit stream', 'error');
@@ -64,7 +54,33 @@ export default function AuditLogs() {
   };
 
   const handleExport = () => {
-    showToast('Audit stream exported to CSV format.');
+    try {
+      const headers = ['Event ID', 'Timestamp', 'Actor', 'Event Action', 'Target Entity', 'Risk Level', 'Status'];
+      const csvRows = [headers.join(',')];
+      logs.forEach(l => {
+        const row = [
+          `"${l.id}"`,
+          `"${l.time}"`,
+          `"${l.actor.replace(/"/g, '""')}"`,
+          `"${l.event.replace(/"/g, '""')}"`,
+          `"${(l.target || '').replace(/"/g, '""')}"`,
+          `"${l.risk}"`,
+          `"${l.status}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `dealflow360_audit_stream_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Audit stream CSV generated and downloaded.');
+    } catch {
+      showToast('Failed to generate export file', 'error');
+    }
   };
 
   const filteredLogs = logs.filter(log => {
@@ -77,8 +93,6 @@ export default function AuditLogs() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,

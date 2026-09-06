@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -22,27 +22,25 @@ const DEFAULT_WAREHOUSE_FORM = {
 };
 
 export default function ResourcesWarehouses() {
+  const { showToast, toast } = useToast();
   const [warehouses, setWarehouses] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
 
   const [editingWarehouse, setEditingWarehouse] = useState(null);
   const [selectedWarehouse, setSelectedWarehouse] = useState(null);
+  const [selectedInventoryWh, setSelectedInventoryWh] = useState(null);
+  const [warehouseInventory, setWarehouseInventory] = useState([]);
 
   // Form State
   const [formData, setFormData] = useState(DEFAULT_WAREHOUSE_FORM);
   const [formErrors, setFormErrors] = useState({});
-
-  // Toast
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
 
   const loadWarehouses = async () => {
     setLoading(true);
@@ -74,6 +72,43 @@ export default function ResourcesWarehouses() {
   useEffect(() => {
     loadWarehouses();
   }, []);
+
+  const handleOpenInventoryModal = async (wh) => {
+    setSelectedInventoryWh(wh);
+    setIsInventoryModalOpen(true);
+    try {
+      const res = await api.getWarehouseInventory(wh.id);
+      if (res && res.success && Array.isArray(res.data)) {
+        setWarehouseInventory(res.data);
+      } else {
+        setWarehouseInventory([]);
+      }
+    } catch {
+      showToast('Failed to load inventory for warehouse', 'error');
+    }
+  };
+
+  const handleAdjustInventory = async (productId, normalPoolQty, premiumBulkPoolQty) => {
+    if (!selectedInventoryWh) return;
+    try {
+      const res = await api.adjustWarehouseInventory(selectedInventoryWh.id, productId, {
+        normalPoolQty: Number(normalPoolQty),
+        premiumBulkPoolQty: Number(premiumBulkPoolQty)
+      });
+      if (res && res.success) {
+        showToast('Inventory allocation updated successfully.');
+        const updated = await api.getWarehouseInventory(selectedInventoryWh.id);
+        if (updated && updated.success && Array.isArray(updated.data)) {
+          setWarehouseInventory(updated.data);
+        }
+        loadWarehouses();
+      } else {
+        showToast(res?.message || 'Failed to adjust inventory', 'error');
+      }
+    } catch {
+      showToast('Failed to adjust inventory', 'error');
+    }
+  };
 
   // Open Form for Add
   const handleOpenAddModal = () => {
@@ -184,8 +219,6 @@ export default function ResourcesWarehouses() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -321,6 +354,9 @@ export default function ResourcesWarehouses() {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => handleOpenInventoryModal(wh)} className="btn btn-primary btn-sm" title="Manage SKU Inventory & 50/50 Pools">
+                            Stock Pools
+                          </button>
                           <button onClick={() => handleOpenDetailModal(wh)} className="btn btn-outline btn-sm" title="View Hub Specs">
                             View
                           </button>
@@ -496,6 +532,91 @@ export default function ResourcesWarehouses() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Warehouse Inventory Inspection & Adjustment Modal */}
+      <Modal
+        isOpen={isInventoryModalOpen}
+        onClose={() => setIsInventoryModalOpen(false)}
+        title={`Inventory & 50/50 Pool Allocation — ${selectedInventoryWh?.name || ''}`}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8, fontSize: 12, color: 'var(--on-surface-variant)' }}>
+            Adjust physical inventory and reserve allocation between <strong>Normal Pool (Standard Orders)</strong> and <strong>Premium Bulk Pool (Enterprise Deals)</strong>.
+          </div>
+
+          <div className="table-container" style={{ maxHeight: 320, overflowY: 'auto' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Product SKU</th>
+                  <th>Normal Pool</th>
+                  <th>Premium Bulk Pool</th>
+                  <th>Total SKU Stock</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {warehouseInventory.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: 24, color: 'var(--outline)' }}>
+                      No SKU inventory mapped to this facility yet.
+                    </td>
+                  </tr>
+                ) : (
+                  warehouseInventory.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{item.product?.name || item.productId}</div>
+                        <span className="font-mono text-xs text-outline">{item.product?.sku || item.productId}</span>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          defaultValue={item.normalPoolQty || 0}
+                          id={`normal-${item.productId}`}
+                          style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--outline-variant)' }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          defaultValue={item.premiumBulkPoolQty || 0}
+                          id={`bulk-${item.productId}`}
+                          style={{ width: 80, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--outline-variant)' }}
+                        />
+                      </td>
+                      <td className="font-mono font-bold">
+                        {(item.normalPoolQty || 0) + (item.premiumBulkPoolQty || 0)} Units
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const norm = document.getElementById(`normal-${item.productId}`)?.value || item.normalPoolQty;
+                            const bulk = document.getElementById(`bulk-${item.productId}`)?.value || item.premiumBulkPoolQty;
+                            handleAdjustInventory(item.productId, norm, bulk);
+                          }}
+                          className="btn btn-primary btn-sm"
+                        >
+                          Save
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <button onClick={() => setIsInventoryModalOpen(false)} className="btn btn-primary">
+              Done
+            </button>
+          </div>
+        </div>
       </Modal>
 
       {/* Confirmation Modal */}

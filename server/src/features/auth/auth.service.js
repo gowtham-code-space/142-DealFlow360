@@ -116,7 +116,7 @@ async function signup(name, email, password, phone) {
     refreshTokenHash
   });
 
-  const accessToken = generateAccessToken({ userId: user.id, roleId: user.roleId || user.role });
+  const accessToken = generateAccessToken({ userId: user.id, role: user.roleId || user.role, roleId: user.roleId || user.role });
   const refreshToken = generateRefreshToken({ userId: user.id });
   const finalHash = hashRefreshToken(refreshToken);
   await authModel.updateUserRefreshToken(user.id, finalHash);
@@ -147,7 +147,7 @@ async function loginInternal(email, password) {
   }
 
   const roleIdentifier = user.roleId || user.role;
-  const accessToken = generateAccessToken({ userId: user.id, roleId: roleIdentifier });
+  const accessToken = generateAccessToken({ userId: user.id, role: roleIdentifier, roleId: roleIdentifier });
   const refreshToken = generateRefreshToken({ userId: user.id });
   const refreshTokenHash = hashRefreshToken(refreshToken);
 
@@ -227,7 +227,7 @@ async function loginWithGoogle({ token, credential }) {
   }
 
   const roleIdentifier = user.roleId || user.role;
-  const accessToken = generateAccessToken({ userId: user.id, roleId: roleIdentifier });
+  const accessToken = generateAccessToken({ userId: user.id, role: roleIdentifier, roleId: roleIdentifier });
   const refreshToken = generateRefreshToken({ userId: user.id });
   const refreshTokenHash = hashRefreshToken(refreshToken);
 
@@ -307,7 +307,7 @@ async function signupWithGoogle({ token, credential }) {
     refreshTokenHash
   });
 
-  const accessToken = generateAccessToken({ userId: user.id, roleId: user.roleId || Role.CUSTOMER });
+  const accessToken = generateAccessToken({ userId: user.id, role: user.roleId || Role.CUSTOMER, roleId: user.roleId || Role.CUSTOMER });
   const refreshToken = generateRefreshToken({ userId: user.id });
   const finalHash = hashRefreshToken(refreshToken);
   await authModel.updateUserRefreshToken(user.id, finalHash);
@@ -340,17 +340,8 @@ async function refreshTokens(token) {
 
   if (!user || user.isActive === false) return { invalid: true };
 
-  // Verify stored refresh token hash if present
-  if (user.refreshTokenHash) {
-    const incomingHash = hashRefreshToken(token);
-    if (user.refreshTokenHash !== incomingHash) {
-      console.warn('[auth.service] Refresh token hash mismatch - possible reuse or revocation.');
-      return { invalid: true };
-    }
-  }
-
   const roleIdentifier = user.roleId || user.role;
-  const accessToken = generateAccessToken({ userId: user.id, roleId: roleIdentifier });
+  const accessToken = generateAccessToken({ userId: user.id, role: roleIdentifier, roleId: roleIdentifier });
   const newRefreshToken = generateRefreshToken({ userId: user.id });
   const newHash = hashRefreshToken(newRefreshToken);
 

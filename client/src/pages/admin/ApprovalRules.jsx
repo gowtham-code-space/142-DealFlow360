@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
 import { api } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
 export default function ApprovalRules() {
+  const { showToast, toast } = useToast();
   const [rules, setRules] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filterTier, setFilterTier] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [toastMsg, setToastMsg] = useState('');
 
   // Form Modal State (Add / Edit)
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -32,11 +33,6 @@ export default function ApprovalRules() {
 
   // View Detail Modal State
   const [viewRule, setViewRule] = useState(null);
-
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
-  };
 
   const loadRules = async () => {
     setLoading(true);
@@ -158,9 +154,6 @@ export default function ApprovalRules() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Toast Notification */}
-      <Toast message={toastMsg} onClose={() => setToastMsg('')} />
-
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,

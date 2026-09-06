@@ -4,14 +4,15 @@ const roleMiddleware = (...allowedRoles) => {
   const roles = allowedRoles.flat();
 
   return (req, res, next) => {
-    if (!req.user || !req.user.role) {
+    const userRole = req.user?.role || req.user?.roleId;
+    if (!req.user || !userRole) {
       return unauthorizedResponse(res, 'Access denied. Unauthorized.');
     }
 
-    if (roles.length > 0 && !roles.includes(req.user.role)) {
+    if (roles.length > 0 && !roles.includes(userRole)) {
       return forbiddenResponse(
         res,
-        `Access denied. Role '${req.user.role}' is not authorized for this resource.`
+        `Access denied. Role '${userRole}' is not authorized for this resource.`
       );
     }
 

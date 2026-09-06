@@ -519,8 +519,40 @@ export const api = {
     return this.request(`/users/${id}/reactivate`, { method: 'POST' });
   },
 
+  async bulkCreateUsers(users) {
+    return this.request('/users/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ users })
+    });
+  },
+
   async getRoles() {
     return this.request('/auth/roles');
+  },
+
+  // Product Variants
+  async getProductVariants(productId) {
+    return this.request(`/products/${productId}/variants`);
+  },
+
+  async createProductVariant(productId, variantData) {
+    return this.request(`/products/${productId}/variants`, {
+      method: 'POST',
+      body: JSON.stringify(variantData)
+    });
+  },
+
+  async updateProductVariant(productId, variantId, variantData) {
+    return this.request(`/products/${productId}/variants/${variantId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(variantData)
+    });
+  },
+
+  async deleteProductVariant(productId, variantId) {
+    return this.request(`/products/${productId}/variants/${variantId}`, {
+      method: 'DELETE'
+    });
   },
 
   // Discount Policies & Rules

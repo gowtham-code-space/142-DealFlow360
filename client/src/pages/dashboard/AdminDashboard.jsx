@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { formatCurrency } from '../../utils/formatters';
+import { api } from '../../services/api';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -20,9 +21,62 @@ const INITIAL_RULES = [
 export default function AdminDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
+  const { showToast, toast } = useToast();
 
   const [rules, setRules] = useState(INITIAL_RULES);
-  const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchLiveGovernance = async () => {
+    setLoading(true);
+    try {
+      const [polRes, appRes] = await Promise.all([
+        api.getDiscountPolicies(),
+        api.getApprovalChains()
+      ]);
+      const dynamicRules = [];
+      if (polRes && polRes.success && Array.isArray(polRes.data) && polRes.data.length > 0) {
+        polRes.data.forEach(p => {
+          dynamicRules.push({
+            id: p.id,
+            domain: 'Discount Ceiling',
+            scope: `${p.customerTier} Tier — ${p.productCategory || 'All'}`,
+            threshold: `Max ${p.maxDiscountPct}% Discount`,
+            action: 'Manager Review required if exceeded',
+            risk: Number(p.maxDiscountPct) > 25 ? 'HIGH RISK' : 'LOW RISK',
+            status: p.isActive !== false ? 'ACTIVE' : 'DISABLED',
+            raw: p
+          });
+        });
+      }
+      if (appRes && appRes.success && Array.isArray(appRes.data) && appRes.data.length > 0) {
+        appRes.data.forEach(a => {
+          dynamicRules.push({
+            id: a.id,
+            domain: 'Approval Routing',
+            scope: 'All Tiers',
+            threshold: `Rep Max: ${a.salesRepOnlyMaxOverCeilingPct}% | Finance: >${a.financeThresholdOverCeilingPct}%`,
+            action: a.description || 'Approval Gate Trigger',
+            risk: Number(a.financeThresholdOverCeilingPct) > 15 ? 'HIGH RISK' : 'MEDIUM RISK',
+            status: a.isActive !== false ? 'ACTIVE' : 'DISABLED',
+            raw: a
+          });
+        });
+      }
+      if (dynamicRules.length > 0) {
+        setRules(dynamicRules);
+      } else {
+        setRules(INITIAL_RULES);
+      }
+    } catch {
+      setRules(INITIAL_RULES);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveGovernance();
+  }, []);
 
   // Modal State
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -32,17 +86,13 @@ export default function AdminDashboard() {
 
   const [formData, setFormData] = useState({
     id: '',
-    domain: 'Discount Limit',
-    scope: 'Gold Tier',
-    threshold: 'Max 25.0% Discount',
+    domain: 'Discount Ceiling',
+    scope: 'STANDARD',
+    threshold: 15.0,
     action: 'Requires Manager Approval',
     risk: 'MEDIUM RISK',
     status: 'ACTIVE'
   });
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
 
   const setTab = (tabName) => {
     setSearchParams({ tab: tabName });
@@ -51,10 +101,10 @@ export default function AdminDashboard() {
   const handleOpenAddModal = () => {
     setEditingRule(null);
     setFormData({
-      id: `POL-RULE-${String(rules.length + 1).padStart(3, '0')}`,
-      domain: 'Discount Limit',
-      scope: 'Gold Tier',
-      threshold: 'Max 25.0% Discount',
+      id: '',
+      domain: 'Discount Ceiling',
+      scope: 'STANDARD',
+      threshold: 15.0,
       action: 'Requires Manager Approval',
       risk: 'MEDIUM RISK',
       status: 'ACTIVE'
@@ -64,7 +114,11 @@ export default function AdminDashboard() {
 
   const handleOpenEditModal = (rule) => {
     setEditingRule(rule);
-    setFormData({ ...rule });
+    setFormData({
+      ...rule,
+      threshold: rule.raw?.maxDiscountPct || rule.raw?.salesRepOnlyMaxOverCeilingPct || 15.0,
+      scope: rule.raw?.customerTier || 'STANDARD'
+    });
     setIsFormModalOpen(true);
   };
 
@@ -73,28 +127,89 @@ export default function AdminDashboard() {
     setIsDetailModalOpen(true);
   };
 
-  const handleSaveRule = (e) => {
+  const handleSaveRule = async (e) => {
     e.preventDefault();
-    if (!formData.id.trim()) return;
-
-    if (editingRule) {
-      setRules(rules.map(r => r.id === editingRule.id ? formData : r));
-      showToast(`Governance rule "${formData.id}" updated successfully.`);
-    } else {
-      setRules([...rules, formData]);
-      showToast(`New governance rule "${formData.id}" created successfully.`);
+    try {
+      if (formData.domain === 'Discount Ceiling') {
+        if (editingRule && editingRule.raw?.id) {
+          const res = await api.updateDiscountPolicy(editingRule.raw.id, {
+            maxDiscountPct: Number(formData.threshold),
+            isActive: formData.status === 'ACTIVE'
+          });
+          if (res && res.success) {
+            showToast('Discount governance policy updated.');
+          } else {
+            showToast(res?.message || 'Failed to update policy', 'error');
+          }
+        } else {
+          const res = await api.createDiscountPolicy({
+            customerTier: formData.scope || 'STANDARD',
+            productCategory: 'Hardware',
+            maxDiscountPct: Number(formData.threshold)
+          });
+          if (res && res.success) {
+            showToast('Discount governance policy created.');
+          } else {
+            showToast(res?.message || 'Failed to create policy', 'error');
+          }
+        }
+      } else {
+        if (editingRule && editingRule.raw?.id) {
+          const res = await api.updateApprovalChain(editingRule.raw.id, {
+            description: formData.action || 'Approval Rule',
+            salesRepOnlyMaxOverCeilingPct: Number(formData.threshold),
+            isActive: formData.status === 'ACTIVE'
+          });
+          if (res && res.success) {
+            showToast('Approval governance rule updated.');
+          } else {
+            showToast(res?.message || 'Failed to update approval rule', 'error');
+          }
+        } else {
+          const res = await api.createApprovalChain({
+            description: formData.action || 'Approval Gate Rule',
+            salesRepOnlyMaxOverCeilingPct: Number(formData.threshold),
+            financeThresholdOverCeilingPct: 15.0,
+            isActive: formData.status === 'ACTIVE'
+          });
+          if (res && res.success) {
+            showToast('Approval governance rule created.');
+          } else {
+            showToast(res?.message || 'Failed to create approval rule', 'error');
+          }
+        }
+      }
+      fetchLiveGovernance();
+    } catch {
+      showToast('Failed to save governance rule to server', 'error');
     }
     setIsFormModalOpen(false);
   };
 
   const handleExportReport = () => {
-    showToast('Governance specification report exported successfully.');
+    try {
+      const spec = {
+        title: 'DealFlow360 Enterprise Governance Specification',
+        generatedAt: new Date().toISOString(),
+        totalRules: rules.length,
+        rules: rules
+      };
+      const blob = new Blob([JSON.stringify(spec, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `dealflow360_governance_spec_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Governance specification exported.');
+    } catch {
+      showToast('Failed to export governance spec', 'error');
+    }
   };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
       {/* Top Banner & Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -129,45 +244,6 @@ export default function AdminDashboard() {
           >
             <MS icon="download" size={16} /> Export Governance Spec
           </button>
-        </div>
-      </div>
-
-      {/* Metric Cards Top Bar */}
-      <div className="grid-metrics">
-        <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Governance Policies</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>{rules.length} Active Rules</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>4 Tiers • 5 Approval Routes</span>
-        </div>
-
-        <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>RBAC System Roles</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>5 Canonical Roles</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Rep, Mgr, Ops, Admin, Buyer</span>
-        </div>
-
-        <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Hard Discount Cap</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--error)' }}>45.0% Ceiling</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Auto-Rejection Threshold</span>
-        </div>
-
-        <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Gross Margin Floor</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--on-surface)' }}>22.0% Minimum</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Deal Profit Lock</span>
-        </div>
-
-        <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>Executive Threshold</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--primary)' }}>&gt;30% / ₹2.0 Cr</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Dual VP Approval Required</span>
-        </div>
-
-        <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--outline)', textTransform: 'uppercase' }}>System Status</span>
-          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--secondary)' }}>Operational</div>
-          <span style={{ fontSize: 11, color: 'var(--on-surface-variant)' }}>Active Policy Engine</span>
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../../utils/formatters';
 import { api } from '../../services/api';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -24,7 +24,9 @@ const DEFAULT_FORM_DATA = {
 };
 
 export default function CustomerConfig() {
+  const { showToast, toast } = useToast();
   const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [tierFilter, setTierFilter] = useState('ALL');
 
@@ -38,13 +40,6 @@ export default function CustomerConfig() {
   // Form State
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
   const [formErrors, setFormErrors] = useState({});
-
-  // Toast
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
 
   const loadCustomers = async () => {
     setLoading(true);
@@ -196,8 +191,6 @@ export default function CustomerConfig() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
