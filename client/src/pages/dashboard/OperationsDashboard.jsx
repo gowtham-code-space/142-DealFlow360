@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import MetricCard from '../../components/common/MetricCard';
 import { api } from '../../services/api';
-import { MOCK_QUOTATIONS, MOCK_WAREHOUSES } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import { Boxes, Truck, RefreshCw, AlertTriangle, ArrowRight, ShieldCheck, CreditCard, Layers, CheckCircle2 } from 'lucide-react';
 
@@ -14,32 +13,42 @@ export default function OperationsDashboard() {
   const navigate = useNavigate();
   const [quotations, setQuotations] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [approvals, setApprovals] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [inventories, setInventories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      const [qRes, wRes] = await Promise.all([
-        api.getQuotations(),
-        api.getWarehouses()
+      const [qRes, wRes, aRes, sRes, iRes] = await Promise.all([
+        api.getQuotations({ pageSize: 100 }),
+        api.getWarehouses(),
+        api.getApprovals({ pageSize: 100 }),
+        api.listSubscriptions({ pageSize: 100 }),
+        api.listAllInventory()
       ]);
-      if (qRes.success && Array.isArray(qRes.data)) {
-        setQuotations(qRes.data);
-      } else {
-        setQuotations(MOCK_QUOTATIONS);
-      }
-      if (wRes.success && Array.isArray(wRes.data)) {
-        setWarehouses(wRes.data);
-      } else {
-        setWarehouses(MOCK_WAREHOUSES);
-      }
+
+      if (qRes.success && Array.isArray(qRes.data)) setQuotations(qRes.data);
+      if (wRes.success && Array.isArray(wRes.data)) setWarehouses(wRes.data);
+      if (aRes.success && Array.isArray(aRes.data)) setApprovals(aRes.data);
+      if (sRes.success && Array.isArray(sRes.data)) setSubscriptions(sRes.data);
+      if (iRes.success && Array.isArray(iRes.data)) setInventories(iRes.data);
+
       setLoading(false);
     }
     loadData();
   }, []);
 
-  const totalWarehouseUnits = warehouses.reduce((acc, w) => acc + (w.stock || 0), 0);
-  const pendingApprovalsCount = quotations.filter(q => q.status === 'PENDING_APPROVAL' || q.financeClearanceStatus === 'PENDING_CLEARANCE').length;
+  const totalWarehouseUnits = inventories.length > 0 
+    ? inventories.reduce((acc, inv) => acc + (inv.normalPoolQty || 0) + (inv.premiumBulkPoolQty || 0), 0)
+    : warehouses.reduce((acc, w) => acc + (w.stock || 0), 0);
+
+  const pendingApprovalsCount = approvals.filter(a => a.status === 'PENDING').length;
+  
+  const totalMRR = subscriptions
+    .filter(s => s.status === 'ACTIVE')
+    .reduce((acc, s) => acc + Number(s.amountPerCycle || 0), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -102,8 +111,8 @@ export default function OperationsDashboard() {
         />
         <MetricCard
           title="Monthly Recurring Revenue"
-          value={`Tracking Pipeline`}
-          change="Subscription Growth"
+          value={totalMRR > 0 ? formatCurrency(totalMRR) : 'N/A'}
+          change="Subscription Pipeline"
           isPositive={true}
           icon={RefreshCw}
           color="#7c3aed"

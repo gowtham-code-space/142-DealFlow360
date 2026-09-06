@@ -1,74 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import MetricCard from '../../components/common/MetricCard';
-import { Calendar, CreditCard, Download, CheckCircle2, RefreshCw, Plus } from 'lucide-react';
+import Modal from '../../components/common/Modal';
+import { api } from '../../services/api';
+import { Calendar, CreditCard, Download, CheckCircle2, RefreshCw, Plus, DollarSign } from 'lucide-react';
 
 export default function Billing() {
-  const [invoices] = useState([
-    {
-      id: 'INV-2026-089',
-      quoteId: 'Q-2026-004',
-      customer: 'Quantum Cloud Logistics',
-      billingType: 'HYBRID',
-      oneTimeAmount: 5280000,
-      recurringAmount: 1800000,
-      billingCycle: 'Annual',
-      dueDate: '2026-09-30',
-      status: 'PAID'
-    },
-    {
-      id: 'INV-2026-090',
-      quoteId: 'Q-2026-003',
-      customer: 'Vanguard Retail Systems',
-      billingType: 'ONE_TIME',
-      oneTimeAmount: 2272000,
-      recurringAmount: 0,
-      billingCycle: 'N/A',
-      dueDate: '2026-10-15',
-      status: 'PENDING'
-    },
-    {
-      id: 'INV-2026-091',
-      quoteId: 'Q-2026-002',
-      customer: 'Apex Global Technologies',
-      billingType: 'HYBRID',
-      oneTimeAmount: 6560000,
-      recurringAmount: 3400000,
-      billingCycle: 'Annual',
-      dueDate: '2026-10-01',
-      status: 'PENDING'
-    }
-  ]);
+  const [invoices, setInvoices] = useState([]);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [quotations, setQuotations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [subscriptions] = useState([
-    {
-      id: 'SUB-101',
-      customer: 'Quantum Cloud Logistics',
-      planName: '24/7 Mission Critical Support SLA',
-      billingType: 'RECURRING_PREMIUM',
-      recurringAmount: 1800000,
-      billingCycle: 'Annual',
-      nextRenewal: '2027-08-25',
-      status: 'ACTIVE'
-    },
-    {
-      id: 'SUB-102',
-      customer: 'Nexus HyperScale Ltd',
-      planName: 'DealFlow Platform SaaS License (50 Seats)',
-      billingType: 'RECURRING_PREMIUM',
-      recurringAmount: 1575000,
-      billingCycle: 'Monthly',
-      nextRenewal: '2026-10-02',
-      status: 'ACTIVE'
-    }
-  ]);
+  // Modal States
+  const [isGenModalOpen, setIsGenModalOpen] = useState(false);
+  const [selectedQuoteId, setSelectedQuoteId] = useState('');
+  const [genSubmitting, setGenSubmitting] = useState(false);
+  const [genError, setGenError] = useState(null);
 
-  const handleUnavailableAction = (actionName) => {
-    alert(`${actionName} action is read-only in dev mode. Backend billing API endpoint not connected.`);
+  const [selectedInvoiceForPayment, setSelectedInvoiceForPayment] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('CREDIT_CARD');
+  const [paymentRef, setPaymentRef] = useState('');
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [invRes, subRes, payRes, qRes] = await Promise.all([
+        api.listInvoices({ pageSize: 100 }),
+        api.listSubscriptions({ pageSize: 100 }),
+        api.listPayments({ pageSize: 100 }),
+        api.getQuotations({ pageSize: 100 })
+      ]);
+
+      if (invRes.success && Array.isArray(invRes.data)) setInvoices(invRes.data);
+      if (subRes.success && Array.isArray(subRes.data)) setSubscriptions(subRes.data);
+      if (payRes.success && Array.isArray(payRes.data)) setPayments(payRes.data);
+      if (qRes.success && Array.isArray(qRes.data)) setQuotations(qRes.data);
+    } catch (e) {
+      console.error('[Billing] Failed to load live data:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const totalInvoiced = invoices.reduce((acc, i) => acc + i.oneTimeAmount + i.recurringAmount, 0);
-  const totalARR = subscriptions.reduce((acc, s) => acc + s.recurringAmount, 0);
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleGenerateInvoice = async () => {
+    if (!selectedQuoteId) return;
+    setGenSubmitting(true);
+    setGenError(null);
+
+    const res = await api.generateBilling(selectedQuoteId);
+    if (res.success) {
+      setIsGenModalOpen(false);
+      setSelectedQuoteId('');
+      await loadData();
+    } else {
+      setGenError(res.error || 'Failed to generate invoice for quote');
+    }
+    setGenSubmitting(false);
+  };
+
+  const handleRecordPayment = async () => {
+    if (!selectedInvoiceForPayment || !paymentAmount) return;
+    setPaymentSubmitting(true);
+    setPaymentError(null);
+
+    const res = await api.recordPayment(selectedInvoiceForPayment.id, {
+      amount: Number(paymentAmount),
+      method: paymentMethod,
+      reference: paymentRef || `PAY-${Date.now().toString().slice(-6)}`
+    });
+
+    if (res.success) {
+      setSelectedInvoiceForPayment(null);
+      setPaymentAmount('');
+      setPaymentRef('');
+      await loadData();
+    } else {
+      setPaymentError(res.error || 'Failed to record payment');
+    }
+    setPaymentSubmitting(false);
+  };
+
+  const totalInvoiced = invoices.reduce((acc, i) => acc + Number(i.amount || i.amountDue || 0), 0);
+  const totalARR = subscriptions.reduce((acc, s) => acc + Number(s.amountPerCycle || 0), 0);
+  const pendingCollection = invoices
+    .filter(i => i.status !== 'PAID' && i.status !== 'CANCELLED')
+    .reduce((acc, i) => acc + Number(i.amountDue || i.amount || 0), 0);
+
+  // Eligible quotes for billing generation
+  const eligibleQuotes = quotations.filter(q => 
+    ['APPROVED', 'CONFIRMED', 'FULFILLING', 'FULFILLED'].includes(q.status)
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -93,7 +122,11 @@ export default function Billing() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
               className="btn btn-primary"
-              onClick={() => handleUnavailableAction('Generate Invoice')}
+              onClick={() => {
+                setIsGenModalOpen(true);
+                setGenError(null);
+                setSelectedQuoteId(eligibleQuotes[0]?.id || '');
+              }}
               style={{ gap: 6 }}
             >
               <Plus size={16} />
@@ -101,11 +134,11 @@ export default function Billing() {
             </button>
             <button
               className="btn btn-outline"
-              onClick={() => handleUnavailableAction('Process Billing Cycle')}
+              onClick={() => loadData()}
               style={{ gap: 6 }}
             >
               <RefreshCw size={16} />
-              <span>Run Billing Cycle</span>
+              <span>Refresh Billing Data</span>
             </button>
           </div>
         </div>
@@ -116,7 +149,7 @@ export default function Billing() {
         <MetricCard
           title="Total Contract Invoiced"
           value={formatCurrency(totalInvoiced)}
-          change="Q3 Combined Invoiced Volume"
+          change="Combined Invoiced Volume"
           isPositive={true}
           icon={CreditCard}
           color="#7c3aed"
@@ -131,8 +164,8 @@ export default function Billing() {
         />
         <MetricCard
           title="Pending Invoice Collection"
-          value={formatCurrency(2272000)}
-          change="Net-30 Due in 15 Days"
+          value={formatCurrency(pendingCollection)}
+          change="Outstanding Receivables"
           isPositive={false}
           icon={Calendar}
           color="#f59e0b"
@@ -140,7 +173,7 @@ export default function Billing() {
         <MetricCard
           title="Active SaaS Subscriptions"
           value={`${subscriptions.length} Accounts`}
-          change="100% On-time Billing"
+          change="Active Recurring Contracts"
           isPositive={true}
           icon={CheckCircle2}
           color="#059669"
@@ -166,67 +199,94 @@ export default function Billing() {
               <span className="badge badge-approved">{invoices.length} Invoices Issued</span>
             </div>
 
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Invoice #</th>
-                    <th>Quote Ref</th>
-                    <th>Customer</th>
-                    <th>Billing Type</th>
-                    <th>Total Contract Amount</th>
-                    <th>Schedule</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {invoices.map(inv => (
-                    <tr key={inv.id}>
-                      <td style={{ fontWeight: 700, color: '#7c3aed' }}>{inv.id}</td>
-                      <td style={{ fontSize: '0.85rem' }}>{inv.quoteId}</td>
-                      <td style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{inv.customer}</td>
-                      <td>
-                        <span style={{
-                          fontSize: '0.75rem', padding: '2px 8px', borderRadius: 99, fontWeight: 700,
-                          background: inv.billingType === 'HYBRID' ? 'rgba(124, 58, 237, 0.12)' : 'rgba(2, 132, 199, 0.12)',
-                          color: inv.billingType === 'HYBRID' ? '#7c3aed' : '#0284c7'
-                        }}>
-                          {inv.billingType === 'HYBRID' ? 'HYBRID (ONE-TIME + RECURRING)' : 'ONE-TIME HARDWARE'}
-                        </span>
-                      </td>
-                      <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>
-                        {formatCurrency(inv.oneTimeAmount + inv.recurringAmount)}
-                      </td>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--secondary-text)' }}>
-                        {inv.recurringAmount > 0 ? `${formatCurrency(inv.recurringAmount)} / ${inv.billingCycle}` : 'One-Time'}
-                      </td>
-                      <td style={{ fontSize: '0.8rem' }}>{formatDate(inv.dueDate)}</td>
-                      <td>
-                        <span style={{
-                          fontSize: '0.75rem', padding: '3px 8px', borderRadius: 99, fontWeight: 700,
-                          background: inv.status === 'PAID' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                          color: inv.status === 'PAID' ? '#047857' : '#a16207'
-                        }}>
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-outline btn-sm"
-                          onClick={() => alert(`Downloading PDF invoice for ${inv.id}`)}
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', gap: 4 }}
-                        >
-                          <Download size={13} />
-                          <span>PDF</span>
-                        </button>
-                      </td>
+            {loading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--secondary-text)' }}>
+                <span className="material-symbols-outlined spin" style={{ fontSize: 24, color: '#7c3aed' }}>sync</span>
+                <p style={{ marginTop: 8 }}>Loading billing invoices from database...</p>
+              </div>
+            ) : invoices.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--secondary-text)' }}>
+                No invoices generated yet. Click "Generate Customer Invoice" to process billing.
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Invoice #</th>
+                      <th>Quote Ref</th>
+                      <th>Customer</th>
+                      <th>Billing Type</th>
+                      <th>Total Amount</th>
+                      <th>Amount Due</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {invoices.map(inv => {
+                      const invNumber = inv.invoiceNumber || inv.id;
+                      const quoteNum = inv.quotation?.quotationNumber || inv.quotationId;
+                      const customerName = inv.customer?.name || '—';
+                      const amount = Number(inv.amount || 0);
+                      const amountDue = Number(inv.amountDue || 0);
+
+                      return (
+                        <tr key={inv.id}>
+                          <td style={{ fontWeight: 700, color: '#7c3aed' }}>{invNumber}</td>
+                          <td style={{ fontSize: '0.85rem' }}>{quoteNum}</td>
+                          <td style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{customerName}</td>
+                          <td>
+                            <span style={{
+                              fontSize: '0.75rem', padding: '2px 8px', borderRadius: 99, fontWeight: 700,
+                              background: inv.type === 'RECURRING' ? 'rgba(124, 58, 237, 0.12)' : 'rgba(2, 132, 199, 0.12)',
+                              color: inv.type === 'RECURRING' ? '#7c3aed' : '#0284c7'
+                            }}>
+                              {inv.type}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>
+                            {formatCurrency(amount)}
+                          </td>
+                          <td style={{ fontFeatureSettings: "'tnum'", color: amountDue > 0 ? '#b91c1c' : '#047857', fontWeight: 600 }}>
+                            {formatCurrency(amountDue)}
+                          </td>
+                          <td style={{ fontSize: '0.8rem' }}>{formatDate(inv.dueDate || inv.createdAt)}</td>
+                          <td>
+                            <span style={{
+                              fontSize: '0.75rem', padding: '3px 8px', borderRadius: 99, fontWeight: 700,
+                              background: inv.status === 'PAID' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
+                              color: inv.status === 'PAID' ? '#047857' : '#a16207'
+                            }}>
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              {inv.status !== 'PAID' && (
+                                <button
+                                  className="btn btn-success btn-sm"
+                                  onClick={() => {
+                                    setSelectedInvoiceForPayment(inv);
+                                    setPaymentAmount(String(amountDue || amount));
+                                    setPaymentError(null);
+                                  }}
+                                  style={{ padding: '3px 8px', fontSize: '0.75rem', gap: 2 }}
+                                >
+                                  <DollarSign size={13} />
+                                  <span>Pay</span>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Active Subscriptions Breakdown */}
@@ -235,42 +295,42 @@ export default function Billing() {
               Active Recurring Subscriptions & ARR Contracts
             </h3>
 
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Sub ID</th>
-                    <th>Customer</th>
-                    <th>Subscription Plan</th>
-                    <th>Billing Plan Type</th>
-                    <th>Recurring Amount</th>
-                    <th>Cycle</th>
-                    <th>Next Renewal</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {subscriptions.map(sub => (
-                    <tr key={sub.id}>
-                      <td style={{ fontWeight: 700, color: '#0284c7' }}>{sub.id}</td>
-                      <td style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{sub.customer}</td>
-                      <td style={{ fontSize: '0.85rem' }}>{sub.planName}</td>
-                      <td>
-                        <span className="badge" style={{ background: 'rgba(2, 132, 199, 0.1)', color: '#0284c7', fontSize: '0.7rem' }}>
-                          {sub.billingType}
-                        </span>
-                      </td>
-                      <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(sub.recurringAmount)}</td>
-                      <td style={{ fontSize: '0.8rem' }}>{sub.billingCycle}</td>
-                      <td style={{ fontSize: '0.8rem' }}>{formatDate(sub.nextRenewal)}</td>
-                      <td>
-                        <span className="badge badge-approved" style={{ fontSize: '0.7rem' }}>{sub.status}</span>
-                      </td>
+            {subscriptions.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--secondary-text)' }}>
+                No active recurring subscriptions found in database.
+              </div>
+            ) : (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Sub ID</th>
+                      <th>Customer</th>
+                      <th>Plan</th>
+                      <th>Recurring Amount</th>
+                      <th>Cycle</th>
+                      <th>Next Renewal</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {subscriptions.map(sub => (
+                      <tr key={sub.id}>
+                        <td style={{ fontWeight: 700, color: '#0284c7' }}>{sub.id.slice(0, 8)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{sub.customer?.name || '—'}</td>
+                        <td style={{ fontSize: '0.85rem' }}>{sub.plan?.name || 'SaaS Support SLA'}</td>
+                        <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(sub.amountPerCycle)}</td>
+                        <td style={{ fontSize: '0.8rem' }}>{sub.billingPeriod}</td>
+                        <td style={{ fontSize: '0.8rem' }}>{formatDate(sub.nextBillingDate || sub.createdAt)}</td>
+                        <td>
+                          <span className="badge badge-approved" style={{ fontSize: '0.7rem' }}>{sub.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
         </div>
@@ -291,12 +351,7 @@ export default function Billing() {
               </div>
 
               <div style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--surface-container-low)' }}>
-                <div style={{ fontWeight: 700, color: 'var(--on-surface)' }}>BULK_ONE_TIME</div>
-                <div style={{ color: 'var(--secondary-text)', marginTop: 2 }}>Bulk infrastructure orders with milestone billing.</div>
-              </div>
-
-              <div style={{ padding: '8px 10px', borderRadius: 6, background: 'var(--surface-container-low)' }}>
-                <div style={{ fontWeight: 700, color: 'var(--on-surface)' }}>RECURRING_PREMIUM</div>
+                <div style={{ fontWeight: 700, color: 'var(--on-surface)' }}>RECURRING</div>
                 <div style={{ color: 'var(--secondary-text)', marginTop: 2 }}>Annual/Monthly SaaS platform & support SLA recurring contracts.</div>
               </div>
             </div>
@@ -315,6 +370,114 @@ export default function Billing() {
         </div>
 
       </div>
+
+      {/* Generate Invoice Modal */}
+      <Modal
+        isOpen={isGenModalOpen}
+        onClose={() => setIsGenModalOpen(false)}
+        title="Generate Customer Invoice"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {genError && (
+            <div style={{ padding: '10px', borderRadius: '6px', background: 'rgba(239,68,68,0.1)', color: '#b91c1c', fontSize: '0.85rem' }}>
+              {genError}
+            </div>
+          )}
+
+          <div className="input-group">
+            <label className="input-label" style={{ fontWeight: 600 }}>Select Approved / Fulfilling Quotation</label>
+            {eligibleQuotes.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--secondary-text)' }}>No eligible quotes found for invoice generation.</p>
+            ) : (
+              <select
+                className="select-field"
+                value={selectedQuoteId}
+                onChange={(e) => setSelectedQuoteId(e.target.value)}
+              >
+                {eligibleQuotes.map(q => (
+                  <option key={q.id} value={q.id}>
+                    {q.quotationNumber || q.id} — {q.customer?.name || 'Customer'} ({formatCurrency(q.estimatedNetTotal || q.subtotal)})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+            <button className="btn btn-outline" onClick={() => setIsGenModalOpen(false)}>Cancel</button>
+            <button
+              className="btn btn-primary"
+              onClick={handleGenerateInvoice}
+              disabled={genSubmitting || !selectedQuoteId}
+            >
+              {genSubmitting ? 'Generating...' : 'Generate & Issue Invoice'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Record Payment Modal */}
+      <Modal
+        isOpen={Boolean(selectedInvoiceForPayment)}
+        onClose={() => setSelectedInvoiceForPayment(null)}
+        title={`Record Payment for Invoice: ${selectedInvoiceForPayment?.invoiceNumber || selectedInvoiceForPayment?.id}`}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {paymentError && (
+            <div style={{ padding: '10px', borderRadius: '6px', background: 'rgba(239,68,68,0.1)', color: '#b91c1c', fontSize: '0.85rem' }}>
+              {paymentError}
+            </div>
+          )}
+
+          <div className="input-group">
+            <label className="input-label" style={{ fontWeight: 600 }}>Payment Amount</label>
+            <input
+              type="number"
+              className="input-field"
+              value={paymentAmount}
+              onChange={(e) => setPaymentAmount(e.target.value)}
+              placeholder="Enter amount"
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" style={{ fontWeight: 600 }}>Payment Method</label>
+            <select
+              className="select-field"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+            >
+              <option value="CREDIT_CARD">Credit Card</option>
+              <option value="BANK_TRANSFER">Bank Wire Transfer</option>
+              <option value="CHECK">Check</option>
+              <option value="ACH">ACH Direct Deposit</option>
+            </select>
+          </div>
+
+          <div className="input-group">
+            <label className="input-label" style={{ fontWeight: 600 }}>Reference / Txn Hash (Optional)</label>
+            <input
+              type="text"
+              className="input-field"
+              value={paymentRef}
+              onChange={(e) => setPaymentRef(e.target.value)}
+              placeholder="E.g., WIRE-8849201"
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+            <button className="btn btn-outline" onClick={() => setSelectedInvoiceForPayment(null)}>Cancel</button>
+            <button
+              className="btn btn-success"
+              onClick={handleRecordPayment}
+              disabled={paymentSubmitting || !paymentAmount}
+              style={{ background: '#047857', borderColor: '#047857' }}
+            >
+              {paymentSubmitting ? 'Recording...' : 'Confirm & Save Payment'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
     </div>
   );

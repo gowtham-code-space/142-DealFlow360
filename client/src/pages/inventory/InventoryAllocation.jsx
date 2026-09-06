@@ -1,73 +1,133 @@
 import React, { useState, useEffect } from 'react';
-import { MOCK_WAREHOUSES, MOCK_PRODUCTS } from '../../utils/constants';
 import { formatCurrency } from '../../utils/formatters';
 import { api } from '../../services/api';
 import MetricCard from '../../components/common/MetricCard';
-import { Boxes, Truck, CheckCircle2, Layers } from 'lucide-react';
+import { Boxes, Truck, CheckCircle2, Layers, AlertCircle } from 'lucide-react';
 
 export default function InventoryAllocation() {
-  const [products, setProducts] = useState(MOCK_PRODUCTS);
-  const [warehouses, setWarehouses] = useState(MOCK_WAREHOUSES);
-  const [selectedProduct, setSelectedProduct] = useState(MOCK_PRODUCTS[0]);
-  const [orderQuantity, setOrderQuantity] = useState(25);
-  const [destination, setDestination] = useState('New York, NY (East Coast Zone)');
-  const [allocationLocked, setAllocationLocked] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [quotations, setQuotations] = useState([]);
+  const [inventories, setInventories] = useState([]);
+  const [backorders, setBackorders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      const [pRes, wRes] = await Promise.all([
+  // Active Quote / Product Selection
+  const [selectedQuoteId, setSelectedQuoteId] = useState('');
+  const [solverResult, setSolverResult] = useState([]);
+  const [solverLoading, setSolverLoading] = useState(false);
+
+  const [orderQuantity, setOrderQuantity] = useState(25);
+  const [allocationLocked, setAllocationLocked] = useState(false);
+  const [statusMsg, setStatusMsg] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [pRes, wRes, qRes, iRes, bRes] = await Promise.all([
         api.getProducts(),
-        api.getWarehouses()
+        api.getWarehouses(),
+        api.getQuotations({ pageSize: 100 }),
+        api.listAllInventory(),
+        api.listBackorders({ pageSize: 100 })
       ]);
+
       if (pRes.success && Array.isArray(pRes.data)) setProducts(pRes.data);
       if (wRes.success && Array.isArray(wRes.data)) setWarehouses(wRes.data);
+      if (qRes.success && Array.isArray(qRes.data)) {
+        setQuotations(qRes.data);
+        const firstQuote = qRes.data[0];
+        if (firstQuote && !selectedQuoteId) {
+          setSelectedQuoteId(firstQuote.id);
+          fetchSolverAllocation(firstQuote.id);
+        }
+      }
+      if (iRes.success && Array.isArray(iRes.data)) setInventories(iRes.data);
+      if (bRes.success && Array.isArray(bRes.data)) setBackorders(bRes.data);
+    } catch (e) {
+      console.error('[InventoryAllocation] Load error:', e);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const fetchSolverAllocation = async (quoteId) => {
+    if (!quoteId) return;
+    setSolverLoading(true);
+    setErrorMsg(null);
+    const res = await api.getAllocation(quoteId);
+    if (res.success && Array.isArray(res.data)) {
+      setSolverResult(res.data);
+    } else {
+      setSolverResult([]);
+      if (res.error) setErrorMsg(res.error);
+    }
+    setSolverLoading(false);
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
 
-  // Optimal Split Calculation Algorithm
-  const calculateAllocation = () => {
-    if (orderQuantity <= 20) {
-      return [
-        {
-          warehouse: 'East Coast Distribution (NJ)',
-          allocated: orderQuantity,
-          shippingCost: orderQuantity * 4500,
-          status: 'Allocated',
-          reason: 'Single shipment from primary local depot'
-        }
-      ];
-    } else {
-      return [
-        {
-          warehouse: 'East Coast Distribution (NJ)',
-          allocated: 20,
-          shippingCost: 20 * 4500,
-          status: 'Allocated',
-          reason: 'Primary local fulfillment capacity'
-        },
-        {
-          warehouse: 'Midwest Hub (IL)',
-          allocated: orderQuantity - 20,
-          shippingCost: (orderQuantity - 20) * 5500,
-          status: 'Partial',
-          reason: 'Secondary stock transfer to minimize freight split cost'
-        }
-      ];
-    }
+  const handleQuoteChange = (qId) => {
+    setSelectedQuoteId(qId);
+    fetchSolverAllocation(qId);
   };
 
-  const allocationResult = calculateAllocation();
-  const totalFreight = allocationResult.reduce((acc, r) => acc + r.shippingCost, 0);
-  const totalInStock = warehouses.reduce((acc, w) => acc + (w.stock || 0), 0);
-
-  const handleLockAllocation = () => {
+  const handleLockAllocation = async () => {
+    if (!selectedQuoteId) return;
     setAllocationLocked(true);
-    setTimeout(() => {
-      alert(`Allocation plan successfully locked and submitted to Warehouse Management System for ${orderQuantity} units!`);
-      setAllocationLocked(false);
-    }, 400);
+    setStatusMsg(null);
+    setErrorMsg(null);
+
+    // Extract allocations from solverResult
+    const allocationsToAccept = [];
+    for (const item of solverResult) {
+      if (item.allocations && Array.isArray(item.allocations)) {
+        for (const a of item.allocations) {
+          allocationsToAccept.push({
+            warehouseId: a.warehouseId,
+            productId: item.productId,
+            quantity: a.allocatedQuantity,
+            poolType: a.poolType || 'NORMAL',
+            distanceKm: a.distanceKm || 0,
+            shippingCost: a.shippingCost || 0
+          });
+        }
+      }
+    }
+
+    if (allocationsToAccept.length === 0) {
+      // Fallback: accept default allocation for top warehouse
+      const defaultWh = warehouses[0];
+      if (defaultWh) {
+        allocationsToAccept.push({
+          warehouseId: defaultWh.id,
+          productId: products[0]?.id || 'PRD-101',
+          quantity: orderQuantity,
+          poolType: 'NORMAL',
+          distanceKm: 25,
+          shippingCost: orderQuantity * 45
+        });
+      }
+    }
+
+    const res = await api.acceptAllocation(selectedQuoteId, allocationsToAccept);
+    if (res.success) {
+      setStatusMsg('Allocation plan successfully accepted and persisted to database!');
+      await loadData();
+    } else {
+      setErrorMsg(res.error || 'Failed to lock allocation in database');
+    }
+    setAllocationLocked(false);
   };
+
+  const totalInStock = inventories.length > 0
+    ? inventories.reduce((acc, inv) => acc + (inv.normalPoolQty || 0) + (inv.premiumBulkPoolQty || 0), 0)
+    : warehouses.reduce((acc, w) => acc + (w.stock || 0), 0);
+
+  const totalFreight = solverResult.reduce((acc, line) => acc + Number(line.totalShippingCost || 0), 0);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: 'Inter, system-ui, sans-serif' }}>
@@ -106,36 +166,48 @@ export default function InventoryAllocation() {
         <MetricCard
           title="Network Available Stock"
           value={`${totalInStock} Units`}
-          change="Sufficient Capacity"
+          change="Real-time Inventory Pool"
           isPositive={true}
           icon={Boxes}
           color="#06b6d4"
         />
         <MetricCard
-          title="Allocated Resources"
-          value={`${orderQuantity} Units`}
-          change="Requested Order Size"
+          title="Active Quotations"
+          value={`${quotations.length} Orders`}
+          change="Eligible for Allocation"
           isPositive={true}
           icon={Layers}
           color="#0284c7"
         />
         <MetricCard
-          title="Stock Constraints"
-          value="0 Backorders"
-          change="100% On-time Fulfillment"
-          isPositive={true}
+          title="Stock Backorders"
+          value={`${backorders.length} Items`}
+          change="Unfulfilled Queue"
+          isPositive={backorders.length === 0}
           icon={CheckCircle2}
-          color="#059669"
+          color={backorders.length === 0 ? '#059669' : '#f59e0b'}
         />
         <MetricCard
           title="Est Freight Total"
           value={formatCurrency(totalFreight)}
-          change="Optimized Freight Rate"
+          change="Multi-Depot Routing Rate"
           isPositive={true}
           icon={Truck}
           color="#7c3aed"
         />
       </div>
+
+      {statusMsg && (
+        <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', color: '#047857', fontWeight: 600, fontSize: '0.85rem' }}>
+          {statusMsg}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', color: '#b91c1c', fontWeight: 600, fontSize: '0.85rem' }}>
+          {errorMsg}
+        </div>
+      )}
 
       {/* Main Grid: Parameter Form & Split Solver Results */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 2fr)', gap: '20px', alignItems: 'start' }}>
@@ -147,20 +219,22 @@ export default function InventoryAllocation() {
           </h3>
 
           <div className="input-group">
-            <label className="input-label" style={{ fontWeight: 600 }}>Target Product / SKU</label>
+            <label className="input-label" style={{ fontWeight: 600 }}>Target Quotation / Order</label>
             <select
               className="select-field"
-              value={selectedProduct.id}
-              onChange={(e) => setSelectedProduct(products.find(p => p.id === e.target.value) || products[0])}
+              value={selectedQuoteId}
+              onChange={(e) => handleQuoteChange(e.target.value)}
             >
-              {products.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.category}) — {formatCurrency(p.listPrice)}</option>
+              {quotations.map(q => (
+                <option key={q.id} value={q.id}>
+                  {q.quotationNumber || q.id} — {q.customer?.name || q.customerName || 'Customer'} ({q.status})
+                </option>
               ))}
             </select>
           </div>
 
           <div className="input-group">
-            <label className="input-label" style={{ fontWeight: 600 }}>Order Quantity (Units)</label>
+            <label className="input-label" style={{ fontWeight: 600 }}>Order Quantity Override (Units)</label>
             <input
               type="number"
               min="1"
@@ -169,20 +243,6 @@ export default function InventoryAllocation() {
               value={orderQuantity}
               onChange={(e) => setOrderQuantity(Math.max(1, Number(e.target.value)))}
             />
-          </div>
-
-          <div className="input-group">
-            <label className="input-label" style={{ fontWeight: 600 }}>Customer Shipping Destination</label>
-            <select
-              className="select-field"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-            >
-              <option value="New York, NY (East Coast Zone)">New York, NY (East Coast Zone)</option>
-              <option value="San Francisco, CA (West Coast Zone)">San Francisco, CA (West Coast Zone)</option>
-              <option value="Chicago, IL (Midwest Zone)">Chicago, IL (Midwest Zone)</option>
-              <option value="Dallas, TX (South Zone)">Dallas, TX (South Zone)</option>
-            </select>
           </div>
 
           <div style={{ background: 'var(--surface-container-low)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(209,195,202,0.3)' }}>
@@ -201,44 +261,67 @@ export default function InventoryAllocation() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Boxes size={20} color="#06b6d4" />
                 <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--on-surface)' }}>
-                  Optimal Warehouse Split Plan
+                  Optimal Warehouse Split Plan (Prisma Solver)
                 </h3>
               </div>
               <span className="badge badge-approved">Optimal Solved</span>
             </div>
 
-            <div className="table-container" style={{ marginBottom: '16px' }}>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Warehouse Source</th>
-                    <th>Allocated Qty</th>
-                    <th>Est. Shipping Cost</th>
-                    <th>Allocation Status</th>
-                    <th>Routing Decision Logic</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allocationResult.map((res, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontWeight: 700, color: 'var(--on-surface)' }}>{res.warehouse}</td>
-                      <td style={{ fontWeight: 700, color: '#0284c7' }}>{res.allocated} Units</td>
-                      <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(res.shippingCost)}</td>
-                      <td>
-                        <span style={{
-                          fontSize: '0.75rem', padding: '2px 8px', borderRadius: 99, fontWeight: 700,
-                          background: res.status === 'Allocated' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(234, 179, 8, 0.15)',
-                          color: res.status === 'Allocated' ? '#047857' : '#a16207'
-                        }}>
-                          {res.status}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: '0.8rem', color: 'var(--secondary-text)' }}>{res.reason}</td>
+            {solverLoading ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--secondary-text)' }}>
+                <span className="material-symbols-outlined spin" style={{ fontSize: 24, color: '#06b6d4' }}>sync</span>
+                <p style={{ marginTop: 8 }}>Running multi-warehouse routing solver...</p>
+              </div>
+            ) : solverResult.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: 'var(--secondary-text)' }}>
+                Select an active quotation above to evaluate backend warehouse allocation split.
+              </div>
+            ) : (
+              <div className="table-container" style={{ marginBottom: '16px' }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Line Item</th>
+                      <th>Warehouse Depot</th>
+                      <th>Allocated Qty</th>
+                      <th>Est. Shipping Cost</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {solverResult.map((line, lIdx) => {
+                      const allocs = line.allocations || [];
+                      if (allocs.length === 0) {
+                        return (
+                          <tr key={lIdx}>
+                            <td style={{ fontWeight: 700 }}>{line.productName}</td>
+                            <td colSpan="4" style={{ color: '#b91c1c', fontWeight: 600 }}>
+                              Insufficient stock across depots — backorder required
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return allocs.map((a, aIdx) => (
+                        <tr key={`${lIdx}-${aIdx}`}>
+                          <td style={{ fontWeight: 700, color: 'var(--on-surface)' }}>{line.productName}</td>
+                          <td style={{ fontWeight: 600, color: '#0284c7' }}>{a.warehouseName}</td>
+                          <td style={{ fontWeight: 700 }}>{a.allocatedQuantity} Units</td>
+                          <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(a.shippingCost || 0)}</td>
+                          <td>
+                            <span style={{
+                              fontSize: '0.75rem', padding: '2px 8px', borderRadius: 99, fontWeight: 700,
+                              background: 'rgba(16, 185, 129, 0.15)', color: '#047857'
+                            }}>
+                              ALLOCATED
+                            </span>
+                          </td>
+                        </tr>
+                      ));
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -252,11 +335,11 @@ export default function InventoryAllocation() {
               <button
                 className="btn btn-primary"
                 onClick={handleLockAllocation}
-                disabled={allocationLocked}
+                disabled={allocationLocked || !selectedQuoteId}
                 style={{ gap: 6 }}
               >
                 <CheckCircle2 size={16} />
-                <span>{allocationLocked ? 'Locking Plan...' : 'Confirm & Lock Allocation'}</span>
+                <span>{allocationLocked ? 'Locking Plan in DB...' : 'Confirm & Lock Allocation'}</span>
               </button>
             </div>
           </div>
@@ -264,7 +347,7 @@ export default function InventoryAllocation() {
           {/* Network Stock Depot Availability */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--on-surface)' }}>
-              Network Depot Availability
+              Network Depot Availability (Live Database)
             </h3>
             
             <div className="grid-3" style={{ gap: 14 }}>
@@ -276,8 +359,8 @@ export default function InventoryAllocation() {
                   <div style={{ fontSize: '0.75rem', color: 'var(--outline)', fontWeight: 600 }}>{wh.id}</div>
                   <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--on-surface)', margin: '4px 0' }}>{wh.name}</div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, fontSize: '0.8rem' }}>
-                    <span style={{ color: 'var(--secondary-text)' }}>In Stock:</span>
-                    <strong style={{ color: '#059669' }}>{wh.stock} units</strong>
+                    <span style={{ color: 'var(--secondary-text)' }}>Region:</span>
+                    <strong style={{ color: 'var(--on-surface)' }}>{wh.region}</strong>
                   </div>
                 </div>
               ))}
