@@ -11,10 +11,11 @@ async function listDiscountPolicies(req, res) {
 }
 
 async function createDiscountPolicy(req, res) {
-  const { customerTier, productCategory, maxDiscountPct } = req.body;
-  if (!customerTier || !productCategory || maxDiscountPct == null) return badRequestResponse(res, 'customerTier, productCategory and maxDiscountPct are required');
-  const result = await svc.createDiscountPolicy({ customerTier, productCategory, maxDiscountPct });
-  if (result.conflict) return conflictResponse(res, 'Policy for this tier+category combination already exists');
+  const { customerTier, productCategory, maxDiscountPct, isActive } = req.body;
+  if (!customerTier && maxDiscountPct == null) {
+    return badRequestResponse(res, 'customerTier and maxDiscountPct are required');
+  }
+  const result = await svc.createDiscountPolicy({ customerTier, productCategory, maxDiscountPct, isActive });
   return createdResponse(res, 'Discount policy created', result.policy);
 }
 
@@ -25,18 +26,21 @@ async function getDiscountPolicyById(req, res) {
 }
 
 async function updateDiscountPolicy(req, res) {
-  if (req.body.maxDiscountPct == null) return badRequestResponse(res, 'maxDiscountPct is required');
   try {
     const policy = await svc.updateDiscountPolicy(req.params.policyId, req.body);
     return successResponse(res, 'Discount policy updated', policy);
-  } catch { return notFoundResponse(res, 'Discount policy not found'); }
+  } catch (err) {
+    return notFoundResponse(res, 'Discount policy not found');
+  }
 }
 
 async function deleteDiscountPolicy(req, res) {
   try {
     await svc.deleteDiscountPolicy(req.params.policyId);
     return successResponse(res, 'Discount policy deleted');
-  } catch { return notFoundResponse(res, 'Discount policy not found'); }
+  } catch (err) {
+    return notFoundResponse(res, 'Discount policy not found');
+  }
 }
 
 // ─── Discount Type Rules ───────────────────────────────────────────────────────
@@ -46,9 +50,7 @@ async function listDiscountTypes(req, res) {
 }
 
 async function createDiscountTypeRule(req, res) {
-  if (!req.body.type) return badRequestResponse(res, 'type is required');
   const result = await svc.createDiscountTypeRule(req.body);
-  if (result.conflict) return conflictResponse(res, 'Rule for this discount type already exists');
   return createdResponse(res, 'Discount type rule created', result.rule);
 }
 
@@ -56,14 +58,18 @@ async function updateDiscountTypeRule(req, res) {
   try {
     const rule = await svc.updateDiscountTypeRule(req.params.ruleId, req.body);
     return successResponse(res, 'Discount type rule updated', rule);
-  } catch { return notFoundResponse(res, 'Rule not found'); }
+  } catch (err) {
+    return notFoundResponse(res, 'Rule not found');
+  }
 }
 
 async function deleteDiscountTypeRule(req, res) {
   try {
     await svc.deleteDiscountTypeRule(req.params.ruleId);
     return successResponse(res, 'Discount type rule deleted');
-  } catch { return notFoundResponse(res, 'Rule not found'); }
+  } catch (err) {
+    return notFoundResponse(res, 'Rule not found');
+  }
 }
 
 // ─── Approval Chains ──────────────────────────────────────────────────────────
@@ -73,10 +79,8 @@ async function listApprovalChains(req, res) {
 }
 
 async function createApprovalChain(req, res) {
-  const { description, salesRepOnlyMaxOverCeilingPct, financeThresholdOverCeilingPct } = req.body;
-  if (!description) return badRequestResponse(res, 'description is required');
-  const result = await svc.createApprovalChain({ description, salesRepOnlyMaxOverCeilingPct, financeThresholdOverCeilingPct });
-  if (result.conflict) return conflictResponse(res, 'An approval chain rule already exists. Update instead.');
+  const { description, salesRepOnlyMaxOverCeilingPct, financeThresholdOverCeilingPct, isActive } = req.body;
+  const result = await svc.createApprovalChain({ description, salesRepOnlyMaxOverCeilingPct, financeThresholdOverCeilingPct, isActive });
   return createdResponse(res, 'Approval chain created', result.chain);
 }
 
@@ -90,14 +94,18 @@ async function updateApprovalChain(req, res) {
   try {
     const chain = await svc.updateApprovalChain(req.params.chainId, req.body);
     return successResponse(res, 'Approval chain updated', chain);
-  } catch { return notFoundResponse(res, 'Approval chain not found'); }
+  } catch (err) {
+    return notFoundResponse(res, 'Approval chain not found');
+  }
 }
 
 async function deleteApprovalChain(req, res) {
   try {
     await svc.deleteApprovalChain(req.params.chainId);
     return successResponse(res, 'Approval chain deleted');
-  } catch { return notFoundResponse(res, 'Approval chain not found'); }
+  } catch (err) {
+    return notFoundResponse(res, 'Approval chain not found');
+  }
 }
 
 // ─── Pool Config ──────────────────────────────────────────────────────────────

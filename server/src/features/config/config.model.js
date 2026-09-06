@@ -3,7 +3,7 @@ const prisma = require('../../config/db');
 // ─── Discount Policies ────────────────────────────────────────────────────────
 
 async function findDiscountPolicies() {
-  return prisma.discountPolicy.findMany({ where: { isActive: true } });
+  return prisma.discountPolicy.findMany({ orderBy: { createdAt: 'desc' } });
 }
 
 async function findDiscountPolicyByTierAndCategory(customerTier, productCategory) {
@@ -29,11 +29,11 @@ async function deleteDiscountPolicy(id) {
 // ─── Discount Type Rules ───────────────────────────────────────────────────────
 
 async function findDiscountTypeRules() {
-  return prisma.discountTypeRule.findMany({ where: { isActive: true } });
+  return prisma.discountTypeRule.findMany({ orderBy: { createdAt: 'desc' } });
 }
 
 async function findDiscountTypeRuleByType(type) {
-  return prisma.discountTypeRule.findFirst({ where: { type, isActive: true } });
+  return prisma.discountTypeRule.findFirst({ where: { type } });
 }
 
 async function createDiscountTypeRule(data) {
@@ -51,7 +51,7 @@ async function deleteDiscountTypeRule(id) {
 // ─── Approval Chains ──────────────────────────────────────────────────────────
 
 async function findApprovalChains() {
-  return prisma.approvalChainRule.findMany({ where: { isActive: true } });
+  return prisma.approvalChainRule.findMany({ orderBy: { createdAt: 'desc' } });
 }
 
 async function findFirstActiveApprovalChain() {

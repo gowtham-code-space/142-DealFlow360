@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
 import { api } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
@@ -20,27 +20,34 @@ const DEFAULT_POLICY_FORM = {
 };
 
 export default function DiscountPolicies() {
+  const { showToast, toast } = useToast();
   const [policies, setPolicies] = useState([]);
+  const [discountTypes, setDiscountTypes] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
 
   const [editingPolicy, setEditingPolicy] = useState(null);
   const [selectedPolicy, setSelectedPolicy] = useState(null);
+  const [editingType, setEditingType] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState(DEFAULT_POLICY_FORM);
   const [formErrors, setFormErrors] = useState({});
-
-  // Toast
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
+  const [typeFormData, setTypeFormData] = useState({
+    id: '',
+    name: '',
+    code: '',
+    description: '',
+    calculationType: 'PERCENTAGE',
+    defaultValue: 0,
+    isActive: true
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -98,6 +105,43 @@ export default function DiscountPolicies() {
     setFormData({ ...pol });
     setFormErrors({});
     setIsFormModalOpen(true);
+  };
+
+  // Open Discount Type Edit
+  const handleOpenTypeEdit = (dt) => {
+    setEditingType(dt);
+    setTypeFormData({
+      id: dt.id,
+      name: dt.name || '',
+      code: dt.code || '',
+      description: dt.description || '',
+      calculationType: dt.calculationType || 'PERCENTAGE',
+      defaultValue: Number(dt.defaultValue || 0),
+      isActive: dt.isActive !== false
+    });
+    setIsTypeModalOpen(true);
+  };
+
+  const handleSaveType = async (e) => {
+    e.preventDefault();
+    if (!editingType) return;
+    try {
+      const res = await api.updateDiscountType(editingType.id, {
+        name: typeFormData.name,
+        description: typeFormData.description,
+        defaultValue: Number(typeFormData.defaultValue),
+        isActive: typeFormData.isActive
+      });
+      if (res && res.success) {
+        showToast(`Discount rule "${typeFormData.name}" updated successfully.`);
+        loadData();
+      } else {
+        showToast(res?.message || 'Failed to update discount rule', 'error');
+      }
+    } catch {
+      showToast('Failed to update discount rule', 'error');
+    }
+    setIsTypeModalOpen(false);
   };
 
   // Open Detail Modal
@@ -179,6 +223,23 @@ export default function DiscountPolicies() {
     setIsConfirmModalOpen(false);
   };
 
+  // Handle Delete Policy
+  const handleDeletePolicy = async (pol) => {
+    if (!pol.id) return;
+    if (!window.confirm(`Are you sure you want to permanently delete policy "${pol.policyName}"?`)) return;
+    try {
+      const res = await api.deleteDiscountPolicy(pol.id);
+      if (res && res.success) {
+        showToast('Discount policy deleted.');
+        loadData();
+      } else {
+        showToast(res?.message || 'Failed to delete policy', 'error');
+      }
+    } catch {
+      showToast('Failed to delete policy from server', 'error');
+    }
+  };
+
   // Filtered Policies
   const filteredPolicies = policies.filter(p =>
     p.policyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -188,8 +249,6 @@ export default function DiscountPolicies() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -342,6 +401,14 @@ export default function DiscountPolicies() {
                         <button onClick={() => handleOpenConfirmModal(pol)} className="btn btn-outline btn-sm" style={{ color: pol.status === 'Active' ? '#dc2626' : '#16a34a' }}>
                           {pol.status === 'Active' ? 'Deactivate' : 'Activate'}
                         </button>
+                        <button
+                          onClick={() => handleDeletePolicy(pol)}
+                          className="btn btn-outline btn-sm"
+                          style={{ color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)', padding: '3px 8px' }}
+                          title="Delete policy"
+                        >
+                          <MS icon="delete" size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -370,6 +437,117 @@ export default function DiscountPolicies() {
           </div>
         </div>
       </div>
+
+      {/* Discount Types & Promotional Rules Section */}
+      <div className="card">
+        <div className="card-header flex-between">
+          <div>
+            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Discount Types & Calculation Rules</h3>
+            <p className="body-sm" style={{ color: 'var(--outline)' }}>Base promotional rules (Bulk, Consistency, Seasonal, Product Variant)</p>
+          </div>
+        </div>
+
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Discount Type Name</th>
+                <th>Calculation Logic</th>
+                <th>Default Rate / Value</th>
+                <th>Description</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {discountTypes.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--outline)' }}>
+                    No discount type rules loaded.
+                  </td>
+                </tr>
+              ) : (
+                discountTypes.map((dt) => (
+                  <tr key={dt.id}>
+                    <td className="font-mono font-semibold">{dt.code}</td>
+                    <td style={{ fontWeight: 600 }}>{dt.name}</td>
+                    <td><span className="badge badge-surface">{dt.calculationType || 'PERCENTAGE'}</span></td>
+                    <td className="font-mono font-bold text-emerald">
+                      {dt.defaultValue ? `${dt.defaultValue}%` : 'Variable'}
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--on-surface-variant)' }}>{dt.description || 'System rule'}</td>
+                    <td>
+                      <span className={`badge ${dt.isActive !== false ? 'badge-success' : 'badge-error'}`}>
+                        {dt.isActive !== false ? 'ACTIVE' : 'DISABLED'}
+                      </span>
+                    </td>
+                    <td>
+                      <button onClick={() => handleOpenTypeEdit(dt)} className="btn btn-outline btn-sm">
+                        Edit Rule
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Discount Type Edit Modal */}
+      <Modal
+        isOpen={isTypeModalOpen}
+        onClose={() => setIsTypeModalOpen(false)}
+        title={`Configure Discount Type: ${typeFormData.name || typeFormData.code}`}
+      >
+        <form onSubmit={handleSaveType} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Rule Name *</label>
+            <input
+              type="text"
+              className="form-control"
+              value={typeFormData.name}
+              onChange={(e) => setTypeFormData({ ...typeFormData, name: e.target.value })}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Default Rate (%) *</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              className="form-control"
+              value={typeFormData.defaultValue}
+              onChange={(e) => setTypeFormData({ ...typeFormData, defaultValue: e.target.value })}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Description / Scope</label>
+            <textarea
+              className="form-control"
+              rows={3}
+              value={typeFormData.description}
+              onChange={(e) => setTypeFormData({ ...typeFormData, description: e.target.value })}
+              style={{ width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--outline-variant)' }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+            <button type="button" onClick={() => setIsTypeModalOpen(false)} className="btn btn-outline">
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary">
+              Save Discount Rule
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Add / Edit Form Modal */}
       <Modal

@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
 import { api } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
 export default function ApprovalRules() {
+  const { showToast, toast } = useToast();
   const [rules, setRules] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [filterTier, setFilterTier] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [toastMsg, setToastMsg] = useState('');
 
   // Form Modal State (Add / Edit)
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -32,11 +33,6 @@ export default function ApprovalRules() {
 
   // View Detail Modal State
   const [viewRule, setViewRule] = useState(null);
-
-  const showToast = (msg) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(''), 3000);
-  };
 
   const loadRules = async () => {
     setLoading(true);
@@ -148,6 +144,22 @@ export default function ApprovalRules() {
     }
   };
 
+  const handleDeleteRule = async (rule) => {
+    if (!rule.id) return;
+    if (!window.confirm(`Are you sure you want to permanently delete rule "${rule.name || rule.id}"?`)) return;
+    try {
+      const res = await api.deleteApprovalChain(rule.id);
+      if (res && res.success) {
+        showToast('Approval rule deleted successfully.');
+        loadRules();
+      } else {
+        showToast(res?.message || 'Failed to delete rule', 'error');
+      }
+    } catch {
+      showToast('Failed to delete rule from server', 'error');
+    }
+  };
+
   const filteredRules = rules.filter(rule => {
     const matchesTier = filterTier === 'ALL' || rule.tier === filterTier || rule.tier === 'ALL';
     const matchesQuery = rule.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -158,9 +170,6 @@ export default function ApprovalRules() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Toast Notification */}
-      <Toast message={toastMsg} onClose={() => setToastMsg('')} />
-
       {/* Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -233,44 +242,6 @@ export default function ApprovalRules() {
         </div>
       </div>
 
-      {/* Approval Flow Visualizer */}
-      <div className="card card-body" style={{ background: 'var(--surface-container-low)', border: '1px solid rgba(209,195,202,0.3)' }}>
-        <h3 className="headline-sm" style={{ color: 'var(--primary)', marginBottom: 12 }}>Multi-Tier Approval Hierarchy Visualization</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--secondary)' }}>
-            <span className="badge badge-secondary" style={{ fontSize: 10 }}>LEVEL 1</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Fast-Path Auto-Approve</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount within Customer Tier Limit & Margin &ge; 35%. Instant execution without queue delay.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid #f59e0b' }}>
-            <span className="badge badge-amber" style={{ fontSize: 10 }}>LEVEL 2</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Sales Manager Single-Sig</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount exceeds Tier Limit (up to 30%) or Margin between 22%-34.9%. Assigned to Regional Manager.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--primary)' }}>
-            <span className="badge badge-primary" style={{ fontSize: 10 }}>LEVEL 3</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Dual Executive Multi-Sig</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount &gt; 30% OR Contract Value &gt; ₹2.0 Cr. Requires signatures from VP Sales & VP Finance.
-            </p>
-          </div>
-
-          <div style={{ background: '#fff', padding: 12, borderRadius: 8, borderLeft: '4px solid var(--error)' }}>
-            <span className="badge badge-error" style={{ fontSize: 10 }}>LEVEL 4</span>
-            <h4 style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>Hard Policy Floor Block</h4>
-            <p style={{ fontSize: 11, color: 'var(--on-surface-variant)', marginTop: 4 }}>
-              Discount &gt; 45% OR Margin &lt; 22%. System automatically rejects quote. No manual bypass permitted.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Approval Rule Matrix Table */}
       <div className="card">
         <div className="card-header flex-between">
@@ -278,20 +249,21 @@ export default function ApprovalRules() {
             <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Configured Approval Chains & Escalation Triggers</h3>
             <p className="body-sm" style={{ color: 'var(--outline)' }}>Rule priority, conditional logic, assigned approver roles, and enforcement status</p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              placeholder="Search approval rules..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="input-field"
-              style={{ width: 200, height: 32 }}
-            />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div className="search-bar" style={{ minWidth: 220 }}>
+              <MS icon="search" size={18} />
+              <input
+                type="text"
+                placeholder="Search approval rules..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
             <select
               value={filterTier}
               onChange={e => setFilterTier(e.target.value)}
-              className="select-field"
-              style={{ width: 140, height: 32 }}
+              className="select-input"
+              style={{ minWidth: 140 }}
             >
               <option value="ALL">All Tiers</option>
               <option value="STANDARD">Standard Tier</option>
@@ -344,13 +316,23 @@ export default function ApprovalRules() {
                         Edit
                       </button>
                       {rule.status !== 'HARD FLOOR' && (
-                        <button
-                          onClick={() => handleToggleStatus(rule)}
-                          className={`btn btn-sm ${rule.status === 'ACTIVE' ? 'btn-outline' : 'btn-primary'}`}
-                          style={{ fontSize: 10, padding: '2px 6px' }}
-                        >
-                          {rule.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleToggleStatus(rule)}
+                            className={`btn btn-sm ${rule.status === 'ACTIVE' ? 'btn-outline' : 'btn-primary'}`}
+                            style={{ fontSize: 10, padding: '2px 6px' }}
+                          >
+                            {rule.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRule(rule)}
+                            className="btn btn-outline btn-sm"
+                            style={{ color: '#dc2626', borderColor: 'rgba(220,38,38,0.3)', padding: '2px 6px' }}
+                            title="Delete rule"
+                          >
+                            <MS icon="delete" size={14} />
+                          </button>
+                        </>
                       )}
                     </div>
                   </td>

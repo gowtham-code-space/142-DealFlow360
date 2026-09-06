@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../components/common/Modal';
-import Toast from '../../components/common/Toast';
 import { api } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size, color: 'inherit' }}>{icon}</span>
 );
 
 export default function SystemSettings() {
-  const [toast, setToast] = useState(null);
+  const { showToast, toast } = useToast();
+  const [loadingConfig, setLoadingConfig] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('registry');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPod, setSelectedPod] = useState('TNT-901');
@@ -33,10 +34,6 @@ export default function SystemSettings() {
   const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
   const [newPodName, setNewPodName] = useState('');
   const [newPodDomain, setNewPodDomain] = useState('');
-
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
 
   useEffect(() => {
     const loadPoolConfig = async () => {
@@ -81,7 +78,40 @@ export default function SystemSettings() {
   };
 
   const handleExportManifest = () => {
-    showToast('System configuration manifest JSON exported.');
+    try {
+      const manifest = {
+        system: 'DealFlow360 Enterprise Governance',
+        version: '2.0.0-PROD',
+        exportedAt: new Date().toISOString(),
+        poolConfig: {
+          normalPoolPct,
+          premiumBulkPoolPct,
+          depositPct,
+          holdDurationHours
+        },
+        securityArchitecture: {
+          dbStrategy,
+          idpUrl,
+          spEntityId,
+          jitEnabled,
+          strictSso,
+          sessionTimeout,
+          defaultCurrency,
+          notificationPref
+        }
+      };
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `dealflow360_system_manifest_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('System configuration manifest JSON exported.');
+    } catch {
+      showToast('Failed to export system manifest', 'error');
+    }
   };
 
   const handleProvisionPod = (e) => {
@@ -95,8 +125,6 @@ export default function SystemSettings() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-
       {/* Top Banner & Action Header */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16,
@@ -219,130 +247,199 @@ export default function SystemSettings() {
             </button>
           </div>
 
-          {/* Search & Filter Ribbon */}
-          <div className="card card-body flex-between" style={{ gap: 12 }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <span className="material-symbols-outlined" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: 'var(--outline)' }}>search</span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Filter by domain or pod Enclave ID..."
-                className="input-field"
-                style={{ paddingLeft: 30, height: 32, fontSize: 13 }}
-              />
-            </div>
-          </div>
-
-          {/* Partitioned Enclave Directory Table */}
-          <div className="card">
-            <div className="card-header flex-between">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <MS icon="table_chart" size={18} />
-                <h3 className="headline-sm" style={{ color: 'var(--on-surface)' }}>Partitioned Enclave Directory</h3>
+          {/* Sub-Tab 1: Tenant Enclave Registry */}
+          {activeSubTab === 'registry' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Search & Filter Ribbon */}
+            <div className="card card-body flex-between" style={{ gap: 12 }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <span className="material-symbols-outlined" style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: 'var(--outline)' }}>search</span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Filter by domain or pod Enclave ID..."
+                  className="input-field"
+                  style={{ paddingLeft: 30, height: 32, fontSize: 13 }}
+                />
               </div>
             </div>
 
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Tenant & Domain</th>
-                    <th>Org & Isolation Tier</th>
-                    <th>KMS Key Architecture</th>
-                    <th>Quota / Burst</th>
-                    <th>Status</th>
-                    <th>Ops</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    onClick={() => setSelectedPod('TNT-901')}
-                    style={{ background: selectedPod === 'TNT-901' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <strong style={{ color: 'var(--on-surface)' }}>Apex Global Logistics</strong>
-                        <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>apexlogistics.com</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="font-mono font-semibold">#TNT-901</span>
-                        <span style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600 }}>Tier 1 Physical Pod &bull; AWS us-east-1</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <MS icon="key" size={14} /> Customer BYOK (HSM-v2)
-                      </span>
-                    </td>
-                    <td className="font-mono text-xs">150k / 300k r/m</td>
-                    <td><span className="badge badge-secondary">Air-Gapped Verified</span></td>
-                    <td>
-                      <button onClick={() => setSelectedPod('TNT-901')} className="btn btn-primary btn-sm">Config</button>
-                    </td>
-                  </tr>
+            {/* Partitioned Enclave Directory Table */}
+            <div className="card">
+              <div className="card-header flex-between">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <MS icon="table_chart" size={18} />
+                  <h3 className="headline-sm" style={{ color: 'var(--on-surface)' }}>Partitioned Enclave Directory</h3>
+                </div>
+              </div>
 
-                  <tr
-                    onClick={() => setSelectedPod('TNT-844')}
-                    style={{ background: selectedPod === 'TNT-844' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <strong style={{ color: 'var(--on-surface)' }}>NexaCorp Industries</strong>
-                        <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>nexacorp.io</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="font-mono font-semibold">#TNT-844</span>
-                        <span style={{ fontSize: 10, color: 'var(--outline)' }}>VPC PrivateLink Enclave</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <MS icon="shield" size={14} /> DealFlow Managed KMS
-                      </span>
-                    </td>
-                    <td className="font-mono text-xs">80k / 120k r/m</td>
-                    <td><span className="badge badge-surface">Enclave Active</span></td>
-                    <td>
-                      <button onClick={() => setSelectedPod('TNT-844')} className="btn btn-outline btn-sm">Config</button>
-                    </td>
-                  </tr>
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Tenant & Domain</th>
+                      <th>Org & Isolation Tier</th>
+                      <th>KMS Key Architecture</th>
+                      <th>Quota / Burst</th>
+                      <th>Status</th>
+                      <th>Ops</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      onClick={() => setSelectedPod('TNT-901')}
+                      style={{ background: selectedPod === 'TNT-901' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
+                    >
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <strong style={{ color: 'var(--on-surface)' }}>Apex Global Logistics</strong>
+                          <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>apexlogistics.com</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span className="font-mono font-semibold">#TNT-901</span>
+                          <span style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 600 }}>Tier 1 Physical Pod &bull; AWS us-east-1</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MS icon="key" size={14} /> Customer BYOK (HSM-v2)
+                        </span>
+                      </td>
+                      <td className="font-mono text-xs">150k / 300k r/m</td>
+                      <td><span className="badge badge-secondary">Air-Gapped Verified</span></td>
+                      <td>
+                        <button onClick={() => setSelectedPod('TNT-901')} className="btn btn-primary btn-sm">Config</button>
+                      </td>
+                    </tr>
 
-                  <tr
-                    onClick={() => setSelectedPod('TNT-712')}
-                    style={{ background: selectedPod === 'TNT-712' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
-                  >
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <strong style={{ color: 'var(--on-surface)' }}>FinTech Sovereign Capital</strong>
-                        <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>sovereignfin.ch</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span className="font-mono font-semibold">#TNT-712</span>
-                        <span style={{ fontSize: 10, color: '#78350f', fontWeight: 600 }}>Swiss Cell (EU-Zurich)</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <MS icon="lock" size={14} /> Hardware HSM Tier 4
-                      </span>
-                    </td>
-                    <td className="font-mono text-xs">200k / 400k r/m</td>
-                    <td><span className="badge badge-amber">Strict Sovereign Lock</span></td>
-                    <td>
-                      <button onClick={() => setSelectedPod('TNT-712')} className="btn btn-outline btn-sm">Config</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                    <tr
+                      onClick={() => setSelectedPod('TNT-844')}
+                      style={{ background: selectedPod === 'TNT-844' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
+                    >
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <strong style={{ color: 'var(--on-surface)' }}>NexaCorp Industries</strong>
+                          <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>nexacorp.io</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span className="font-mono font-semibold">#TNT-844</span>
+                          <span style={{ fontSize: 10, color: 'var(--outline)' }}>VPC PrivateLink Enclave</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MS icon="shield" size={14} /> DealFlow Managed KMS
+                        </span>
+                      </td>
+                      <td className="font-mono text-xs">80k / 120k r/m</td>
+                      <td><span className="badge badge-surface">Enclave Active</span></td>
+                      <td>
+                        <button onClick={() => setSelectedPod('TNT-844')} className="btn btn-outline btn-sm">Config</button>
+                      </td>
+                    </tr>
+
+                    <tr
+                      onClick={() => setSelectedPod('TNT-712')}
+                      style={{ background: selectedPod === 'TNT-712' ? 'rgba(87,52,79,0.08)' : 'transparent', cursor: 'pointer' }}
+                    >
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <strong style={{ color: 'var(--on-surface)' }}>FinTech Sovereign Capital</strong>
+                          <span style={{ fontSize: 11, color: 'var(--outline)', fontFamily: 'monospace' }}>sovereignfin.ch</span>
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span className="font-mono font-semibold">#TNT-712</span>
+                          <span style={{ fontSize: 10, color: '#78350f', fontWeight: 600 }}>Swiss Cell (EU-Zurich)</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="font-mono text-xs" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MS icon="lock" size={14} /> Hardware HSM Tier 4
+                        </span>
+                      </td>
+                      <td className="font-mono text-xs">200k / 400k r/m</td>
+                      <td><span className="badge badge-amber">Strict Sovereign Lock</span></td>
+                      <td>
+                        <button onClick={() => setSelectedPod('TNT-712')} className="btn btn-outline btn-sm">Config</button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
+          )}
+
+          {/* Sub-Tab 2: Identity Federation & SAML */}
+          {activeSubTab === 'saml' && (
+          <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Enterprise Identity Federation (SSO / SAML 2.0 / OIDC)</h3>
+            <p className="body-sm" style={{ color: 'var(--outline)' }}>Configure external IdP (Okta, Azure AD, Google Workspace) with JIT provisioning.</p>
+            <div>
+              <label className="input-label" style={{ fontSize: 11 }}>Identity Provider (IdP) Single Sign-On URL</label>
+              <input type="text" value={idpUrl} onChange={e => setIdpUrl(e.target.value)} className="input-field" style={{ width: '100%', height: 34 }} />
+            </div>
+            <div>
+              <label className="input-label" style={{ fontSize: 11 }}>SP Entity ID / Audience URI</label>
+              <input type="text" value={spEntityId} onChange={e => setSpEntityId(e.target.value)} className="input-field" style={{ width: '100%', height: 34 }} />
+            </div>
+            <div style={{ display: 'flex', gap: 20 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                <input type="checkbox" checked={jitEnabled} onChange={e => setJitEnabled(e.target.checked)} />
+                Just-In-Time (JIT) Auto Account Provisioning
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                <input type="checkbox" checked={strictSso} onChange={e => setStrictSso(e.target.checked)} />
+                Enforce Strict SSO (Block Password Auth)
+              </label>
+            </div>
+            <button onClick={handleSaveSettings} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start', marginTop: 8 }}>
+              Save SAML Configuration
+            </button>
+          </div>
+          )}
+
+          {/* Sub-Tab 3: API Gateway */}
+          {activeSubTab === 'gateway' && (
+          <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>API Gateway Burst Control & Edge Shielding</h3>
+            <p className="body-sm" style={{ color: 'var(--outline)' }}>Rate limiting policies, burst shields, and tenant-level throttling quotas.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8 }}>
+                <strong>Standard Quota:</strong>
+                <p style={{ fontSize: 12, color: 'var(--outline)' }}>100,000 requests / minute per tenant enclave.</p>
+              </div>
+              <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8 }}>
+                <strong>Burst Buffer:</strong>
+                <p style={{ fontSize: 12, color: 'var(--outline)' }}>Up to 2x burst multiplier for 60-second windows.</p>
+              </div>
+            </div>
+            <button onClick={() => showToast('Gateway rate limits synced to CloudFront / Envoy.')} className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
+              Sync Edge Gateway Rules
+            </button>
+          </div>
+          )}
+
+          {/* Sub-Tab 4: Sovereignty & KMS */}
+          {activeSubTab === 'kms' && (
+          <div className="card card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <h3 className="headline-sm" style={{ color: 'var(--primary)' }}>Cryptographic Key Sovereignty (BYOK / HSM)</h3>
+            <p className="body-sm" style={{ color: 'var(--outline)' }}>Hardware Security Module (HSM) FIPS 140-2 Level 3 envelope encryption keys.</p>
+            <div style={{ background: 'var(--surface-container-low)', padding: 12, borderRadius: 8, fontFamily: 'monospace', fontSize: 12 }}>
+              Master Key: arn:aws:kms:us-east-1:dealflow360:key/89a1f4b2-e612-4c28-98e3-f09c85db6e11 (AES-256-GCM)
+            </div>
+            <button onClick={handleVerifyCryptography} className="btn btn-primary btn-sm" style={{ alignSelf: 'flex-start' }}>
+              Perform Cryptographic Key Health Check
+            </button>
+          </div>
+          )}
         </div>
 
         {/* Right Column: Inspector & Configurator Panel */}

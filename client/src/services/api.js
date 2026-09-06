@@ -280,7 +280,232 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/inventory${query}`, {
       headers: getAuthHeaders()
     });
+<<<<<<< HEAD
     const data = await res.json();
     return res.ok ? data : { success: false, error: data.message || 'Failed to fetch inventory', status: res.status };
+=======
+  },
+
+  async deleteWarehouse(id) {
+    return this.request(`/warehouses/${id}`, { method: 'DELETE' });
+  },
+
+  async getWarehouseInventory(warehouseId) {
+    return this.request(`/warehouses/${warehouseId}/inventory`);
+  },
+
+  async adjustWarehouseInventory(warehouseId, productId, data) {
+    return this.request(`/warehouses/${warehouseId}/inventory/${productId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Pool Configuration & Clustering
+  async getPoolConfig() {
+    return this.request('/config/pool-config');
+  },
+
+  async updatePoolConfig(data) {
+    return this.request('/config/pool-config', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  // Users & RBAC
+  async getUsers() {
+    return this.request('/users');
+  },
+
+  async createUser(userData) {
+    return this.request('/users', {
+      method: 'POST',
+      body: JSON.stringify(userData)
+    });
+  },
+
+  async updateUser(id, userData) {
+    return this.request(`/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(userData)
+    });
+  },
+
+  async deleteUser(id) {
+    return this.request(`/users/${id}`, { method: 'DELETE' });
+  },
+
+  async reactivateUser(id) {
+    return this.request(`/users/${id}/reactivate`, { method: 'POST' });
+  },
+
+  async bulkCreateUsers(users) {
+    return this.request('/users/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ users })
+    });
+  },
+
+  async getRoles() {
+    return this.request('/auth/roles');
+  },
+
+  // Product Variants
+  async getProductVariants(productId) {
+    return this.request(`/products/${productId}/variants`);
+  },
+
+  async createProductVariant(productId, variantData) {
+    return this.request(`/products/${productId}/variants`, {
+      method: 'POST',
+      body: JSON.stringify(variantData)
+    });
+  },
+
+  async updateProductVariant(productId, variantId, variantData) {
+    return this.request(`/products/${productId}/variants/${variantId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(variantData)
+    });
+  },
+
+  async deleteProductVariant(productId, variantId) {
+    return this.request(`/products/${productId}/variants/${variantId}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Discount Policies & Rules
+  async getDiscountPolicies() {
+    return this.request('/config/discount-policies');
+  },
+
+  async createDiscountPolicy(policyData) {
+    return this.request('/config/discount-policies', {
+      method: 'POST',
+      body: JSON.stringify(policyData)
+    });
+  },
+
+  async updateDiscountPolicy(id, policyData) {
+    return this.request(`/config/discount-policies/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(policyData)
+    });
+  },
+
+  async deleteDiscountPolicy(id) {
+    return this.request(`/config/discount-policies/${id}`, { method: 'DELETE' });
+  },
+
+  async getDiscountTypes() {
+    return this.request('/config/discount-types');
+  },
+
+  async createDiscountType(typeData) {
+    return this.request('/config/discount-types', {
+      method: 'POST',
+      body: JSON.stringify(typeData)
+    });
+  },
+
+  async updateDiscountType(id, typeData) {
+    return this.request(`/config/discount-types/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(typeData)
+    });
+  },
+
+  async deleteDiscountType(id) {
+    return this.request(`/config/discount-types/${id}`, { method: 'DELETE' });
+  },
+
+  // Approval Chain Rules
+  async getApprovalChains() {
+    return this.request('/config/approval-chains');
+  },
+
+  async createApprovalChain(chainData) {
+    return this.request('/config/approval-chains', {
+      method: 'POST',
+      body: JSON.stringify(chainData)
+    });
+  },
+
+  async updateApprovalChain(id, chainData) {
+    return this.request(`/config/approval-chains/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(chainData)
+    });
+  },
+
+  async deleteApprovalChain(id) {
+    return this.request(`/config/approval-chains/${id}`, { method: 'DELETE' });
+  },
+
+  // Pool Config
+  async getPoolConfig() {
+    return this.request('/config/pool-config');
+  },
+
+  async updatePoolConfig(poolData) {
+    return this.request('/config/pool-config', {
+      method: 'PUT',
+      body: JSON.stringify(poolData)
+    });
+  },
+
+  // Subscription Plans
+  async getSubscriptionPlans() {
+    return this.request('/config/subscription-plans');
+  },
+
+  async createSubscriptionPlan(planData) {
+    return this.request('/config/subscription-plans', {
+      method: 'POST',
+      body: JSON.stringify(planData)
+    });
+  },
+
+  async updateSubscriptionPlan(id, planData) {
+    return this.request(`/config/subscription-plans/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(planData)
+    });
+  },
+
+  async deleteSubscriptionPlan(id) {
+    return this.request(`/config/subscription-plans/${id}`, { method: 'DELETE' });
+  },
+
+  // Upsell Rules
+  async getUpsellRules() {
+    return this.request('/config/upsell-rules');
+  },
+
+  async createUpsellRule(ruleData) {
+    return this.request('/config/upsell-rules', {
+      method: 'POST',
+      body: JSON.stringify(ruleData)
+    });
+  },
+
+  async updateUpsellRule(id, ruleData) {
+    return this.request(`/config/upsell-rules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(ruleData)
+    });
+  },
+
+  async deleteUpsellRule(id) {
+    return this.request(`/config/upsell-rules/${id}`, { method: 'DELETE' });
+  },
+
+  // Global Audit Logs
+  async getGlobalAuditLogs(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/audit-logs${query ? `?${query}` : ''}`);
+>>>>>>> origin/gowtham-backend
   }
 };
