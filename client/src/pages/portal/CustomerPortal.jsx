@@ -401,7 +401,6 @@ export default function CustomerPortal() {
             )}
           </div>
 
-<<<<<<< Updated upstream
           {/* Hardware Fulfillment & Active Deliveries */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>

@@ -562,5 +562,205 @@ export const api = {
   async getGlobalAuditLogs(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/audit-logs${query ? `?${query}` : ''}`);
-  }
+  },
+  async markAllNotificationsRead() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/notifications/mark-all-read`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      return { success: Boolean(res.ok && data.success) };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // ── Finance & Operations: Inventory ──────────────────────────────────────
+
+  async listAllInventory(queryParams = {}) {
+    try {
+      const query = new URLSearchParams(queryParams).toString();
+      const url = `${API_BASE_URL}/inventory${query ? `?${query}` : ''}`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const items = data.data?.items || data.data || [];
+        return { success: true, data: items };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // ── Finance & Operations: Warehouse Allocation Solver ────────────────────
+
+  async getAllocation(quoteId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/quotes/${quoteId}/allocation`, {
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const items = Array.isArray(data.data) ? data.data : data.data?.items || [];
+        return { success: true, data: items };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async acceptAllocation(quoteId, allocations) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/quotes/${quoteId}/allocation/accept`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ allocations })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, data: data.data };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async overrideAllocation(quoteId, overrides) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/quotes/${quoteId}/allocation/override`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ overrides })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, data: data.data };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // ── Finance & Operations: Fulfillment / Backorders ───────────────────────
+
+  async listBackorders(queryParams = {}) {
+    try {
+      const query = new URLSearchParams(queryParams).toString();
+      const url = `${API_BASE_URL}/backorders${query ? `?${query}` : ''}`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const items = data.data?.items || data.data || [];
+        return { success: true, data: items };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // ── Finance & Operations: Billing / Invoices ─────────────────────────────
+
+  async listInvoices(queryParams = {}) {
+    try {
+      const query = new URLSearchParams(queryParams).toString();
+      const url = `${API_BASE_URL}/invoices${query ? `?${query}` : ''}`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const items = data.data?.items || data.data || [];
+        return { success: true, data: items };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async listSubscriptions(queryParams = {}) {
+    try {
+      const query = new URLSearchParams(queryParams).toString();
+      const url = `${API_BASE_URL}/subscriptions${query ? `?${query}` : ''}`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const items = data.data?.items || data.data || [];
+        return { success: true, data: items };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async listPayments(queryParams = {}) {
+    try {
+      const query = new URLSearchParams(queryParams).toString();
+      const url = `${API_BASE_URL}/payments${query ? `?${query}` : ''}`;
+      const res = await fetch(url, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const items = data.data?.items || data.data || [];
+        return { success: true, data: items };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async generateBilling(quoteId, payload = {}) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/quotes/${quoteId}/billing/generate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ paymentTerms: 'NET_30', ...payload })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, data: data.data };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  async recordPayment(invoiceId, paymentData) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/payments`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(paymentData)
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, data: data.data };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+
+  // ── Finance & Operations: Customers / Credit ─────────────────────────────
+
+  async getCustomerById(id) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/customers/${id}`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        return { success: true, data: data.data };
+      }
+      return { success: false, error: data.message || `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
 };
+
