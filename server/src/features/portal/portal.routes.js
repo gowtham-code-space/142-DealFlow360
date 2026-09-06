@@ -5,6 +5,11 @@ const authenticate = require('../../middleware/auth.middleware');
 const authorize = require('../../middleware/role.middleware');
 
 // Customer-only Portal endpoints
+router.get('/portal/resources', authenticate, authorize('CUSTOMER'), ctrl.portalListResources);
+router.post('/portal/holds', authenticate, authorize('CUSTOMER'), ctrl.portalCreateHolds);
+router.post('/portal/resources/:productId/hold', authenticate, authorize('CUSTOMER'), ctrl.portalCreateHold);
+router.get('/portal/holds/:holdId', authenticate, authorize('CUSTOMER'), ctrl.portalGetHold);
+router.post('/portal/quotes/generate', authenticate, authorize('CUSTOMER'), ctrl.portalGenerateQuote);
 router.get('/portal/quotes', authenticate, authorize('CUSTOMER'), ctrl.portalListQuotes);
 router.get('/portal/quotes/:quoteId', authenticate, authorize('CUSTOMER'), ctrl.portalGetQuote);
 router.get('/portal/quotes/:quoteId/lines', authenticate, authorize('CUSTOMER'), ctrl.portalGetQuoteLines);

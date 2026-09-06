@@ -3,7 +3,7 @@ import { ROLES } from '../utils/constants';
 
 const AuthContext = createContext(null);
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
 
 // Role mapping helper between Backend Enum and Frontend UI constants
 export function mapBackendRoleToFrontend(backendRole) {

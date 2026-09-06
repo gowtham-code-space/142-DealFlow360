@@ -39,7 +39,7 @@ async function findTicketById(id) {
       customer: true,
       quotation: { select: { id: true, quotationNumber: true, status: true, estimatedNetTotal: true } },
       productHolds: { include: { product: true, warehouse: true } },
-      lineComments: { include: { author: { select: { id: true, name: true, roleId: true } } } }
+      lineComments: { include: { author: { select: { id: true, name: true, role: true } } } }
     }
   });
 }
@@ -97,17 +97,31 @@ async function findProductHoldsByTicketId(ticketId) {
 
 // ─── Negotiation Messages Queries ────────────────────────────────────────────
 
+async function resolveQuoteId(idOrNumber) {
+  if (!idOrNumber) return null;
+  const quote = await prisma.quotation.findFirst({
+    where: { OR: [{ id: idOrNumber }, { quotationNumber: idOrNumber }] },
+    select: { id: true }
+  });
+  return quote ? quote.id : idOrNumber;
+}
+
 async function findNegotiations(quotationId) {
+  const realId = await resolveQuoteId(quotationId);
   return prisma.negotiation.findMany({
-    where: { quotationId },
+    where: { quotationId: realId },
     include: { sender: { select: { id: true, name: true, roleId: true } } },
     orderBy: { createdAt: 'asc' }
   });
 }
 
 async function createNegotiation(data) {
+  const realId = await resolveQuoteId(data.quotationId);
   return prisma.negotiation.create({
-    data,
+    data: {
+      ...data,
+      quotationId: realId
+    },
     include: { sender: { select: { id: true, name: true, roleId: true } } }
   });
 }
@@ -119,15 +133,17 @@ async function createApproval(data) {
 }
 
 async function updateQuotationStatus(id, status) {
+  const realId = await resolveQuoteId(id);
   return prisma.quotation.update({
-    where: { id },
+    where: { id: realId },
     data: { status }
   });
 }
 
 async function findQuotationContextForExport(quoteId) {
+  const realId = await resolveQuoteId(quoteId);
   return prisma.quotation.findUnique({
-    where: { id: quoteId },
+    where: { id: realId },
     include: {
       customer: true,
       rep: { select: { id: true, name: true, email: true } },
@@ -153,8 +169,5 @@ module.exports = {
   releaseProductHolds,
   findProductHoldsByTicketId,
   findNegotiations,
-  createNegotiation,
-  createApproval,
-  updateQuotationStatus,
-  findQuotationContextForExport
+  createNegotiation
 };

@@ -4,14 +4,8 @@ const roleMiddleware = (...allowedRoles) => {
   const roles = allowedRoles.flat();
 
   return (req, res, next) => {
-<<<<<<< HEAD
-    console.log("ROLE MIDDLEWARE REQ USER:", req.user);
-    const userRole = req.user.role || req.user.roleId || req.user.role_id;
-    if (!req.user || (userRole === undefined || userRole === null)) {
-=======
     const userRole = req.user?.role || req.user?.roleId;
     if (!req.user || !userRole) {
->>>>>>> origin/gowtham-backend
       return unauthorizedResponse(res, 'Access denied. Unauthorized.');
     }
 

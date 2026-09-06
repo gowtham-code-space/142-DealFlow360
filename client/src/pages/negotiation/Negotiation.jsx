@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '../../services/api';
+import { api, API_BASE_URL } from '../../services/api';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 import StatusBadge from '../../components/common/StatusBadge';
+import { io } from 'socket.io-client';
 
 const MS = ({ icon, size = 18 }) => (
   <span className="material-symbols-outlined" style={{ fontSize: size }}>{icon}</span>
 );
 
 export default function Negotiation() {
-  const { id = 'Q-2026-002' } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [negotiation, setNegotiation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [messageText, setMessageText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [resolvedQuoteId, setResolvedQuoteId] = useState(null);
 
   // Counter proposal inputs
   const [counterDiscount, setCounterDiscount] = useState(22);
@@ -28,24 +30,50 @@ export default function Negotiation() {
   // Customer-facing preview toggle
   const [customerPreview, setCustomerPreview] = useState(false);
 
+  // Socket state
+  const [socket, setSocket] = useState(null);
+
   useEffect(() => {
+    console.log(`[Quote] frontend identifier=${id || 'none'}`);
     async function loadNegotiation() {
       setLoading(true);
-      
+      let targetId = id;
+      if (!targetId) {
+        // Automatically find active negotiation quote if navigated to bare /negotiation
+        const qListRes = await api.getQuotations();
+        if (qListRes.success && qListRes.data?.items?.length > 0) {
+          const activeNeg = qListRes.data.items.find(q => q.status === 'CUSTOMER_NEGOTIATION' || q.status === 'RETURNED') || qListRes.data.items[0];
+          if (activeNeg) {
+            targetId = activeNeg.id;
+            navigate(`/negotiation/${targetId}`, { replace: true });
+            return;
+          }
+        }
+      }
+
+      if (!targetId) {
+        setLoading(false);
+        return;
+      }
+
       const [quoteRes, ticketsRes, msgsRes] = await Promise.all([
-        api.getQuotationById(id),
-        api.getNegotiationTickets(id),
-        api.getNegotiation(id)
+        api.getQuotationById(targetId),
+        api.getNegotiationTickets(targetId),
+        api.getNegotiation(targetId)
       ]);
 
-      if (quoteRes.success) {
+      if (quoteRes.success && quoteRes.data) {
         const q = quoteRes.data;
+        const realId = q.id;
+        setResolvedQuoteId(realId);
+
         const activeTicket = ticketsRes.success && ticketsRes.data?.length > 0 ? ticketsRes.data[0] : null;
         const msgs = msgsRes.success ? msgsRes.data : [];
 
-        // Build the composite negotiation object
+        // Build composite negotiation object
         setNegotiation({
-          quoteId: q.id,
+          quoteId: q.quotationNumber || q.id,
+          realId: q.id,
           status: q.status,
           customerName: q.customer?.name || q.customerName,
           tier: q.customer?.tier || q.tier,
@@ -60,7 +88,7 @@ export default function Negotiation() {
             timestamp: new Date(activeTicket.createdAt).toLocaleString(),
             customerNote: activeTicket.comments || 'No comments provided',
             requestedDiscountPercent: activeTicket.requestedDiscountPct,
-            requestedTerms: 'Net 60' // Mocked parameter for now
+            requestedTerms: 'Net 60'
           } : null,
           messages: msgs.map(m => ({
             id: m.id,
@@ -78,105 +106,112 @@ export default function Negotiation() {
       setLoading(false);
     }
     loadNegotiation();
-  }, [id]);
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (!resolvedQuoteId) return;
+
+    const token = localStorage.getItem('dealflow_token');
+    const socketUrl = API_BASE_URL.replace('/api/v1', '');
+    const newSocket = io(socketUrl, {
+      auth: { token }
+    });
+
+    newSocket.on('connect', () => {
+      console.log('Connected to socket', newSocket.id);
+      newSocket.emit('negotiation:join', { quoteId: resolvedQuoteId });
+    });
+
+    newSocket.on('negotiation:message:new', (newMsg) => {
+      setNegotiation(prev => {
+        if (!prev) return prev;
+        
+        // Prevent duplicate messages if already in state
+        if (prev.messages.find(m => m.id === newMsg.id)) return prev;
+
+        const formattedMsg = {
+          id: newMsg.id,
+          sender: newMsg.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+          author: newMsg.senderRole === 'CUSTOMER' ? (prev.customerName || 'Customer') : 'Sales Representative',
+          timestamp: new Date(newMsg.createdAt).toLocaleString(),
+          text: newMsg.message
+        };
+
+        return {
+          ...prev,
+          messages: [...prev.messages, formattedMsg]
+        };
+      });
+    });
+
+    newSocket.on('negotiation:error', (err) => {
+      console.error('Socket error:', err);
+    });
+
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [resolvedQuoteId]);
 
   const handleSendMessage = async () => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() || !resolvedQuoteId) return;
     setSendingMsg(true);
-    const res = await api.sendNegotiationMessage(id, {
-      senderRole: 'REP',
-      message: messageText
-    });
-    if (res.success) {
+
+    if (socket && socket.connected) {
+      socket.emit('negotiation:message', {
+        quoteId: resolvedQuoteId,
+        message: messageText
+      });
       setMessageText('');
-      // Trigger a re-fetch of the messages
-      const msgsRes = await api.getNegotiation(id);
-      if (msgsRes.success) {
-        setNegotiation(prev => ({
-          ...prev,
-          messages: msgsRes.data.map(m => ({
-            id: m.id,
-            sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
-            author: m.senderRole === 'CUSTOMER' ? (prev.customerName || 'Customer') : 'Sales Representative',
-            timestamp: new Date(m.createdAt).toLocaleString(),
-            text: m.message
-          }))
-        }));
+    } else {
+      // Fallback to REST
+      const res = await api.sendNegotiationMessage(resolvedQuoteId, {
+        senderRole: 'REP',
+        message: messageText
+      });
+      if (res.success) {
+        setMessageText('');
+        const msgsRes = await api.getNegotiation(resolvedQuoteId);
+        if (msgsRes.success) {
+          setNegotiation(prev => ({
+            ...prev,
+            messages: msgsRes.data.map(m => ({
+              id: m.id,
+              sender: m.senderRole === 'CUSTOMER' ? 'customer' : 'rep',
+              author: m.senderRole === 'CUSTOMER' ? (prev.customerName || 'Customer') : 'Sales Representative',
+              timestamp: new Date(m.createdAt).toLocaleString(),
+              text: m.message
+            }))
+          }));
+        }
       }
     }
     setSendingMsg(false);
   };
 
   const handleSubmitRepCounter = async () => {
-    if (!negotiation?.counterOffer?.id) {
-      alert("No active negotiation ticket to counter.");
-      return;
-    }
-    
     setSubmittingCounter(true);
     const payload = {
-      counterDiscountPct: counterDiscount,
-      comments: `Proposed Payment Terms: ${counterPaymentTerms}`
+      proposedDiscount: counterDiscount,
+      proposedPaymentTerms: counterPaymentTerms
     };
 
-    const res = await api.submitCounterOffer(negotiation.counterOffer.id, payload);
+    const res = await api.submitCounterOffer(id, payload);
     if (res.success) {
       setReapprovalState(res.data);
 
       await api.sendNegotiationMessage(id, {
-        senderRole: 'REP',
-        message: `Submitted revised counter-offer: ${counterDiscount}% discount with ${counterPaymentTerms} payment terms.`
+        sender: 'rep',
+        author: 'Alex Rivera (Sales Rep)',
+        text: `Submitted revised counter-offer: ${counterDiscount}% discount with ${counterPaymentTerms} payment terms.`
       });
 
-      // Simple reload to get updated ticket status and messages
-      window.location.reload();
-    } else {
-      alert(res.error || 'Failed to submit counter offer');
+      const fresh = await api.getNegotiation(id);
+      if (fresh.success) setNegotiation(fresh.data);
     }
     setSubmittingCounter(false);
-  };
-
-  const handleAcceptTerms = async () => {
-    if (!negotiation?.counterOffer?.id) {
-      alert("No active negotiation ticket to accept.");
-      return;
-    }
-    if (window.confirm("Are you sure you want to accept the customer's terms? This will update the quotation status.")) {
-      const res = await api.acceptNegotiationTicket(negotiation.counterOffer.id, {
-        comments: 'Accepted by Sales Rep from Negotiation Workspace'
-      });
-      if (res.success) {
-        alert("Terms accepted successfully!");
-        navigate(`/quotations/${id}`);
-      } else {
-        alert("Failed to accept terms: " + res.error);
-      }
-    }
-  };
-
-  const handleEscalate = async () => {
-    if (!negotiation?.counterOffer?.id) {
-      alert("No active negotiation ticket to escalate.");
-      return;
-    }
-    if (window.confirm("Are you sure you want to escalate this negotiation to your Manager?")) {
-      const res = await api.escalateNegotiationTicket(negotiation.counterOffer.id, {
-        comments: 'Escalated by Sales Rep for Manager Review'
-      });
-      if (res.success) {
-        alert("Negotiation escalated to Manager successfully!");
-        navigate(`/quotations/${id}`);
-      } else {
-        alert("Failed to escalate: " + res.error);
-      }
-    }
-  };
-
-  const handleExportPdf = async () => {
-    const res = await api.exportNegotiationSummaryPdf(id);
-    if (!res.success) {
-      alert("Failed to export PDF: " + res.error);
-    }
   };
 
   if (loading) {
@@ -187,6 +222,20 @@ export default function Negotiation() {
       </div>
     );
   }
+
+  if (!negotiation) {
+    return (
+      <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+        <MS icon="error" size={36} />
+        <p style={{ marginTop: 12, fontWeight: 600 }}>Quotation not found</p>
+        <p style={{ fontSize: 13 }}>The requested quote could not be loaded. Please use a valid quotation link.</p>
+        <button className="btn btn-outline btn-sm" style={{ marginTop: 16 }} onClick={() => navigate('/quotations')}>
+          Back to Quotations
+        </button>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex-col gap-4">
@@ -257,10 +306,7 @@ export default function Negotiation() {
             <div className="card-header flex-between" style={{ borderBottom: '1px solid var(--border-color)' }}>
               <div>
                 <h3 className="headline-sm" style={{ margin: 0 }}>Direct Customer Chat Timeline</h3>
-                <div className="flex-between">
-                  <span className="label-sm text-muted">Customer Contacts</span>
-                  <span className="badge badge-surface" style={{ fontSize: 10 }}>Primary</span>
-                </div>
+                <span className="label-sm text-muted">Marcus Vance (VP Procurement, Apex Global)</span>
               </div>
               <span className="label-sm text-emerald flex-gap-2 font-bold">
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)' }} /> Online
@@ -318,10 +364,10 @@ export default function Negotiation() {
 
             <div className="flex-between">
               <div className="flex-gap-2">
-                <button className="btn btn-outline btn-sm" style={{ color: 'var(--success)', borderColor: 'var(--success)', background: '#fff' }} onClick={handleAcceptTerms}>
+                <button className="btn btn-outline btn-sm" style={{ color: 'var(--success)', borderColor: 'var(--success)', background: '#fff' }} onClick={() => alert('Accept Terms API not yet implemented.')}>
                   <MS icon="check_circle" size={14} /> <span>Accept Terms</span>
                 </button>
-                <button className="btn btn-outline btn-sm" style={{ color: 'var(--warning)', borderColor: 'var(--warning)', background: '#fff' }} onClick={handleEscalate}>
+                <button className="btn btn-outline btn-sm" style={{ color: 'var(--warning)', borderColor: 'var(--warning)', background: '#fff' }} onClick={() => alert('Escalate to Manager API not yet implemented.')}>
                   <MS icon="gavel" size={14} /> <span>Escalate to Manager</span>
                 </button>
               </div>
@@ -410,7 +456,7 @@ export default function Negotiation() {
           </div>
 
           <div className="card card-body flex-col gap-2">
-            <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={handleExportPdf}>
+            <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={() => alert('Export PDF API not yet implemented.')}>
               <MS icon="download" size={16} /> <span>Export Negotiation Summary PDF</span>
             </button>
             <button className="btn btn-outline" style={{ justifyContent: 'flex-start' }} onClick={() => navigate('/quotations')}>

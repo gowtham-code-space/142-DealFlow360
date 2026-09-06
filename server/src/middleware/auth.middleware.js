@@ -12,18 +12,12 @@ const authMiddleware = (req, res, next) => {
 
   try {
     const decoded = verifyAccessToken(token);
-<<<<<<< HEAD
-    req.user = {
-      ...decoded,
-      role: decoded.role || decoded.roleId
-=======
     const userRole = decoded.role || decoded.roleId;
     req.user = {
       ...decoded,
       id: decoded.userId || decoded.id,
       role: userRole,
       roleId: userRole
->>>>>>> origin/gowtham-backend
     };
     next();
   } catch (error) {

@@ -5,7 +5,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import { api } from '../../services/api';
 import { MOCK_QUOTATIONS } from '../../utils/constants';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
-import { ShieldCheck, Truck, FileSpreadsheet, Award, CheckCircle, Clock } from 'lucide-react';
+import { ShieldCheck, Truck, FileSpreadsheet, Award, CheckCircle, Clock, ShoppingCart, Timer, ArrowRight, Layers } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const MS = ({ icon, size = 18 }) => (
@@ -13,18 +13,26 @@ const MS = ({ icon, size = 18 }) => (
 );
 
 export default function CustomerPortal() {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [quotes, setQuotes] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [quantities, setQuantities] = useState({});
   const [loading, setLoading] = useState(true);
+  
+  // Hold & Quote generation state
+  const [activeHold, setActiveHold] = useState(null);
+  const [holdTimer, setHoldTimer] = useState(0);
+  const [isReserving, setIsReserving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     async function loadPortalData() {
       setLoading(true);
       const res = await api.getQuotations();
       if (res.success && Array.isArray(res.data)) {
-        // Filter quotes for the authenticated user if applicable
         const companyName = user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'Corporate Account';
         const userQuotes = res.data.filter(q =>
           q.customerId === 'CUST-002' || (q.customerName && q.customerName.includes(companyName))
@@ -38,10 +46,86 @@ export default function CustomerPortal() {
       if (recRes.success && Array.isArray(recRes.data)) {
         setRecommendations(recRes.data);
       }
+
+      const resList = await api.getPortalResources();
+      if (resList.success && Array.isArray(resList.data)) {
+        setResources(resList.data);
+        const initQty = {};
+        resList.data.forEach(r => { initQty[r.id] = 0; });
+        setQuantities(initQty);
+      }
+
       setLoading(false);
     }
     loadPortalData();
-  }, []);
+  }, [user]);
+
+  // Countdown timer for active hold
+  useEffect(() => {
+    if (!activeHold?.expiresAt) return;
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((new Date(activeHold.expiresAt) - new Date()) / 1000));
+      setHoldTimer(remaining);
+      if (remaining === 0) {
+        setActiveHold(prev => (prev ? { ...prev, isExpired: true } : null));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activeHold]);
+
+  const handleQtyChange = (productId, qty) => {
+    setQuantities(prev => ({
+      ...prev,
+      [productId]: Math.max(0, parseInt(qty, 10) || 0)
+    }));
+  };
+
+  const handleReserveStock = async () => {
+    setErrorMessage('');
+    const selectedItems = Object.entries(quantities)
+      .filter(([_, q]) => q > 0)
+      .map(([productId, quantity]) => ({ productId, quantity }));
+
+    if (selectedItems.length === 0) {
+      setErrorMessage('Please select at least 1 product quantity to reserve stock.');
+      return;
+    }
+
+    setIsReserving(true);
+    const res = await api.createProductHolds(selectedItems);
+    setIsReserving(false);
+
+    if (res.success && res.data) {
+      setActiveHold({
+        ticketId: res.data.ticketId,
+        items: res.data.items,
+        expiresAt: res.data.expiresAt,
+        isExpired: false
+      });
+      setHoldTimer(15 * 60);
+    } else {
+      setErrorMessage(res.error || res.message || 'Failed to place stock reservation.');
+    }
+  };
+
+  const handleGenerateQuote = async () => {
+    if (!activeHold?.ticketId) return;
+    setIsGenerating(true);
+    const res = await api.generateQuote({ ticketId: activeHold.ticketId });
+    setIsGenerating(false);
+
+    if (res.success && res.data?.id) {
+      navigate(`/portal/quotes/${res.data.id}`);
+    } else {
+      setErrorMessage(res.error || res.message || 'Failed to generate quotation from hold.');
+    }
+  };
+
+  const formatTimer = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   const activeQuotesCount = quotes.filter(q => q.status === 'PENDING_APPROVAL' || q.status === 'CUSTOMER_NEGOTIATION' || q.status === 'APPROVED').length;
   const totalVolume = quotes.reduce((acc, q) => acc + Number(q.totalValue || 0), 0);
@@ -55,14 +139,14 @@ export default function CustomerPortal() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <h1 className="page-title" style={{ margin: 0, fontSize: '1.4rem' }}>
-                Welcome back, {user?.name?.split(' (')[0] || 'Customer'}
+                Welcome back, Marcus Vance
               </h1>
               <span className="badge badge-gold" style={{ background: 'rgba(5, 150, 105, 0.1)', color: '#059669', border: '1px solid rgba(5, 150, 105, 0.25)' }}>
-                {user?.name?.includes('(') ? user.name.split('(')[1].replace(')', '') : 'Corporate Account'} • Customer Portal
+                Nexus HyperScale Ltd • Gold Corporate Account
               </span>
             </div>
             <p className="page-subtitle" style={{ margin: '4px 0 0 0', fontSize: '0.85rem' }}>
-              Customer Procurement Command Center • Track active quotes, order fulfillment, SLA support, and account billing.
+              Customer Procurement Command Center • Reserve inventory, request quotes, track orders & SLA.
             </p>
           </div>
 
@@ -84,7 +168,7 @@ export default function CustomerPortal() {
         <MetricCard
           title="Active Proposals & Quotes"
           value={activeQuotesCount}
-          change="2 Ready for Review"
+          change="Ready for Review"
           isPositive={true}
           icon={FileSpreadsheet}
           color="#059669"
@@ -92,7 +176,7 @@ export default function CustomerPortal() {
         <MetricCard
           title="Active Orders In Progress"
           value="3"
-          change="1 In Transit (ETA Oct)"
+          change="1 In Transit"
           isPositive={true}
           icon={Truck}
           color="var(--primary)"
@@ -115,12 +199,142 @@ export default function CustomerPortal() {
         />
       </div>
 
+      {/* Active Stock Reservation Banner if Active */}
+      {activeHold && (
+        <div className="card" style={{ padding: '20px', background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)', border: '1px solid #10b981' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <Timer color="#047857" size={24} />
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#065f46', fontWeight: 700 }}>
+                  Active 15-Min Stock Reservation
+                </h3>
+                <span className="badge" style={{ background: '#047857', color: '#fff', fontSize: '0.75rem' }}>
+                  {activeHold.isExpired ? 'EXPIRED' : 'ACTIVE HOLD'}
+                </span>
+              </div>
+              <p style={{ margin: '6px 0 0 0', fontSize: '0.85rem', color: '#047857' }}>
+                Hold Ticket ID: <strong>{activeHold.ticketId}</strong> • Products are locked exclusively for your account.
+              </p>
+              <div style={{ display: 'flex', gap: 12, marginTop: 10, flexWrap: 'wrap' }}>
+                {activeHold.items?.map(h => (
+                  <div key={h.holdId} style={{ background: '#fff', padding: '4px 10px', borderRadius: 6, fontSize: '0.8rem', border: '1px solid #a7f3d0' }}>
+                    <strong>{h.productName || h.productId}</strong> × <strong>{h.quantityHeld}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {!activeHold.isExpired && (
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 600 }}>RESERVED FOR</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#065f46', fontFamily: 'monospace' }}>
+                    {formatTimer(holdTimer)}
+                  </div>
+                </div>
+              )}
+              <button
+                className="btn btn-primary"
+                onClick={handleGenerateQuote}
+                disabled={isGenerating || activeHold.isExpired}
+                style={{ background: '#047857', borderColor: '#047857', padding: '10px 20px', fontWeight: 700, gap: 8 }}
+              >
+                {isGenerating ? 'Generating Quote...' : 'Generate Quotation Now'}
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Grid: Left Workspace (2.3fr) vs Right Panel (1fr) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2.3fr) minmax(0, 1fr)', gap: '20px' }}>
         
-        {/* Left Column: Active Proposals + Hardware Delivery Status + Add-on Recommendations */}
+        {/* Left Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
+          {/* Catalog & Multi-Product Reservation Section */}
+          <div className="card" style={{ padding: '20px', background: '#fff', borderTop: '4px solid #0284c7' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <ShoppingCart color="#0284c7" size={20} />
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--on-surface)' }}>
+                    Browse Catalog & Reserve Stock (Multi-Product Hold)
+                  </h3>
+                </div>
+                <span style={{ fontSize: '0.8rem', color: 'var(--secondary-text)' }}>
+                  Select required product quantities for atomic inventory reservation
+                </span>
+              </div>
+
+              <button
+                className="btn btn-primary"
+                onClick={handleReserveStock}
+                disabled={isReserving}
+                style={{ background: '#0284c7', borderColor: '#0284c7', gap: 8, fontSize: '0.85rem' }}
+              >
+                <Timer size={16} />
+                <span>{isReserving ? 'Reserving...' : '15 min Hold / Reserve'}</span>
+              </button>
+            </div>
+
+            {errorMessage && (
+              <div style={{ padding: '10px 14px', borderRadius: 6, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontSize: '0.82rem', marginBottom: 14 }}>
+                {errorMessage}
+              </div>
+            )}
+
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Product Code</th>
+                    <th>Resource Name</th>
+                    <th>Unit List Price</th>
+                    <th>Available Stock</th>
+                    <th>Select Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resources.map(r => (
+                    <tr key={r.id}>
+                      <td style={{ fontWeight: 700, color: '#0284c7' }}>{r.sku || r.id}</td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>{r.name}</div>
+                        <span style={{ fontSize: '0.72rem', color: 'var(--outline)' }}>{r.category} • {r.productType}</span>
+                      </td>
+                      <td style={{ fontWeight: 700 }}>{formatCurrency(r.listPrice)}</td>
+                      <td>
+                        <span className={`badge ${r.availableStock > 5 ? 'badge-fulfilled' : r.availableStock > 0 ? 'badge-pending' : 'badge-danger'}`}>
+                          {r.availableStock} in stock
+                        </span>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          max={r.availableStock}
+                          value={quantities[r.id] || 0}
+                          onChange={e => handleQtyChange(r.id, e.target.value)}
+                          style={{
+                            width: '70px',
+                            padding: '4px 8px',
+                            borderRadius: 6,
+                            border: '1px solid rgba(209,195,202,0.6)',
+                            fontWeight: 700,
+                            textAlign: 'center'
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {/* Active Proposals & Quotes */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
@@ -161,12 +375,12 @@ export default function CustomerPortal() {
                         <td style={{ fontWeight: 700, color: '#059669' }}>{q.id}</td>
                         <td>
                           <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>
-                            {q.id === 'Q-2026-002' ? 'Enterprise Server Fleet & AI Acceleration' : q.id === 'Q-2026-001' ? 'High-Density Switch & Cloud License Expansion' : 'Enterprise IT Infrastructure'}
+                            {q.quotationNumber || q.id}
                           </div>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--outline)' }}>Created: {q.createdDate} • Rep: {q.repName || 'Alex Rivera'}</span>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--outline)' }}>Created: {q.createdAt || q.createdDate}</span>
                         </td>
-                        <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(q.totalValue)}</td>
-                        <td style={{ fontWeight: 700, color: '#059669' }}>{formatPercent(q.discountPercent)}</td>
+                        <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(q.estimatedNetTotal || q.totalValue)}</td>
+                        <td style={{ fontWeight: 700, color: '#059669' }}>{formatPercent(q.discountPercent || 0)}</td>
                         <td>
                           <StatusBadge status={q.status} />
                         </td>
@@ -187,6 +401,7 @@ export default function CustomerPortal() {
             )}
           </div>
 
+<<<<<<< Updated upstream
           {/* Hardware Fulfillment & Active Deliveries */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
@@ -219,7 +434,7 @@ export default function CustomerPortal() {
 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--outline)' }}>
                 <span>Dispatched: Midwest Hub (IL)</span>
-                <span>Destination: Regional Data Center</span>
+                <span>Destination: Nexus Data Center (CA)</span>
                 <span>Carrier: FedEx Freight Priority</span>
               </div>
             </div>
@@ -268,7 +483,7 @@ export default function CustomerPortal() {
 
         </div>
 
-        {/* Right Column: Account Team + Counter-Offer Status + Support & SLA */}
+        {/* Right Column: Account Team + Support & SLA */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           {/* Panel 1: Dedicated Account Team */}
@@ -283,12 +498,12 @@ export default function CustomerPortal() {
                   width: 38, height: 38, borderRadius: '50%', background: 'var(--primary)',
                   color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700
                 }}>
-                  DF
+                  AR
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>DealFlow Account Exec</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>Alex Rivera</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Account Executive</div>
-                  <div style={{ fontSize: '0.72rem', color: '#059669' }}>sales@dealflow360.internal</div>
+                  <div style={{ fontSize: '0.72rem', color: '#059669' }}>alex.rivera@dealflow360.internal</div>
                 </div>
               </div>
 
@@ -297,45 +512,18 @@ export default function CustomerPortal() {
                   width: 38, height: 38, borderRadius: '50%', background: '#0284c7',
                   color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700
                 }}>
-                  OPS
+                  SJ
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>DealFlow Fulfillment</div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--on-surface)' }}>Sarah Jenkins</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--secondary-text)' }}>Fulfillment Lead</div>
-                  <div style={{ fontSize: '0.72rem', color: '#0284c7' }}>ops@dealflow360.internal</div>
+                  <div style={{ fontSize: '0.72rem', color: '#0284c7' }}>sarah.jenkins@dealflow360.internal</div>
                 </div>
               </div>
-
-              <button
-                className="btn btn-outline"
-                onClick={() => navigate('/portal/quotes/Q-2026-002')}
-                style={{ width: '100%', marginTop: 4, gap: 6, justifyContent: 'center', borderColor: '#059669', color: '#059669' }}
-              >
-                <MS icon="chat" size={16} />
-                <span>Message Account Executive</span>
-              </button>
             </div>
           </div>
 
-          {/* Panel 2: Active Counter-Offer Status */}
-          <div className="card" style={{ padding: '20px', background: '#fff' }}>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 10px 0', color: 'var(--on-surface)' }}>
-              Active Counter-Offer Status
-            </h3>
-
-            <div style={{
-              padding: '12px', borderRadius: 8, background: 'rgba(234, 179, 8, 0.08)',
-              border: '1px solid rgba(234, 179, 8, 0.3)', fontSize: '0.8rem', color: '#a16207'
-            }}>
-              <div style={{ fontWeight: 700 }}>Q-2026-002 Counter-Offer Sent</div>
-              <div style={{ marginTop: 4 }}>Requested: 25% Discount • Net 60 Terms</div>
-              <div style={{ fontSize: '0.72rem', marginTop: 4, color: 'var(--secondary-text)' }}>
-                Status: Pending Sales Manager Override Review (David K.)
-              </div>
-            </div>
-          </div>
-
-          {/* Panel 3: Support & SLA Status */}
+          {/* Panel 2: Support & SLA Status */}
           <div className="card" style={{ padding: '20px', background: '#fff' }}>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--on-surface)' }}>
               Support & SLA Status
@@ -349,34 +537,6 @@ export default function CustomerPortal() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--secondary-text)' }}>System Uptime Guarantee:</span>
                 <strong style={{ color: '#059669' }}>99.99% Operational</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--secondary-text)' }}>Active Support Plan:</span>
-                <strong style={{ color: 'var(--primary)' }}>24/7 Mission Critical SLA</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Panel 4: Recent Portal Activity Log */}
-          <div className="card" style={{ padding: '20px', background: '#fff' }}>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: '0 0 12px 0', color: 'var(--on-surface)' }}>
-              Recent Portal Activity
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.78rem' }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                <Clock size={15} color="#059669" style={{ marginTop: 2 }} />
-                <div>
-                  <span style={{ fontWeight: 600 }}>Counter-offer submitted for Q-2026-002</span>
-                  <div style={{ color: 'var(--outline)', fontSize: '0.7rem' }}>Sep 04, 2:32 PM</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                <CheckCircle size={15} color="#10b981" style={{ marginTop: 2 }} />
-                <div>
-                  <span style={{ fontWeight: 600 }}>Order ORD-2026-0041 dispatched</span>
-                  <div style={{ color: 'var(--outline)', fontSize: '0.7rem' }}>Sep 03, 11:20 AM</div>
-                </div>
               </div>
             </div>
           </div>

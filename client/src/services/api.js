@@ -280,11 +280,71 @@ export const api = {
     const res = await fetch(`${API_BASE_URL}/inventory${query}`, {
       headers: getAuthHeaders()
     });
-<<<<<<< HEAD
     const data = await res.json();
     return res.ok ? data : { success: false, error: data.message || 'Failed to fetch inventory', status: res.status };
-=======
   },
+
+  // ─── Request helper (used by admin methods) ───────────────────────────────
+  request(endpoint, options = {}) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = getAuthHeaders();
+    return fetch(url, { ...options, headers: { ...headers, ...(options.headers || {}) } })
+      .then(async res => {
+        const data = await res.json();
+        return res.ok ? data : { success: false, error: data.message || 'Request failed', status: res.status };
+      })
+      .catch(err => ({ success: false, error: err.message }));
+  },
+
+  // ─── Customer Portal Resource Catalog & Hold Endpoints ─────────────────────
+
+  async getPortalResources() {
+    const res = await fetch(`${API_BASE_URL}/portal/resources`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to fetch portal resources', status: res.status };
+  },
+
+  async createProductHolds(items) {
+    const res = await fetch(`${API_BASE_URL}/portal/holds`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ items })
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to reserve resources', status: res.status };
+  },
+
+  async createProductHold(productId, holdData = {}) {
+    const res = await fetch(`${API_BASE_URL}/portal/resources/${productId}/hold`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(holdData)
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to reserve resource hold', status: res.status };
+  },
+
+  async getHoldStatus(holdId) {
+    const res = await fetch(`${API_BASE_URL}/portal/holds/${holdId}`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to fetch hold status', status: res.status };
+  },
+
+  async generateQuote(quotePayload) {
+    const res = await fetch(`${API_BASE_URL}/portal/quotes/generate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(quotePayload)
+    });
+    const data = await res.json();
+    return res.ok ? data : { success: false, error: data.message || 'Failed to generate quotation', status: res.status };
+  },
+
+  // ─── Warehouse Admin Operations ─────────────────────────────────────────────
 
   async deleteWarehouse(id) {
     return this.request(`/warehouses/${id}`, { method: 'DELETE' });
@@ -301,19 +361,8 @@ export const api = {
     });
   },
 
-  // Pool Configuration & Clustering
-  async getPoolConfig() {
-    return this.request('/config/pool-config');
-  },
+  // ─── Users & RBAC ────────────────────────────────────────────────────────────
 
-  async updatePoolConfig(data) {
-    return this.request('/config/pool-config', {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-  },
-
-  // Users & RBAC
   async getUsers() {
     return this.request('/users');
   },
@@ -351,7 +400,8 @@ export const api = {
     return this.request('/auth/roles');
   },
 
-  // Product Variants
+  // ─── Product Variants ────────────────────────────────────────────────────────
+
   async getProductVariants(productId) {
     return this.request(`/products/${productId}/variants`);
   },
@@ -376,7 +426,8 @@ export const api = {
     });
   },
 
-  // Discount Policies & Rules
+  // ─── Discount Policies & Rules ───────────────────────────────────────────────
+
   async getDiscountPolicies() {
     return this.request('/config/discount-policies');
   },
@@ -421,7 +472,8 @@ export const api = {
     return this.request(`/config/discount-types/${id}`, { method: 'DELETE' });
   },
 
-  // Approval Chain Rules
+  // ─── Approval Chain Rules ────────────────────────────────────────────────────
+
   async getApprovalChains() {
     return this.request('/config/approval-chains');
   },
@@ -444,7 +496,8 @@ export const api = {
     return this.request(`/config/approval-chains/${id}`, { method: 'DELETE' });
   },
 
-  // Pool Config
+  // ─── Pool Config ─────────────────────────────────────────────────────────────
+
   async getPoolConfig() {
     return this.request('/config/pool-config');
   },
@@ -456,7 +509,8 @@ export const api = {
     });
   },
 
-  // Subscription Plans
+  // ─── Subscription Plans ──────────────────────────────────────────────────────
+
   async getSubscriptionPlans() {
     return this.request('/config/subscription-plans');
   },
@@ -479,7 +533,8 @@ export const api = {
     return this.request(`/config/subscription-plans/${id}`, { method: 'DELETE' });
   },
 
-  // Upsell Rules
+  // ─── Upsell Rules ────────────────────────────────────────────────────────────
+
   async getUpsellRules() {
     return this.request('/config/upsell-rules');
   },
@@ -502,10 +557,10 @@ export const api = {
     return this.request(`/config/upsell-rules/${id}`, { method: 'DELETE' });
   },
 
-  // Global Audit Logs
+  // ─── Global Audit Logs ───────────────────────────────────────────────────────
+
   async getGlobalAuditLogs(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/audit-logs${query ? `?${query}` : ''}`);
->>>>>>> origin/gowtham-backend
   }
 };

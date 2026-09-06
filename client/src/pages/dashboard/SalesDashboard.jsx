@@ -239,7 +239,11 @@ export default function SalesDashboard() {
               <button className="btn btn-primary" style={{ justifyContent: 'flex-start' }} onClick={() => navigate('/quotations/new')}>
                 <MS icon="add_circle" size={16} /> <span>Create New Customer Quote</span>
               </button>
-              <button className="btn btn-outline" style={{ justifyContent: 'flex-start', background: '#fff' }} onClick={() => navigate('/negotiation/Q-2026-002')}>
+              <button className="btn btn-outline" style={{ justifyContent: 'flex-start', background: '#fff' }} onClick={() => {
+                const firstNegQuoteId = quotations.find(q => q.status === 'CUSTOMER_NEGOTIATION' || q.status === 'RETURNED')?.id;
+                if (firstNegQuoteId) navigate(`/negotiation/${firstNegQuoteId}`);
+                else alert('No active negotiations found.');
+              }}>
                 <MS icon="forum" size={16} /> <span>Direct Customer Chat</span>
               </button>
             </div>
@@ -268,7 +272,11 @@ export default function SalesDashboard() {
               <StatusBadge status="CUSTOMER_NEGOTIATION" text="Action Tracking" />
             </div>
 
-            <button className="btn btn-secondary-teal" style={{ width: '100%' }} onClick={() => navigate('/negotiation/Q-2026-002')}>
+            <button className="btn btn-secondary-teal" style={{ width: '100%' }} onClick={() => {
+                const firstNegQuoteId = quotations.find(q => q.status === 'CUSTOMER_NEGOTIATION' || q.status === 'RETURNED')?.id;
+                if (firstNegQuoteId) navigate(`/negotiation/${firstNegQuoteId}`);
+                else alert('No active negotiations found.');
+            }}>
               <MS icon="forum" size={16} /> <span>Review & Respond</span>
             </button>
           </div>

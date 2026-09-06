@@ -1,6 +1,7 @@
 const app = require('./src/app');
 const { PORT, DB_MODE } = require('./src/config/env');
 const { connectDB, prisma } = require('./src/config/db');
+const { initSocket } = require('./src/socket');
 
 const startServer = async () => {
   try {
@@ -11,6 +12,8 @@ const startServer = async () => {
       console.log(`[Docs] Interactive Swagger UI: http://localhost:${PORT}/api-docs`);
       console.log(`[Docs] ReDoc Viewer: http://localhost:${PORT}/redoc`);
     });
+
+    initSocket(server);
 
     const shutdown = async () => {
       console.log('\n[Server] Shutting down gracefully...');

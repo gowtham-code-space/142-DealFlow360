@@ -91,9 +91,9 @@ export default function CustomerQuoteList() {
                     <td style={{ fontWeight: 700, color: '#059669' }}>{q.id}</td>
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--on-surface)' }}>
-                        {q.id === 'Q-2026-002' ? 'Enterprise Server Fleet & AI Acceleration' : q.id === 'Q-2026-001' ? 'High-Density Switch & Cloud License Expansion' : 'Enterprise IT Infrastructure'}
+                        {q.quotationNumber || q.id}
                       </div>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--outline)' }}>Created: {q.createdDate}</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--outline)' }}>Created: {q.createdAt || q.createdDate}</span>
                     </td>
                     <td style={{ fontSize: '0.85rem' }}>{q.repName || 'Alex Rivera'}</td>
                     <td style={{ fontWeight: 700, fontFeatureSettings: "'tnum'" }}>{formatCurrency(q.totalValue)}</td>
